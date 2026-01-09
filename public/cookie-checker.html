@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Checker</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4ec9b0;
+        }
+        .section {
+            background: #2d2d2d;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .section h2 {
+            color: #569cd6;
+            margin-top: 0;
+        }
+        pre {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        .error {
+            color: #f48771;
+        }
+        .success {
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍪 Cookie & Auth Checker</h1>
+
+        <div class="section">
+            <h2>All Cookies</h2>
+            <pre id="allCookies"></pre>
+        </div>
+
+        <div class="section">
+            <h2>Parsed Cookies</h2>
+            <pre id="parsedCookies"></pre>
+        </div>
+
+        <div class="section">
+            <h2>LocalStorage</h2>
+            <pre id="localStorage"></pre>
+        </div>
+
+        <div class="section">
+            <h2>Test API Calls</h2>
+            <button onclick="testLogin()">Test Login</button>
+            <button onclick="testAuthMe()">Test /auth/me</button>
+            <button onclick="testRefresh()">Test Refresh</button>
+            <button onclick="refreshDisplay()">Refresh Display</button>
+            <pre id="apiResult"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+
+        function refreshDisplay() {
+            // All cookies
+            document.getElementById('allCookies').textContent =
+                document.cookie || '❌ No cookies found';
+
+            // Parsed cookies
+            const cookies = {};
+            if (document.cookie) {
+                document.cookie.split(';').forEach(c => {
+                    const [key, ...value] = c.trim().split('=');
+                    cookies[key] = value.join('=');
+                });
+            }
+            document.getElementById('parsedCookies').textContent =
+                JSON.stringify(cookies, null, 2);
+
+            // LocalStorage
+            const storage = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                storage[key] = localStorage.getItem(key);
+            }
+            document.getElementById('localStorage').textContent =
+                JSON.stringify(storage, null, 2);
+        }
+
+        async function testLogin() {
+            const username = prompt('Username:', 'testuser');
+            const password = prompt('Password:', 'password');
+
+            if (!username || !password) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                // Log response headers
+                console.log('Response headers:', [...response.headers.entries()]);
+                const setCookieHeader = response.headers.get('Set-Cookie');
+                console.log('Set-Cookie header:', setCookieHeader);
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="${response.ok ? 'success' : 'error'}">${response.ok ? '✓' : '✗'} Login (${response.status})</span>\n` +
+                    `<strong>Response Data:</strong>\n${JSON.stringify(data, null, 2)}\n\n` +
+                    `<strong>Set-Cookie Header:</strong>\n${setCookieHeader || 'Not visible (httpOnly cookies)'}\n\n` +
+                    `<strong>Note:</strong> HttpOnly cookies won't show in Set-Cookie header from JavaScript`;
+
+                refreshDisplay();
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="error">✗ Login Failed</span>\n${error.message}`;
+            }
+        }
+
+        async function testAuthMe() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                console.log('Auth/me response status:', response.status);
+                console.log('Auth/me response headers:', [...response.headers.entries()]);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    document.getElementById('apiResult').innerHTML =
+                        `<span class="error">✗ /auth/me Failed (${response.status})</span>\n` +
+                        JSON.stringify(errorData, null, 2);
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('Auth/me response data:', data);
+
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="success">✓ /auth/me Success (${response.status})</span>\n` +
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                console.error('Auth/me error:', error);
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="error">✗ /auth/me Failed</span>\n${error.message}`;
+            }
+        }
+
+        async function testRefresh() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="success">✓ Refresh Success (${response.status})</span>\n` +
+                    JSON.stringify(data, null, 2);
+
+                refreshDisplay();
+            } catch (error) {
+                document.getElementById('apiResult').innerHTML =
+                    `<span class="error">✗ Refresh Failed</span>\n${error.message}`;
+            }
+        }
+
+        // Initial load
+        refreshDisplay();
+    </script>
+</body>
+</html>
+

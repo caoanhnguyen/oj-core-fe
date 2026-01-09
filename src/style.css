@@ -1,0 +1,249 @@
+:root {
+  /* Premium Dark Palette - LeetCode Inspired */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #262626;
+  --bg-elevated: #2d2d2d;
+
+  --text-primary: rgba(203, 204, 205, 0.75);
+  --text-secondary: #eff1f680;
+  --text-tertiary: #eff1f64d;
+
+  --accent-primary: #ffa116;
+  --accent-hover: #ffb84d;
+  --accent-active: #ff8800;
+
+  --border-primary: #ffffff1a;
+  --border-secondary: #ffffff0d;
+
+  --success: #00b8a3;
+  --success-bg: #00b8a31a;
+  --error: #ef4743;
+  --error-bg: #ef47431a;
+  --warning: #ffc01e;
+  --warning-bg: #ffc01e1a;
+  --info: #2db55d;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+}
+
+/* Element Plus Dark Theme Overrides */
+:root {
+  --el-color-primary: var(--accent-primary);
+  --el-color-primary-light-3: var(--accent-hover);
+  --el-color-primary-dark-2: var(--accent-active);
+
+  --el-bg-color: var(--bg-primary);
+  --el-bg-color-page: var(--bg-primary);
+  --el-bg-color-overlay: var(--bg-secondary);
+
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-tertiary);
+
+  --el-border-color: var(--border-primary);
+  --el-border-color-light: var(--border-secondary);
+  --el-border-color-lighter: var(--border-secondary);
+  --el-border-color-extra-light: var(--border-secondary);
+
+  --el-fill-color-blank: var(--bg-secondary);
+  --el-fill-color: var(--bg-tertiary);
+  --el-fill-color-light: var(--bg-elevated);
+
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--error);
+  --el-color-info: var(--info);
+
+  /* Disable default box shadows */
+  --el-box-shadow: none;
+  --el-box-shadow-light: none;
+  --el-box-shadow-lighter: none;
+  --el-box-shadow-dark: none;
+}
+
+/* Element Plus Message Overrides - LeetCode Theme */
+:root {
+  /* ...existing code... */
+}
+
+/* Message notification styling */
+.el-message {
+  --el-message-bg-color: var(--bg-tertiary) !important;
+  --el-message-border-color: var(--border-primary) !important;
+  --el-message-text-color: var(--text-primary) !important;
+  min-width: 300px !important;
+  padding: 15px 20px !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  border: 1px solid var(--border-primary) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.el-message--success {
+  --el-message-bg-color: rgba(255, 161, 22, 0.25) !important;
+  --el-message-border-color: #ffa116 !important;
+  --el-message-text-color: #ffa116 !important;
+}
+
+.el-message--success .el-message__icon {
+  color: #ffa116 !important;
+}
+
+.el-message--error {
+  --el-message-bg-color: var(--error-bg) !important;
+  --el-message-border-color: var(--error) !important;
+  --el-message-text-color: var(--error) !important;
+}
+
+.el-message--warning {
+  --el-message-bg-color: var(--warning-bg) !important;
+  --el-message-border-color: var(--warning) !important;
+  --el-message-text-color: var(--warning) !important;
+}
+
+.el-message__icon {
+  font-size: 18px !important;
+}
+
+.el-message__content {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  text-align: center !important;
+  flex: 1 !important;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s ease;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Utility Classes */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.gap-xs {
+  gap: var(--spacing-xs);
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
