@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,7 +13,6 @@ onMounted(async () => {
   const error = route.query.error
 
   if (error) {
-    localStorage.removeItem('user')
     ElMessage.error(String(error))
     router.replace('/login')
     return
@@ -25,7 +24,6 @@ onMounted(async () => {
     router.replace('/')
   } catch (e) {
     // Nếu OAuth fail hoặc cookie không hợp lệ -> về login, tránh redirect loop
-    localStorage.removeItem('user')
     const message = e.response?.data?.message || 'Không thể lấy thông tin người dùng'
     ElMessage.error(message)
     router.replace('/login')

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import ProblemList from '../components/ProblemList.vue'
+import ProblemList from '../components/problems/ProblemList.vue'
 import { authAPI } from '../api/auth'
 import { ElMessage } from 'element-plus'
 

@@ -1,6 +1,6 @@
 <script setup>
-import ProblemDescription from '../components/ProblemDescription.vue'
-import CodeEditor from '../components/CodeEditor.vue'
+import ProblemDescription from '../../components/problems/ProblemDescription.vue'
+import CodeEditor from '../../components/problems/CodeEditor.vue'
 </script>
 
 <template>

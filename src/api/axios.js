@@ -52,13 +52,12 @@ axiosInstance.interceptors.response.use(
         } catch (refreshError) {
           processQueue(refreshError, null)
           isRefreshing = false
-          localStorage.removeItem('user')
+          // Redirect to login - Pinia store sẽ được clear bởi logout action
           window.location.href = '/login'
           return Promise.reject(refreshError)
         }
       } else {
         // Nếu không phải lỗi Token expired thì logout luôn
-        localStorage.removeItem('user')
         window.location.href = '/login'
         return Promise.reject(error)
       }

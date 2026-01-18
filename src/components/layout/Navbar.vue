@@ -2,16 +2,12 @@
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { Code2, User, LogOut } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 import { computed } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-
-// reactive flags cho template
-const isAuthenticated = computed(() => !!authStore.isAuthenticated.value)
-const currentUser = computed(() => authStore.user.value)
 
 // Active state theo route (vì Problems list ở '/', detail ở '/problems/:id')
 const isProblemsActive = computed(() => route.path === '/' || route.path.startsWith('/problems/'))
@@ -49,14 +45,14 @@ const handleLogout = async () => {
       </div>
 
       <div class="nav-actions">
-        <template v-if="isAuthenticated">
+        <template v-if="authStore.isAuthenticated">
           <!-- open on hover -->
           <el-dropdown trigger="hover" placement="bottom-end" :show-timeout="120" :hide-timeout="120">
             <button class="user-menu" type="button">
               <span class="user-avatar">
                 <User :size="18" />
               </span>
-              <span class="user-name">{{ currentUser?.username || 'User' }}</span>
+              <span class="user-name">{{ authStore.user?.username || 'User' }}</span>
             </button>
             <template #dropdown>
               <el-dropdown-menu class="user-dropdown">

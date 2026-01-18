@@ -1,30 +1,20 @@
 <script setup>
-import { onMounted } from 'vue'
+import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import Navbar from './components/Navbar.vue'
+import Navbar from './components/layout/Navbar.vue'
+import EmailVerificationBanner from './components/auth/EmailVerificationBanner.vue'
 import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
 const route = useRoute()
 
-const GUEST_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/oauth/callback']
+const GUEST_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/oauth/callback', '/verify-email']
 
-onMounted(async () => {
-  // Tránh gọi /users/me liên tục gây loop khi OAuth lỗi.
-  // Chỉ hydrate ở các trang không phải guest và chỉ 1 lần mỗi tab.
-  if (GUEST_PATHS.includes(route.path)) return
-  if (sessionStorage.getItem('me_hydrated') === '1') return
-
-  sessionStorage.setItem('me_hydrated', '1')
-
-  if (!authStore.isAuthenticated.value) {
-    try {
-      await authStore.getCurrentUser()
-    } catch {
-      // ignore
-    }
-  }
+// Hiển thị banner khi user đã login nhưng chưa verify email
+const showVerificationBanner = computed(() => {
+  return authStore.isAuthenticated && !authStore.isEmailVerified && !GUEST_PATHS.includes(route.path)
 })
+
 </script>
 
 <template>

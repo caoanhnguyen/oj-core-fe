@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { authAPI } from '../api/auth'
+import { authAPI } from '../../api/auth'
 
 // ...existing code...
 

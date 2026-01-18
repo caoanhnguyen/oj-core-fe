@@ -2,7 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 
 // ...existing code...
 
@@ -17,14 +17,43 @@ const form = reactive({
   password: ''
 })
 
+// Validator cho password mạnh
+const validateStrongPassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('Vui lòng nhập mật khẩu'))
+    return
+  }
+  
+  if (value.length < 10) {
+    callback(new Error('Mật khẩu phải có ít nhất 10 ký tự'))
+    return
+  }
+  
+  if (!/[A-Z]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 chữ in hoa'))
+    return
+  }
+  
+  if (!/[0-9]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 chữ số'))
+    return
+  }
+  
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 ký tự đặc biệt'))
+    return
+  }
+  
+  callback()
+}
+
 const rules = {
   username: [
-    { required: true, message: 'Please input username', trigger: 'blur' },
-    { min: 3, max: 50, message: 'Username must be between 3 and 50 characters', trigger: 'blur' }
+    { required: true, message: 'Vui lòng nhập username', trigger: 'blur' },
+    { min: 3, max: 50, message: 'Username phải từ 3-50 ký tự', trigger: 'blur' }
   ],
   password: [
-    { required: true, message: 'Please input password', trigger: 'blur' },
-    { min: 6, message: 'Password must be at least 6 characters', trigger: 'blur' }
+    { required: true, validator: validateStrongPassword, trigger: 'blur' }
   ]
 }
 
@@ -36,6 +65,14 @@ const handleLogin = async (formEl) => {
       try {
         loading.value = true
         await authStore.login(form.username, form.password)
+        
+        // Fetch full user data để có emailVerified status cho banner
+        try {
+          await authStore.getCurrentUser()
+        } catch (e) {
+          console.warn('Could not fetch user data:', e)
+        }
+        
         ElMessage.success('Đăng nhập thành công!')
         router.push('/')
       } catch (error) {
@@ -46,6 +83,13 @@ const handleLogin = async (formEl) => {
       }
     }
   })
+}
+
+// Handle Enter key
+const handleKeyPress = (event) => {
+  if (event.key === 'Enter') {
+    handleLogin(formRef.value)
+  }
 }
 
 const handleGoogleLogin = () => {
@@ -72,6 +116,7 @@ const handleGitHubLogin = () => {
           :rules="rules"
           label-position="top"
           size="large"
+          @keypress.enter="handleLogin(formRef)"
         >
           <el-form-item label="Username" prop="username">
             <el-input

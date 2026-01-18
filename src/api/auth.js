@@ -51,6 +51,21 @@ export const authAPI = {
       newPassword: data.newPassword
     })
     return response.data.data || response.data
+  },
+
+  verifyEmail: async (token) => {
+    const response = await axiosInstance.get(`/auth/verify-email?token=${token}`)
+    return response.data.data || response.data
+  },
+
+  resendVerificationEmail: async () => {
+    const response = await axiosInstance.post('/auth/resend-verification-email')
+    return response.data.data || response.data
+  },
+
+  checkEmailExists: async (email) => {
+    const response = await axiosInstance.post(`/auth/check-email?email=${encodeURIComponent(email)}`)
+    return response.data.data || response.data
   }
 }
 

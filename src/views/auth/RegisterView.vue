@@ -2,7 +2,8 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
+import { authAPI } from '../../api/auth'
 
 // ...existing code...
 
@@ -11,6 +12,7 @@ const authStore = useAuthStore()
 
 const formRef = ref(null)
 const loading = ref(false)
+const checkingEmail = ref(false)
 
 const form = reactive({
   username: '',
@@ -20,46 +22,106 @@ const form = reactive({
   confirmPassword: ''
 })
 
-const validatePass = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('Please input the password'))
-  } else {
-    if (form.confirmPassword !== '') {
-      if (formRef.value) formRef.value.validateField('confirmPassword')
-    }
-    callback()
+// Validator cho password mạnh
+const validateStrongPassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('Vui lòng nhập mật khẩu'))
+    return
   }
+  
+  if (value.length < 10) {
+    callback(new Error('Mật khẩu phải có ít nhất 10 ký tự'))
+    return
+  }
+  
+  if (!/[A-Z]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 chữ in hoa'))
+    return
+  }
+  
+  if (!/[0-9]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 chữ số'))
+    return
+  }
+  
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+    callback(new Error('Mật khẩu phải có ít nhất 1 ký tự đặc biệt'))
+    return
+  }
+  
+  // Trigger validate confirmPassword nếu đã nhập
+  if (form.confirmPassword !== '') {
+    if (formRef.value) formRef.value.validateField('confirmPassword')
+  }
+  
+  callback()
 }
 
-const validatePass2 = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('Please input the password again'))
-  } else if (value !== form.password) {
-    callback(new Error("Two inputs don't match!"))
-  } else {
+const validateConfirmPassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('Vui lòng nhập lại mật khẩu'))
+    return
+  }
+  
+  if (value !== form.password) {
+    callback(new Error('Mật khẩu không khớp!'))
+    return
+  }
+  
+  callback()
+}
+
+// Validator kiểm tra email đã tồn tại
+const validateEmailExists = async (rule, value, callback) => {
+  if (!value) {
+    callback(new Error('Vui lòng nhập email'))
+    return
+  }
+  
+  // Validate email format trước
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(value)) {
+    callback(new Error('Email không hợp lệ'))
+    return
+  }
+  
+  try {
+    checkingEmail.value = true
+    const result = await authAPI.checkEmailExists(value)
+    
+    // Nếu backend trả về { exists: true }
+    if (result.exists || result === true) {
+      callback(new Error('Email đã được sử dụng'))
+      return
+    }
+    
     callback()
+  } catch (error) {
+    // Nếu API lỗi, vẫn cho phép tiếp tục (fail gracefully)
+    console.error('Check email error:', error)
+    callback()
+  } finally {
+    checkingEmail.value = false
   }
 }
 
 const rules = {
   username: [
-    { required: true, message: 'Please input username', trigger: 'blur' },
-    { min: 3, max: 50, message: 'Length should be between 3 and 50 characters', trigger: 'blur' }
+    { required: true, message: 'Vui lòng nhập username', trigger: 'blur' },
+    { min: 3, max: 50, message: 'Username phải từ 3-50 ký tự', trigger: 'blur' }
   ],
   email: [
-    { required: true, message: 'Please input email address', trigger: 'blur' },
-    { type: 'email', message: 'Please input correct email address', trigger: 'blur' },
-    { max: 100, message: 'Length should not exceed 100 characters', trigger: 'blur' }
+    { required: true, validator: validateEmailExists, trigger: 'blur' }
   ],
   password: [
-    { validator: validatePass, trigger: 'blur', required: true }
+    { required: true, validator: validateStrongPassword, trigger: 'blur' }
   ],
   confirmPassword: [
-    { validator: validatePass2, trigger: 'blur', required: true }
+    { required: true, validator: validateConfirmPassword, trigger: 'blur' }
   ],
   fullName: [
-    { required: true, message: 'Please input full name', trigger: 'blur' },
-    { max: 100, message: 'Length should not exceed 100 characters', trigger: 'blur' }
+    { required: true, message: 'Vui lòng nhập họ tên', trigger: 'blur' },
+    { max: 100, message: 'Họ tên không quá 100 ký tự', trigger: 'blur' }
   ],
 }
 
@@ -76,8 +138,12 @@ const handleRegister = async (formEl) => {
           password: form.password,
           fullName: form.fullName
         })
-        ElMessage.success('Đăng ký thành công!')
-        router.push('/')
+        ElMessage.success({
+          message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.',
+          duration: 5000
+        })
+        // Redirect về login thay vì home (vì không auto-login nữa)
+        router.push('/login')
       } catch (error) {
         const message = error.response?.data?.message || 'Đăng ký thất bại'
         ElMessage.error(message)
@@ -112,6 +178,7 @@ const handleGitHubLogin = () => {
           :rules="rules"
           label-position="top"
           size="large"
+          @keypress.enter="handleRegister(formRef)"
         >
           <el-form-item label="Username" prop="username">
             <el-input
