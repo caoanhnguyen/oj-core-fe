@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, FileText, MessageSquare, Users, Trophy } from 'lucide-vue-next'
+import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
+const isCollapsed = ref(false)
 
 const menuItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -16,21 +17,24 @@ const menuItems = [
 
 const activeTab = ref('overview')
 
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
+
 // Handle tab click
 const handleTabClick = (tabId) => {
   activeTab.value = tabId
-  // Navigate to dashboard root when clicking tabs
   if (route.path !== '/dashboard') {
     router.push('/dashboard')
   }
 }
 
-// Watch route changes to reset activeTab when leaving create-problem
+// Watch route changes
 watch(() => route.path, (newPath) => {
   if (newPath === '/dashboard') {
     // Keep current activeTab
   } else if (newPath.startsWith('/dashboard/')) {
-    // On nested routes, don't change activeTab
+    // On nested, don't change
   }
 })
 </script>
@@ -38,10 +42,10 @@ watch(() => route.path, (newPath) => {
 <template>
   <div class="dashboard-layout">
     <!-- Sidebar -->
-    <aside class="dashboard-sidebar">
+    <aside class="dashboard-sidebar" :class="{ 'is-collapsed': isCollapsed }">
       <div class="sidebar-header">
-        <LayoutDashboard :size="24" class="sidebar-logo" />
-        <h2 class="sidebar-title">Admin Panel</h2>
+        <LayoutDashboard :size="28" class="sidebar-logo" />
+        <h2 class="sidebar-title" v-show="!isCollapsed">Admin Panel</h2>
       </div>
 
       <nav class="sidebar-nav">
@@ -51,14 +55,22 @@ watch(() => route.path, (newPath) => {
           class="nav-item"
           :class="{ 'is-active': activeTab === item.id }"
           @click="handleTabClick(item.id)"
+          :title="isCollapsed ? item.label : ''"
         >
-          <component :is="item.icon" :size="20" />
-          <span>{{ item.label }}</span>
+          <component :is="item.icon" :size="22" class="nav-icon" />
+          <span class="nav-label" v-show="!isCollapsed">{{ item.label }}</span>
         </button>
       </nav>
+
+      <!-- Collapse Toggle -->
+      <div class="sidebar-footer">
+        <button class="collapse-btn" @click="toggleCollapse">
+          <component :is="isCollapsed ? ChevronRight : ChevronLeft" :size="20" />
+        </button>
+      </div>
     </aside>
 
-    <!-- Main Content - Router View -->
+    <!-- Main Content -->
     <main class="dashboard-main">
       <router-view :active-tab="activeTab" @update:active-tab="activeTab = $event" />
     </main>
@@ -82,21 +94,36 @@ watch(() => route.path, (newPath) => {
   position: sticky;
   top: 56px;
   height: calc(100vh - 56px);
-  overflow-y: auto;
   flex-shrink: 0;
+  transition: width 0.3s ease;
+  overflow: hidden; /* Hide overflow during transition */
 }
 
+.dashboard-sidebar.is-collapsed {
+  width: 72px; /* Collapsed width */
+}
+
+/* Header */
 .sidebar-header {
-  padding: var(--spacing-2xl) var(--spacing-xl);
-  border-bottom: 1px solid var(--border-primary);
+  height: 70px;
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-primary);
+  gap: 16px;
+  white-space: nowrap; /* Prevent title wrapping */
+  overflow: hidden;
+}
+
+.dashboard-sidebar.is-collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
 }
 
 .sidebar-logo {
   color: var(--accent-primary);
   flex-shrink: 0;
+  transition: all 0.3s;
 }
 
 .sidebar-title {
@@ -104,23 +131,29 @@ watch(() => route.path, (newPath) => {
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  opacity: 1;
+  transition: opacity 0.2s;
 }
 
+/* Navigation */
 .sidebar-nav {
-  padding: var(--spacing-lg);
+  flex: 1; /* Push footer down */
+  padding: 24px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-lg);
+  gap: 14px;
+  padding: 12px 16px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 600;
@@ -128,6 +161,12 @@ watch(() => route.path, (newPath) => {
   transition: all 0.2s ease;
   text-align: left;
   width: 100%;
+  white-space: nowrap;
+}
+
+.dashboard-sidebar.is-collapsed .nav-item {
+  padding: 12px 0;
+  justify-content: center;
 }
 
 .nav-item:hover {
@@ -141,6 +180,39 @@ watch(() => route.path, (newPath) => {
   box-shadow: 0 2px 8px rgba(255, 161, 22, 0.2);
 }
 
+.nav-icon {
+  flex-shrink: 0;
+}
+
+/* Footer / Collapse Toggle */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  justify-content: flex-end;
+}
+.dashboard-sidebar.is-collapsed .sidebar-footer {
+  justify-content: center;
+}
+
+.collapse-btn {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.collapse-btn:hover {
+  background: var(--bg-primary);
+  color: #fff;
+  border-color: #666;
+}
+
 /* Main Content */
 .dashboard-main {
   flex: 1;
@@ -148,33 +220,13 @@ watch(() => route.path, (newPath) => {
   min-width: 0;
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  .dashboard-sidebar {
-    width: 220px;
-  }
-}
-
+/* Responsive Overrides */
 @media (max-width: 768px) {
-  .dashboard-layout {
-    flex-direction: column;
-  }
-
-  .dashboard-sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    border-right: none;
-    border-bottom: 1px solid var(--border-primary);
-  }
-
-  .sidebar-nav {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-
-  .nav-item {
-    flex-shrink: 0;
-  }
+  .dashboard-layout { flex-direction: column; }
+  .dashboard-sidebar { width: 100% !important; height: auto; position: static; border-right: none; }
+  .sidebar-nav { flex-direction: row; overflow-x: auto; padding: 12px; }
+  .sidebar-header, .sidebar-footer { display: none; } /* Simplify mobile */
+  .nav-item { width: auto; flex-direction: column; gap: 4px; padding: 8px; font-size: 11px; }
+  .nav-icon { margin-bottom: 2px; }
 }
 </style>
