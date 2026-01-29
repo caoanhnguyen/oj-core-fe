@@ -32,11 +32,11 @@ export const authAPI = {
   },
 
   loginWithGoogle: () => {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google'
+    window.location.href = 'http://localhost:8088/oauth2/authorization/google'
   },
 
   loginWithGitHub: () => {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/github'
+    window.location.href = 'http://localhost:8088/oauth2/authorization/github'
   },
 
   forgotPassword: async (email) => {

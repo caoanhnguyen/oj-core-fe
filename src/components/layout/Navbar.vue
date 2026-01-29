@@ -36,6 +36,10 @@ const handleLogout = async () => {
           <span>Problems</span>
         </RouterLink>
 
+        <RouterLink v-if="authStore.isAdmin" to="/dashboard" class="nav-link">
+          <span>Dashboard</span>
+        </RouterLink>
+
         <a href="#" class="nav-link" @click.prevent>
           <span>Contest</span>
         </a>

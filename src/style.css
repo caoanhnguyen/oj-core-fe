@@ -247,3 +247,50 @@ button {
 .h-full {
   height: 100%;
 }
+
+/* Element Plus Dropdown Dark Theme */
+.el-select-dropdown {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.el-select-dropdown__item {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+.el-select-dropdown__item:hover {
+  background: rgba(255, 161, 22, 0.1) !important;
+  color: var(--accent-primary) !important;
+}
+
+.el-select-dropdown__item.selected {
+  color: var(--accent-primary) !important;
+  font-weight: 600;
+}
+
+/* User Dropdown Menu */
+.el-dropdown-menu {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.el-dropdown-menu__item {
+  color: var(--text-primary) !important;
+}
+
+.el-dropdown-menu__item:hover {
+  background: rgba(255, 161, 22, 0.1) !important;
+  color: var(--accent-primary) !important;
+}
+
+.el-dropdown-menu__item:not(.is-disabled):focus {
+  background: rgba(255, 161, 22, 0.1) !important;
+  color: var(--accent-primary) !important;
+}
+
+/* Popper Arrow */
+.el-popper.is-dark .el-popper__arrow::before {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+}

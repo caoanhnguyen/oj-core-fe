@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ProblemList from '../components/problems/ProblemList.vue'
+import { useProblemStore } from '../stores/problem'
 import { authAPI } from '../api/auth'
 import { ElMessage } from 'element-plus'
 
 const searchQuery = ref('')
 const testing = ref(false)
+const problemStore = useProblemStore()
 
 const testGetMe = async () => {
   try {
@@ -21,13 +23,14 @@ const testGetMe = async () => {
   }
 }
 
-const problems = ref([
-  { id: 1, title: 'Two Sum', slug: 'two-sum', difficulty: 'Easy', acceptance: 48.5, status: 'solved' },
-  { id: 2, title: 'Add Two Numbers', slug: 'add-two-numbers', difficulty: 'Medium', acceptance: 39.2, status: 'todo' },
-  { id: 3, title: 'Longest Substring Without Repeating Characters', slug: 'longest-substring', difficulty: 'Medium', acceptance: 33.8, status: 'todo' },
-  { id: 4, title: 'Median of Two Sorted Arrays', slug: 'median-sorted-arrays', difficulty: 'Hard', acceptance: 35.4, status: 'todo' },
-  { id: 5, title: 'Longest Palindromic Substring', slug: 'longest-palindromic-substring', difficulty: 'Medium', acceptance: 32.1, status: 'solved' },
-])
+// Use real data from store
+const problems = computed(() => problemStore.problems)
+const loading = computed(() => problemStore.loading)
+
+// Fetch problems on mount
+onMounted(async () => {
+  await problemStore.fetchProblems({ page: 0, size: 20 })
+})
 </script>
 
 <template>
@@ -44,32 +47,27 @@ const problems = ref([
               <span class="stat-value">{{ problems.length }}</span>
               <span class="stat-label">Total</span>
             </span>
-            <span class="stat-divider">|</span>
-            <span class="stat-item">
-              <span class="stat-value">{{ problems.filter(p => p.status === 'solved').length }}</span>
-              <span class="stat-label">Solved</span>
-            </span>
           </div>
         </div>
       </div>
 
-      <div class="filters-section">
+      <div class="search-section">
         <el-input
           v-model="searchQuery"
-          placeholder="Search questions..."
+          placeholder="Search problems..."
+          size="large"
           class="search-input"
-          clearable
         >
           <template #prefix>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.3-4.3"></path>
+              <path d="m21 21-4.35-4.35"></path>
             </svg>
           </template>
         </el-input>
       </div>
 
-      <ProblemList :problems="problems" />
+      <ProblemList :problems="problems" v-loading="loading" />
     </div>
   </div>
 </template>

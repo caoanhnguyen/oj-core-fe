@@ -12,9 +12,15 @@ const router = createRouter({
       component: HomeView,
     },
     {
-      path: '/problems/:id',
-      name: 'problem',
-      component: ProblemView,
+      path: '/problems',
+      name: 'problems',
+      component: () => import('../views/HomeView.vue')
+    },
+    {
+      path: '/problems/:slug',
+      name: 'problem-detail',
+      component: () => import('../views/problems/ProblemDetailView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/login',
@@ -56,6 +62,23 @@ const router = createRouter({
       component: () => import('../views/profile/ProfileView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/dashboard',
+      component: () => import('../views/dashboard/DashboardView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          name: 'dashboard',
+          component: () => import('../views/dashboard/DashboardContent.vue')
+        },
+        {
+          path: 'create-problem',
+          name: 'create-problem',
+          component: () => import('../views/dashboard/CreateProblemView.vue')
+        }
+      ]
+    },
   ],
 })
 
@@ -74,10 +97,20 @@ router.beforeEach(async (to, from, next) => {
     }
   }
 
+  // Admin auto-redirect to dashboard
+  if (isAuthenticated && authStore.isAdmin && to.path === '/') {
+    next('/dashboard')
+    return
+  }
+
   if (to.meta.requiresGuest && isAuthenticated) {
-    next('/')
+    // Redirect admin to dashboard, others to home
+    next(authStore.isAdmin ? '/dashboard' : '/')
   } else if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    // Nếu route cần admin mà user không phải admin, redirect về home
+    next('/')
   } else {
     next()
   }
