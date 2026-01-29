@@ -1,13 +1,14 @@
 <script setup>
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onBeforeUnmount, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
-import { ArrowLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { ArrowLeft, Plus, X, Upload, FileCode, AlertCircle } from 'lucide-vue-next'
 import { useProblemStore } from '../../stores/problem'
 import { createQuillImageHandler } from '../../utils/quillImageUpload'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const problemStore = useProblemStore()
@@ -17,7 +18,6 @@ const formData = ref({
   title: '',
   slug: '',
   difficulty: 'EASY',
-// ... (rest of script remains similar, I will replace the Button usage in template)
   description: '',
   constraints: '',
   timeLimitMs: 1000,
@@ -28,7 +28,7 @@ const formData = ref({
   templates: []
 })
 
-const activeNames = ref(['1', '2', '3', '4', '5']) // Open all by default
+const activeNames = ref(['1', '2', '3', '4', '5', '6']) // Open all by default
 
 const difficultyOptions = [
   { label: 'Easy', value: 'EASY' },
@@ -40,9 +40,18 @@ const languageOptions = [
   { label: 'Java', value: 'JAVA' },
   { label: 'C++', value: 'CPP' },
   { label: 'Python', value: 'PYTHON' },
-  { label: 'Go', value: 'GO' },
   { label: 'JavaScript', value: 'JAVASCRIPT' }
 ]
+
+// Validation Rules
+const rules = reactive({
+  title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
+  difficulty: [{ required: true, message: 'Difficulty is required', trigger: 'change' }],
+  description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+  constraints: [{ required: true, message: 'Constraints are required', trigger: 'blur' }]
+})
+
+const formRef = ref(null)
 
 // Quill editor refs
 const descriptionEditorRef = ref(null)
@@ -79,17 +88,31 @@ const descriptionEditorOptions = ref(createEditorOptions('Describe the problem s
 const constraintsEditorOptions = ref(createEditorOptions('Enter constraints (e.g. 1 <= n <= 10^5)...'))
 
 const handleSubmit = async () => {
-  try {
-    if (!formData.value.title || !formData.value.slug || !formData.value.description) {
-       // Basic validation
-       // In real app use ElForm validation
-       return
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid, fields) => {
+    if (valid) {
+      // Custom validation for Arrays
+      if (formData.value.examples.length === 0) {
+        ElMessage.warning('Please add at least one example')
+        return
+      }
+      if (formData.value.templates.length === 0) {
+        ElMessage.warning('Please add at least one code template')
+        return
+      }
+
+      try {
+        await problemStore.createProblem(formData.value)
+        router.push('/dashboard')
+      } catch (error) {
+        console.error('Failed to create problem:', error)
+      }
+    } else {
+      ElMessage.error('Please check all required fields')
+      // Auto expand to errors could go here
     }
-    await problemStore.createProblem(formData.value)
-    router.push('/dashboard')
-  } catch (error) {
-    console.error('Failed to create problem:', error)
-  }
+  })
 }
 
 const handleCancel = () => {
@@ -105,7 +128,6 @@ const addExample = () => {
     explanation: '',
     orderIndex: formData.value.examples.length
   })
-  // Auto open the examples section if it's not open
   if (!activeNames.value.includes('4')) activeNames.value.push('4')
 }
 
@@ -116,16 +138,76 @@ const removeExample = (index) => {
 
 // Template Logic
 const addTemplate = () => {
+  // Find first unselected language
+  const usedLangs = formData.value.templates.map(t => t.language)
+  const availableLang = languageOptions.find(opt => !usedLangs.includes(opt.value))
+  
+  if (!availableLang) {
+    ElMessage.warning('All supported languages have been added')
+    return
+  }
+
   formData.value.templates.push({
-    language: 'JAVA',
-    codeTemplate: '',
-    driverCode: ''
+    language: availableLang.value,
+    codeTemplate: getDefaultTemplate(availableLang.value)
   })
   if (!activeNames.value.includes('5')) activeNames.value.push('5')
 }
 
 const removeTemplate = (index) => {
   formData.value.templates.splice(index, 1)
+}
+
+const getAvailableLanguages = (currentLang) => {
+  const usedLangs = formData.value.templates.map(t => t.language)
+  return languageOptions.filter(opt => opt.value === currentLang || !usedLangs.includes(opt.value))
+}
+
+const getDefaultTemplate = (lang) => {
+  const templates = {
+    'JAVA': `import java.io.*;\nimport java.util.*;\n\nclass Solution {\n    public void solve() {\n        // Write your code here\n    }\n}`,
+    'CPP': `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve() {\n        // Write your code here\n    }\n};`,
+    'PYTHON': `class Solution:\n    def solve(self):\n        # Write your code here\n        pass`,
+    'JAVASCRIPT': `/**\n * @param {any} args\n * @return {void}\n */\nvar solve = function(args) {\n    // Write your code here\n};`
+  }
+  return templates[lang] || '// Write your code here'
+}
+
+const handleFileUpload = (event, templateIndex) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    formData.value.templates[templateIndex].codeTemplate = e.target.result
+  }
+  reader.readAsText(file)
+  // Reset input
+  event.target.value = ''
+}
+
+// Testcase Logic
+const handleTestcaseUpload = (event) => {
+   const file = event.target.files[0]
+   if (file) {
+      formData.value.testcasesFile = file
+      ElMessage.success(`Selected file: ${file.name}`)
+   }
+}
+
+const handleTestcaseDrop = (event) => {
+  event.preventDefault()
+  const file = event.dataTransfer.files[0]
+  if (file && (file.type === 'application/zip' || file.type === 'application/x-zip-compressed' || file.name.endsWith('.zip'))) {
+     formData.value.testcasesFile = file
+     ElMessage.success(`Selected file: ${file.name}`)
+  } else {
+     ElMessage.error('Please upload a ZIP file')
+  }
+}
+
+const removeTestcaseFile = () => {
+   formData.value.testcasesFile = null
 }
 
 const generateSlug = () => {
@@ -147,12 +229,12 @@ onBeforeUnmount(() => {
     <!-- Header -->
     <div class="page-header">
       <AppButton variant="text" @click="handleCancel" class="back-button" :icon="ArrowLeft">
-        Back
+        Back to Dashboard
       </AppButton>
       <div class="header-content">
         <div>
           <h1 class="page-title">Create Problem</h1>
-          <p class="page-subtitle">Add a new challenge to the repository</p>
+          <p class="page-subtitle">Design a new challenge for the community</p>
         </div>
         <div class="header-actions">
            <AppButton variant="secondary" @click="handleCancel">Cancel</AppButton>
@@ -165,7 +247,14 @@ onBeforeUnmount(() => {
 
     <!-- Main Content -->
     <div class="form-container">
-      <el-form :model="formData" label-position="top" class="problem-form">
+      <el-form 
+         ref="formRef"
+         :model="formData" 
+         :rules="rules"
+         label-position="top" 
+         class="problem-form"
+         hide-required-asterisk
+      >
         
         <el-collapse v-model="activeNames" class="custom-collapse">
           
@@ -180,7 +269,7 @@ onBeforeUnmount(() => {
             <div class="section-content">
               <el-row :gutter="24">
                 <el-col :span="16">
-                  <el-form-item label="Problem Title" required>
+                  <el-form-item label="Problem Title" prop="title">
                     <el-input 
                       v-model="formData.title" 
                       placeholder="e.g. Two Sum"
@@ -190,7 +279,7 @@ onBeforeUnmount(() => {
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
-                  <el-form-item label="Difficulty" required>
+                  <el-form-item label="Difficulty" prop="difficulty">
                     <el-select 
                       v-model="formData.difficulty" 
                       size="large" 
@@ -207,7 +296,7 @@ onBeforeUnmount(() => {
                   </el-form-item>
                 </el-col>
               </el-row>
-              <!-- Slug is now auto-generated and hidden -->
+              <!-- Hidden Slug -->
             </div>
           </el-collapse-item>
 
@@ -220,14 +309,16 @@ onBeforeUnmount(() => {
                </div>
             </template>
             <div class="section-content">
-               <div class="quill-wrapper">
-                  <QuillEditor
-                    ref="descriptionEditorRef"
-                    v-model:content="formData.description"
-                    :options="descriptionEditorOptions"
-                    content-type="html"
-                  />
-               </div>
+               <el-form-item prop="description" class="no-label-item">
+                 <div class="quill-wrapper">
+                    <QuillEditor
+                      ref="descriptionEditorRef"
+                      v-model:content="formData.description"
+                      :options="descriptionEditorOptions"
+                      content-type="html"
+                    />
+                 </div>
+               </el-form-item>
             </div>
           </el-collapse-item>
 
@@ -240,14 +331,16 @@ onBeforeUnmount(() => {
                </div>
             </template>
             <div class="section-content">
-               <div class="quill-wrapper small-quill">
-                  <QuillEditor
-                    ref="constraintsEditorRef"
-                    v-model:content="formData.constraints"
-                    :options="constraintsEditorOptions"
-                    content-type="html"
-                  />
-               </div>
+               <el-form-item prop="constraints" class="no-label-item">
+                 <div class="quill-wrapper small-quill">
+                    <QuillEditor
+                      ref="constraintsEditorRef"
+                      v-model:content="formData.constraints"
+                      :options="constraintsEditorOptions"
+                      content-type="html"
+                    />
+                 </div>
+               </el-form-item>
                
                <el-divider />
 
@@ -284,30 +377,46 @@ onBeforeUnmount(() => {
                   <el-row :gutter="24">
                     <el-col :span="12">
                       <el-form-item label="Input">
-                        <CodeEditor 
-                           v-model="example.inputData" 
-                           language="plaintext" 
-                           height="120px" 
-                        />
+                        <div class="quill-wrapper mini-quill">
+                           <QuillEditor 
+                              v-model:content="example.inputData" 
+                              content-type="text"
+                              theme="snow"
+                              :toolbar="[['code-block'], ['clean']]"
+                              placeholder="Enter input data..."
+                           />
+                        </div>
                       </el-form-item>
                     </el-col>
                     <el-col :span="12">
                        <el-form-item label="Output">
-                        <CodeEditor 
-                           v-model="example.outputData" 
-                           language="plaintext" 
-                           height="120px" 
-                        />
+                        <div class="quill-wrapper mini-quill">
+                           <QuillEditor 
+                              v-model:content="example.outputData" 
+                              content-type="text"
+                              theme="snow"
+                              :toolbar="[['code-block'], ['clean']]"
+                              placeholder="Enter expected output..."
+                           />
+                        </div>
                       </el-form-item>
                     </el-col>
                   </el-row>
                   
                   <el-form-item label="Explanation (Optional)">
-                     <el-input v-model="example.explanation" type="textarea" :rows="2" />
+                     <div class="quill-wrapper mini-quill">
+                        <QuillEditor
+                          v-model:content="example.explanation"
+                          theme="snow"
+                          content-type="html"
+                          :toolbar="[['bold', 'italic', 'code-block'], ['link', 'image'], ['clean']]"
+                          placeholder="Explain this test case..."
+                        />
+                     </div>
                   </el-form-item>
                </div>
 
-               <AppButton variant="primary" :icon="Plus" class="w-full" @click="addExample">
+               <AppButton variant="primary" type="button" :icon="Plus" class="w-full" @click="addExample">
                  Add Example
                </AppButton>
             </div>
@@ -324,35 +433,90 @@ onBeforeUnmount(() => {
              <div class="section-content">
                <div v-for="(template, index) in formData.templates" :key="index" class="template-card">
                   <div class="card-header-row">
-                     <div class="bg-gray">
-                        <el-select v-model="template.language" size="small" style="width: 140px" class="custom-select">
-                           <el-option v-for="l in languageOptions" :key="l.value" :label="l.label" :value="l.value" />
+                     <div class="template-header-left">
+                        <el-select v-model="template.language" size="default" style="width: 160px" class="custom-select">
+                           <el-option 
+                             v-for="l in getAvailableLanguages(template.language)" 
+                             :key="l.value" 
+                             :label="l.label" 
+                             :value="l.value" 
+                           />
                         </el-select>
+                        
+                        <div class="file-upload-trigger">
+                           <input 
+                              type="file" 
+                              :id="`file-upload-${index}`" 
+                              class="hidden-input" 
+                              accept=".java,.cpp,.py,.go,.js,.ts"
+                              @change="(e) => handleFileUpload(e, index)"
+                           >
+                           <label :for="`file-upload-${index}`" class="upload-label">
+                              <Upload :size="14" />
+                              <span>Upload Code</span>
+                           </label>
+                        </div>
                      </div>
                      <AppButton variant="text" size="small" :icon="X" @click="removeTemplate(index)" style="color: var(--error)">Remove</AppButton>
                   </div>
                   
-                  <el-form-item label="Starter Code">
-                     <!-- Map template language to monaco language -->
+                  <el-form-item class="no-label-item">
                      <CodeEditor 
                        v-model="template.codeTemplate" 
                        :language="template.language.toLowerCase()" 
-                       height="250px" 
-                     />
-                  </el-form-item>
-                  
-                  <el-form-item label="Driver Code (Hidden from user)">
-                     <CodeEditor 
-                       v-model="template.driverCode" 
-                       :language="template.language.toLowerCase()" 
-                       height="200px" 
+                       height="400px" 
                      />
                   </el-form-item>
                </div>
 
-               <AppButton variant="primary" :icon="Plus" class="w-full" @click="addTemplate">
+               <AppButton variant="primary" type="button" :icon="Plus" class="w-full" @click="addTemplate">
                  Add Template
                </AppButton>
+            </div>
+          </el-collapse-item>
+          
+          <!-- Testcases (UI ONLY) -->
+          <el-collapse-item name="6">
+            <template #title>
+               <div class="collapse-header">
+                 <span class="step-num">6</span>
+                 <span class="header-title">Testcases (Beta)</span>
+               </div>
+            </template>
+            <div class="section-content">
+               <div 
+                  class="upload-zone" 
+                  @dragover.prevent 
+                  @drop="handleTestcaseDrop"
+                  :class="{ 'has-file': formData.testcasesFile }"
+               >
+                  <div v-if="!formData.testcasesFile" class="upload-placeholder">
+                     <div class="icon-circle">
+                        <Upload :size="24" />
+                     </div>
+                     <div class="upload-text">
+                        <p class="primary-text">Drag & Drop ZIP file here</p>
+                        <p class="secondary-text">or <span class="click-text">browse</span> to upload</p>
+                     </div>
+                     <input type="file" class="hidden-input-full" accept=".zip" @change="handleTestcaseUpload">
+                  </div>
+                  
+                  <div v-else class="file-preview">
+                     <div class="file-icon">
+                        <FileCode :size="32" color="var(--accent-primary)" />
+                     </div>
+                     <div class="file-info">
+                        <span class="file-name">{{ formData.testcasesFile.name }}</span>
+                        <span class="file-size">{{ (formData.testcasesFile.size / 1024).toFixed(2) }} KB</span>
+                     </div>
+                     <AppButton variant="text" size="small" :icon="X" @click="removeTestcaseFile" />
+                  </div>
+               </div>
+               
+               <div class="upload-info">
+                  <AlertCircle :size="16" />
+                  <span>Upload a ZIP file containing inputs and outputs organized in folders or naming convention.</span>
+               </div>
             </div>
           </el-collapse-item>
 
@@ -370,7 +534,7 @@ onBeforeUnmount(() => {
 }
 
 .page-header {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto 32px;
 }
 
@@ -403,13 +567,14 @@ onBeforeUnmount(() => {
   padding: 0;
   height: auto;
   font-weight: 500;
+  font-size: 14px;
 }
 .back-button:hover {
   color: var(--text-primary);
 }
 
 .form-container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto 100px;
 }
 
@@ -418,7 +583,7 @@ onBeforeUnmount(() => {
   border: none;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 :deep(.el-collapse-item__header) {
@@ -434,6 +599,7 @@ onBeforeUnmount(() => {
   border-bottom-color: transparent;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+  background: var(--bg-secondary);
 }
 
 :deep(.el-collapse-item__wrap) {
@@ -442,7 +608,7 @@ onBeforeUnmount(() => {
   border-top: none;
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-lg);
-  overflow: visible; /* Important for Select dropdowns */
+  overflow: visible; 
 }
 
 :deep(.el-collapse-item__content) {
@@ -470,6 +636,7 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 600;
   border: 1px solid var(--border-primary);
+  transition: all 0.2s;
 }
 
 :deep(.el-collapse-item.is-active) .step-num {
@@ -490,12 +657,17 @@ onBeforeUnmount(() => {
    border: 1px solid var(--border-primary);
    border-radius: var(--radius-md);
    overflow: hidden;
+   width: 100%; /* Force full width */
+   display: flex;
+   flex-direction: column;
 }
 
 :deep(.ql-toolbar) {
   background: var(--bg-tertiary);
   border: none !important;
   border-bottom: 1px solid var(--border-primary) !important;
+  width: 100%;
+  box-sizing: border-box; /* Ensure padding doesn't increase width */
 }
 
 :deep(.ql-container) {
@@ -503,19 +675,27 @@ onBeforeUnmount(() => {
   font-family: inherit;
   font-size: 14px;
   min-height: 300px;
+  width: 100%;
 }
 .small-quill :deep(.ql-container) {
   min-height: 150px;
+}
+.mini-quill :deep(.ql-container) {
+  min-height: 120px;
 }
 
 :deep(.ql-editor) {
   min-height: 100%;
   color: var(--text-primary);
   padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
-:deep(.ql-editor.ql-blank::before) {
-  color: var(--text-tertiary);
-  font-style: normal;
+
+/* Ensure Form Items take full width */
+:deep(.el-form-item__content) {
+  width: 100%;
+  flex: 1; /* Allow flex expansion */
 }
 
 /* Example & Template Cards */
@@ -523,8 +703,8 @@ onBeforeUnmount(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
 }
 
 .card-header-row {
@@ -538,6 +718,163 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--accent-primary);
   font-size: 14px;
+}
+
+.template-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* File Upload Button */
+.file-upload-trigger {
+  position: relative;
+}
+.hidden-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.upload-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  transition: all 0.2s;
+}
+.upload-label:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+}
+
+/* Upload Zone for Testcases */
+.upload-zone {
+  border: 2px dashed var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.02);
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.2s;
+}
+.upload-zone:hover, .upload-zone.has-file {
+  border-color: var(--accent-primary);
+  background: rgba(255, 161, 22, 0.05);
+}
+
+.upload-placeholder {
+  text-align: center;
+  pointer-events: none; /* Let input handle clicks */
+}
+.hidden-input-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.icon-circle {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-elevated);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  color: var(--accent-primary);
+}
+
+.upload-text p {
+  margin: 0;
+}
+.primary-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.secondary-text {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.click-text {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-primary);
+  z-index: 10;
+}
+.file-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 161, 22, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+.file-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.file-size {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.upload-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* Quill Placeholder Visibility */
+:deep(.ql-editor.ql-blank::before) {
+  color: var(--text-secondary) !important;
+  font-style: normal;
+}
+
+/* Validation Error Messages */
+:deep(.el-form-item__error) {
+  font-size: 14px;
+  padding-top: 8px;
+  font-weight: 500;
+  position: relative;
+  top: auto;
+  left: auto;
+  margin-bottom: 4px;
 }
 
 /* Input Overrides */
@@ -593,5 +930,8 @@ onBeforeUnmount(() => {
 }
 .w-full {
   width: 100%;
+}
+.no-label-item {
+  margin-bottom: 0;
 }
 </style>

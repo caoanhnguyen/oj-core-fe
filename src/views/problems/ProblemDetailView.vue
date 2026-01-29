@@ -1,8 +1,8 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
-import { ArrowLeft, Play, Send } from 'lucide-vue-next'
+import { ArrowLeft, Play, Send, MoreVertical, Settings, ChevronUp, ChevronDown } from 'lucide-vue-next'
 import * as monaco from 'monaco-editor'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
@@ -13,18 +13,10 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 // Configure Monaco Workers
 self.MonacoEnvironment = {
   getWorker(_, label) {
-    if (label === 'json') {
-      return new jsonWorker()
-    }
-    if (label === 'css' || label === 'scss' || label === 'less') {
-      return new cssWorker()
-    }
-    if (label === 'html' || label === 'handlebars' || label === 'razor') {
-      return new htmlWorker()
-    }
-    if (label === 'typescript' || label === 'javascript') {
-      return new tsWorker()
-    }
+    if (label === 'json') return new jsonWorker()
+    if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker()
+    if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker()
+    if (label === 'typescript' || label === 'javascript') return new tsWorker()
     return new editorWorker()
   }
 }
@@ -44,7 +36,7 @@ const languageOptions = [
   { label: 'Java', value: 'java' },
   { label: 'C++', value: 'cpp' },
   { label: 'Python', value: 'python' },
-  { label: 'Go', value: 'go' }
+  { label: 'JavaScript', value: 'javascript' }
 ]
 
 const getDifficultyClass = (difficulty) => {
@@ -56,6 +48,52 @@ const getDifficultyClass = (difficulty) => {
   return classes[difficulty] || ''
 }
 
+// Layout Resizing Logic
+const leftWidth = ref(50) // Percentage
+const isDraggingHorizontal = ref(false)
+const rightTopHeight = ref(60) // Percentage of right panel
+const isDraggingVertical = ref(false)
+
+const startHorizontalDrag = () => { isDraggingHorizontal.value = true }
+const startVerticalDrag = () => { isDraggingVertical.value = true }
+const stopDrag = () => {
+  isDraggingHorizontal.value = false
+  isDraggingVertical.value = false
+}
+
+const handleMouseMove = (e) => {
+  if (isDraggingHorizontal.value) {
+    const containerWidth = window.innerWidth
+    const newWidth = (e.clientX / containerWidth) * 100
+    if (newWidth > 20 && newWidth < 80) {
+      leftWidth.value = newWidth
+      if (editorInstance) editorInstance.layout()
+    }
+  }
+  if (isDraggingVertical.value) {
+    // Relative to right panel height (approx window height - header)
+    const containerHeight = window.innerHeight - 50
+    const relativeY = e.clientY - 50 // Header offset
+    const newHeight = (relativeY / containerHeight) * 100
+    if (newHeight > 20 && newHeight < 90) {
+      rightTopHeight.value = newHeight
+      if (editorInstance) editorInstance.layout()
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseup', stopDrag)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('mouseup', stopDrag)
+  if (editorInstance) editorInstance.dispose()
+})
+
+// Monaco & Template Logic
 const initMonaco = () => {
   if (!editorContainer.value) return
 
@@ -64,38 +102,38 @@ const initMonaco = () => {
     language: selectedLanguage.value,
     theme: 'vs-dark',
     automaticLayout: true,
-    minimap: { enabled: false }, // Keep minimap off for clean look, or enable if requested
+    minimap: { enabled: false },
     fontSize: 14,
     lineHeight: 24,
     padding: { top: 16, bottom: 16 },
-    scrollBeyondLastLine: false,
     fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
     fontLigatures: true,
-    renderLineHighlight: 'all',
-    bracketPairColorization: {
-      enabled: true,
-    },
-    suggest: {
-      showKeywords: true,
-      showSnippets: true,
-    },
+    bracketPairColorization: { enabled: true },
+    scrollBeyondLastLine: false,
     scrollbar: {
       vertical: 'visible',
       horizontal: 'visible',
-      useShadows: false,
       verticalScrollbarSize: 10,
       horizontalScrollbarSize: 10
     }
   })
+}
 
-  editorInstance.onDidChangeModelContent(() => {
-    // Handle content change if needed
-  })
+// Map frontend language value to backend ENUM key
+const getBackendLangKey = (langValue) => {
+  const map = {
+    'java': 'JAVA',
+    'cpp': 'CPP',
+    'python': 'PYTHON',
+    'javascript': 'JAVASCRIPT'
+  }
+  return map[langValue]
 }
 
 const getInitialCode = () => {
   if (problem.value?.templates?.length > 0) {
-    const template = problem.value.templates.find(t => t.language.toLowerCase() === selectedLanguage.value.toLowerCase())
+    const backendKey = getBackendLangKey(selectedLanguage.value)
+    const template = problem.value.templates.find(t => t.language === backendKey)
     return template?.codeTemplate || '// Write your code here...'
   }
   return '// Write your code here...'
@@ -133,22 +171,16 @@ onMounted(async () => {
     })
   }
 })
-
-onBeforeUnmount(() => {
-  if (editorInstance) {
-    editorInstance.dispose()
-  }
-})
 </script>
 
 <template>
-  <div class="problem-view">
+  <div class="problem-view" :class="{ 'is-dragging': isDraggingHorizontal || isDraggingVertical }">
     <!-- Header -->
     <div class="problem-header">
       <div class="header-left">
         <el-button link @click="router.push('/')" class="back-btn">
           <ArrowLeft :size="18" />
-          <span class="back-text">Problem List</span>
+          <span class="back-text">All Problems</span>
         </el-button>
         <div class="divider"></div>
         <div class="problem-nav-info" v-if="problem">
@@ -171,13 +203,14 @@ onBeforeUnmount(() => {
       <div class="loader"></div>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main Content (Resizable) -->
     <div v-else-if="problem" class="problem-content">
-      <!-- Left Panel: Description -->
-      <div class="left-panel">
+      
+      <!-- Left Panel: Content -->
+      <div class="left-panel" :style="{ width: `${leftWidth}%` }">
         <div class="panel-tabs">
           <button 
-            v-for="tab in ['Description', 'Editorial', 'Solutions', 'Submissions']"
+            v-for="tab in ['Description', 'Editorial', 'Solutions']"
             :key="tab"
             class="tab-btn" 
             :class="{ active: activeTab === tab.toLowerCase() }"
@@ -228,50 +261,68 @@ onBeforeUnmount(() => {
               <div class="rich-content constraints-content" v-html="problem.constraints"></div>
             </div>
           </div>
-
-          <!-- Other Tabs -->
+          
           <div v-else class="placeholder-content">
             <div class="empty-state">
-              <span class="empty-icon">🚧</span>
-              <h3>{{ activeTab.charAt(0).toUpperCase() + activeTab.slice(1) }}</h3>
-              <p>This content is coming soon.</p>
+              <span>Coming Soon</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Right Panel: Code Editor -->
-      <div class="right-panel">
-        <div class="editor-header">
-          <div class="lang-selector">
-            <span class="lang-label">Language:</span>
-            <el-select v-model="selectedLanguage" size="small" class="lang-select">
-              <el-option
-                v-for="lang in languageOptions"
-                :key="lang.value"
-                :label="lang.label"
-                :value="lang.value"
-              />
-            </el-select>
+      <!-- Horizontal Splitter -->
+      <div class="h-splitter" @mousedown.prevent="startHorizontalDrag">
+        <div class="splitter-handle"></div>
+      </div>
+
+      <!-- Right Panel: Code + Testcase -->
+      <div class="right-panel" :style="{ width: `calc(${100 - leftWidth}% - 6px)` }">
+        
+        <!-- Editor Part -->
+        <div class="editor-section" :style="{ height: `${rightTopHeight}%` }">
+          <div class="editor-header">
+            <div class="code-lang-wrapper">
+               <span class="code-icon">&lt;/&gt;</span>
+               <span class="code-label">Code</span>
+            </div>
+            <div class="lang-selector">
+              <el-select v-model="selectedLanguage" size="small" class="lang-select">
+                <el-option
+                  v-for="lang in languageOptions"
+                  :key="lang.value"
+                  :label="lang.label"
+                  :value="lang.value"
+                />
+              </el-select>
+              <button class="icon-btn"><Settings :size="14" /></button>
+            </div>
           </div>
-          <div class="editor-tools">
-            <!-- Add tools here if needed -->
-          </div>
+          <div class="editor-container" ref="editorContainer"></div>
         </div>
 
-        <div class="editor-container" ref="editorContainer"></div>
+        <!-- Vertical Splitter -->
+        <div class="v-splitter" @mousedown.prevent="startVerticalDrag">
+             <div class="splitter-dots">...</div>
+        </div>
 
-        <div class="testcase-panel">
+        <!-- Testcase Part -->
+        <div class="testcase-panel" :style="{ height: `calc(${100 - rightTopHeight}% - 6px)` }">
           <div class="testcase-header">
-            <span class="testcase-title">Testcase</span>
+            <div class="testcase-title-group">
+               <span class="testcase-icon">☑</span>
+               <span class="testcase-title">Testcase</span>
+            </div>
+            <button class="icon-btn" @click="rightTopHeight = rightTopHeight > 90 ? 60 : 96">
+               <component :is="rightTopHeight > 90 ? ChevronUp : ChevronDown" :size="14"/>
+            </button>
           </div>
           <div class="testcase-content custom-scrollbar">
+             <!-- Static for now as requested UI only -->
             <div class="testcase-tabs">
               <button class="case-tab active">Case 1</button>
               <button class="case-tab">Case 2</button>
             </div>
             <div class="testcase-inputs">
-              <!-- Placeholder for dynamic inputs -->
               <div class="input-group">
                 <label>Input</label>
                 <div class="input-display">nums = [2,7,11,15], target = 9</div>
@@ -280,6 +331,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </template>
@@ -291,9 +343,18 @@ onBeforeUnmount(() => {
   flex-direction: column;
   background: #1a1a1a;
   color: #e0e0e0;
+  user-select: none; /* Prevent text selection during drag */
 }
 
-/* Header styling */
+.problem-view.is-dragging {
+  cursor: col-resize;
+}
+.problem-view.is-dragging .left-panel, 
+.problem-view.is-dragging .right-panel {
+  pointer-events: none; /* Prevent iframe/editor interference */
+}
+
+/* Header */
 .problem-header {
   height: 50px;
   background: #262626;
@@ -304,232 +365,102 @@ onBeforeUnmount(() => {
   padding: 0 16px;
   flex-shrink: 0;
 }
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.back-btn {
-  color: #a0a0a0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  padding: 0;
-  height: auto;
-  font-size: 13px;
-}
-
-.back-btn:hover {
-  color: #fff;
-}
-
-.divider {
-  width: 1px;
-  height: 20px;
-  background: #404040;
-}
-
-.nav-title {
-  font-weight: 600;
-  color: #fff;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-weight: 600;
-  font-size: 13px;
-  border-radius: 6px;
-  padding: 0 16px;
-  height: 32px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.run-btn {
-  background: #333;
-  border: 1px solid #404040;
-  color: #e0e0e0;
-}
-
-.run-btn:hover {
-  background: #404040;
-  border-color: #505050;
-  color: #fff;
-}
-
-.submit-btn {
-  background: #ffa116;
-  border: none;
-  color: #fff; /* Changed to white for better contrast or stick to black if requested, usually white on orange is readable or black on orange */
-}
-
-/* User asked for orange theme, usually text is white or black. Previous was black. Let's keep black if it was legible, or white. LeetCode uses white on green submit, but orange theme usually uses white or black. Let's try white for better "premium" dark mode feel, or black for contrast. Let's stick to black for now to match other orange buttons, or check LeetCode styling. LeetCode submit is blue/green. We use orange. Black on Orange is high contrast. */
-.submit-btn {
-  background: #ffa116;
-  border: none;
-  color: #000;
-}
-
-.submit-btn:hover {
-  background: #ffb347;
-}
+/* ... Header styles same as before mostly ... */
+.header-left { display: flex; align-items: center; gap: 16px; }
+.back-btn { color: #a0a0a0; font-weight: 500; font-size: 13px; }
+.back-btn:hover { color: #fff; }
+.divider { width: 1px; height: 20px; background: #404040; }
+.nav-title { font-weight: 600; font-size: 14px; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header-right { display: flex; gap: 12px; }
+.action-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; border-radius: 6px; padding: 0 16px; height: 32px; transition: all 0.2s; border: none; }
+.run-btn { background: #333; color: #e0e0e0; border: 1px solid #404040; }
+.run-btn:hover { background: #404040; color: #fff; }
+.submit-btn { background: #2cbb5d; color: #fff; }
+.submit-btn:hover { background: #3ddc72; }
 
 /* Layout */
 .problem-content {
   display: flex;
   flex: 1;
   overflow: hidden;
+  height: calc(100vh - 106px);
 }
 
 .left-panel {
-  width: 50%;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #333;
   background: #1a1a1a;
+  min-width: 20%;
+  max-width: 80%;
 }
 
 .right-panel {
-  width: 50%;
   display: flex;
   flex-direction: column;
   background: #1e1e1e;
+  min-width: 20%;
 }
 
-/* Tabs */
-.panel-tabs {
-  height: 48px;
-  background: #262626;
+/* Splitters */
+.h-splitter {
+  width: 6px;
+  background: #1a1a1a;
+  cursor: col-resize;
   display: flex;
+  justify-content: center;
   align-items: center;
-  padding: 0 16px;
-  gap: 20px;
-  border-bottom: 1px solid #333;
-  flex-shrink: 0;
+  border-left: 1px solid #333;
+  border-right: 1px solid #333;
+  transition: background 0.2s;
 }
+.h-splitter:hover, .h-splitter:active { background: #ffa116; }
 
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 14px 0;
-  position: relative;
-  transition: color 0.2s;
-}
-
-.tab-btn:hover {
-  color: #e0e0e0;
-}
-
-.tab-btn.active {
-  color: #fff;
-  font-weight: 600;
-}
-
-.tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: #ffa116;
-  border-radius: 2px 2px 0 0;
-}
-
-/* Panel Content */
-.panel-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0; /* Reset padding here to handle it in inner wrapper */
+.v-splitter {
+  height: 6px;
+  background: #1e1e1e;
+  cursor: row-resize;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-top: 1px solid #333;
+  border-bottom: 1px solid #333;
+  width: 100%;
 }
+.v-splitter:hover, .v-splitter:active { background: #ffa116; }
+.splitter-dots { font-size: 10px; line-height: 2px; color: #666; letter-spacing: 2px; position: relative; top: -3px; }
 
-.description-wrapper {
-  padding: 24px 32px; /* Add more horizontal padding */
-  max-width: 100%;
-  box-sizing: border-box;
-}
+/* Left Content */
+.panel-tabs { height: 40px; background: #262626; display: flex; padding: 0 16px; gap: 20px; border-bottom: 1px solid #333; }
+.tab-btn { background: transparent; border: none; color: #888; font-size: 13px; font-weight: 500; cursor: pointer; padding: 10px 0; position: relative; }
+.tab-btn.active { color: #fff; font-weight: 600; }
+.tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #ffa116; }
 
-.problem-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #fff;
-  margin: 0 0 12px 0;
-  line-height: 1.3;
-}
-
-.problem-meta {
-  margin-bottom: 24px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: capitalize;
-  background: rgba(255, 255, 255, 0.1);
-}
-
+.panel-content { flex: 1; overflow-y: auto; }
+.description-wrapper { padding: 20px 24px; }
+.problem-title { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+.problem-meta { margin-bottom: 20px; }
+.badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; background: rgba(255, 255, 255, 0.1); }
 .difficulty-easy { color: #00b8a3; background: rgba(0, 184, 163, 0.15); }
 .difficulty-medium { color: #ffc01e; background: rgba(255, 192, 30, 0.15); }
 .difficulty-hard { color: #ef4743; background: rgba(239, 71, 67, 0.15); }
 
-/* Rich Content Styling */
-.rich-content {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #d0d0d0;
+/* Rich Content - Unified Fonts */
+.rich-content { font-size: 14px; line-height: 1.6; color: #d0d0d0; }
+.rich-content :deep(pre), .rich-content :deep(code) { 
+  font-family: 'JetBrains Mono', monospace; 
+  background: rgba(255,255,255,0.07); 
+  padding: 2px 4px; 
+  border-radius: 4px; 
+  font-size: 13px; /* Match Example font size */
 }
-
-.rich-content :deep(p) { margin-bottom: 16px; }
-.rich-content :deep(ul), 
-.rich-content :deep(ol) {
-  margin-bottom: 16px;
-  padding-left: 24px; /* Ensure list bullets are inside */
+.rich-content :deep(pre) { padding: 12px; overflow-x: auto; margin: 12px 0; }
+.rich-content :deep(p) { margin-bottom: 12px; }
+.rich-content :deep(ul), .rich-content :deep(ol) { 
+  padding-left: 20px; 
+  margin-left: 10px;
+  margin-bottom: 12px;
 }
-.rich-content :deep(li) {
-  margin-bottom: 8px;
-}
-.rich-content :deep(strong) { color: #fff; font-weight: 600; }
-.rich-content :deep(code) {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: #e0e0e0;
-}
-.rich-content :deep(pre) {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 12px;
-  border-radius: 8px;
-  overflow-x: auto;
-}
+.rich-content :deep(li) { margin-bottom: 6px; }
 .rich-content :deep(img) {
   max-width: 100%;
   height: auto;
@@ -539,36 +470,55 @@ onBeforeUnmount(() => {
 }
 
 /* Examples */
-.examples-section { margin: 32px 0; }
+.examples-section { margin: 24px 0; }
 .example-card { margin-bottom: 24px; }
-.example-header {
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 12px;
-  font-size: 14px;
+.example-header { font-weight: 600; margin-bottom: 12px; font-size: 14px; color: #e0e0e0; }
+.example-body { 
+  background: rgba(255, 255, 255, 0.04); 
+  border-radius: 8px; 
+  padding: 16px; 
+  border-left: 2px solid rgba(255, 255, 255, 0.1); 
 }
-.example-body {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 16px;
-  border-left: 2px solid rgba(255, 255, 255, 0.1);
+.io-group { margin-bottom: 12px; display: flex; gap: 8px; align-items: flex-start; }
+.io-label { font-weight: 600; color: #888; min-width: 50px; font-size: 13px; margin-top: 2px; }
+.io-content { font-family: 'JetBrains Mono', monospace; color: #fff; font-size: 13px; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; flex: 1; }
+
+/* Explanation Fix */
+.explanation { flex-direction: column; gap: 6px; }
+.explanation-content { 
+  font-size: 14px; 
+  color: #d0d0d0; 
+  background: transparent;
+  padding: 0;
+}
+.explanation-content :deep(pre) { 
+  background: rgba(255, 255, 255, 0.05); 
+  padding: 12px; 
+  border-radius: 6px; 
+  overflow-x: auto;
+  margin: 8px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  white-space: pre-wrap; /* Wrap long text */
 }
 
-.io-group { margin-bottom: 8px; display: flex; gap: 8px; }
-.io-group:last-child { margin-bottom: 0; }
-.io-label { font-weight: 600; color: #a0a0a0; min-width: 50px; }
-.io-content { color: #e0e0e0; font-family: 'JetBrains Mono', monospace; }
-.explanation { flex-direction: column; gap: 4px; }
-
-/* Constraints */
+/* Constraints Fix */
 .constraints-section { margin-top: 32px; }
-.section-title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
-.constraints-content :deep(ul) { padding-left: 20px; }
-.constraints-content :deep(li) { margin-bottom: 8px; }
+.section-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 16px; }
+.constraints-content :deep(ul), .constraints-content :deep(ol) { 
+  padding-left: 20px; 
+  margin-left: 10px; /* Add margin to ensure bullets are visible */
+}
+.constraints-content :deep(li) { 
+  margin-bottom: 8px; 
+  color: #ccc;
+}
 
-/* Code Editor Panel */
+/* Right Panel specific */
+.editor-section { display: flex; flex-direction: column; min-height: 100px; } 
+
 .editor-header {
-  height: 48px;
+  height: 40px;
   background: #262626;
   border-bottom: 1px solid #333;
   display: flex;
@@ -576,147 +526,29 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 0 12px;
 }
+.code-lang-wrapper { display: flex; align-items: center; gap: 6px; color: #2cbb5d; font-size: 13px; font-weight: 600; }
+.lang-selector { display: flex; align-items: center; gap: 8px; }
+.lang-select { width: 110px; }
+.icon-btn { background: transparent; border: none; color: #888; cursor: pointer; padding: 4px; border-radius: 4px; }
+.icon-btn:hover { background: #333; color: #fff; }
 
-.lang-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lang-label {
-  font-size: 12px;
-  color: #888;
-}
-
-.lang-select {
-  width: 120px;
-}
-
-.editor-container {
-  flex: 1;
-  overflow: hidden;
-}
+.editor-container { flex: 1; overflow: hidden; }
 
 /* Testcase Panel */
-.testcase-panel {
-  height: 200px;
-  background: #1e1e1e;
-  border-top: 1px solid #333;
-  display: flex;
-  flex-direction: column;
-}
+.testcase-panel { display: flex; flex-direction: column; background: #1e1e1e; min-height: 40px; } 
+.testcase-header { height: 36px; background: #262626; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; cursor: pointer; }
+.testcase-title-group { display: flex; align-items: center; gap: 6px; color: #a0a0a0; font-size: 12px; font-weight: 600; }
+.testcase-content { padding: 16px; flex: 1; overflow-y: auto; }
+.testcase-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.case-tab { padding: 4px 12px; background: rgba(255,255,255,0.05); border: none; border-radius: 4px; color: #888; font-size: 12px; cursor: pointer; }
+.case-tab.active { background: rgba(255,255,255,0.1); color: #fff; }
+.input-display { background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #ccc; margin-top: 4px; }
 
-.testcase-header {
-  height: 36px;
-  background: #262626;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-}
-
-.testcase-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #a0a0a0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.testcase-content {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.testcase-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.case-tab {
-  padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  border-radius: 6px;
-  color: #a0a0a0;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.case-tab:hover { background: rgba(255, 255, 255, 0.1); color: #e0e0e0; }
-.case-tab.active { background: rgba(255, 255, 255, 0.1); color: #fff; font-weight: 600; }
-
-.input-group {
-  margin-bottom: 12px;
-}
-
-.input-group label {
-  display: block;
-  font-size: 11px;
-  color: #888;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-
-.input-display {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 10px;
-  border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: #e0e0e0;
-}
-
-/* Scrollbar */
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #404040; border-radius: 3px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #505050; }
-
-/* Helper classes */
-:deep(.el-select__wrapper) {
-  background-color: #333 !important;
-  box-shadow: none !important;
-  border: 1px solid #404040 !important;
-}
-
-:deep(.el-select__wrapper:hover) {
-  border-color: #666 !important;
-}
-
-:deep(.el-select__placeholder) {
-  color: #e0e0e0 !important;
-}
+:deep(.el-select__wrapper) { background-color: #333 !important; box-shadow: none !important; border: none !important; }
+:deep(.el-select__placeholder) { color: #e0e0e0 !important; font-size: 12px; }
 
 /* Loading */
-.loading-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #1a1a1a;
-}
-
-.loader {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #333;
-  border-bottom-color: #ffa116;
-  border-radius: 50%;
-  animation: rotation 1s linear infinite;
-}
-
-@keyframes rotation {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .problem-content { flex-direction: column; }
-  .left-panel, .right-panel { width: 100%; height: 50%; }
-  .left-panel { border-right: none; border-bottom: 1px solid #333; }
-}
+.loading-container { flex: 1; display: flex; justify-content: center; align-items: center; background: #1a1a1a; }
+.loader { width: 32px; height: 32px; border: 3px solid #333; border-bottom-color: #ffa116; border-radius: 50%; animation: rotation 1s linear infinite; }
+@keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
