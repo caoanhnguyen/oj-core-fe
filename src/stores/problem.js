@@ -100,10 +100,22 @@ export const useProblemStore = defineStore('problem', {
             try {
                 this.loading = true
 
-                // Add uploaded image keys
-                const data = {
-                    ...problemData,
-                    temporaryImageKeys: this.uploadedImages.map(img => img.objectKey)
+                let data = problemData
+
+                // Handle FormData explicitly (for Testcases Zip)
+                if (problemData instanceof FormData) {
+                    if (this.uploadedImages.length > 0) {
+                        // Append uploaded image keys if any
+                        const keys = this.uploadedImages.map(img => img.objectKey)
+                        // Note: Backend must parse this JSON string
+                        data.append('temporaryImageKeys', JSON.stringify(keys))
+                    }
+                } else {
+                    // Standard JSON payload
+                    data = {
+                        ...problemData,
+                        temporaryImageKeys: this.uploadedImages.map(img => img.objectKey)
+                    }
                 }
 
                 const result = await problemsAPI.createProblem(data)
@@ -175,8 +187,20 @@ export const useProblemStore = defineStore('problem', {
                 console.error('Failed to delete problem:', error)
                 ElMessage.error(error.response?.data?.message || 'Failed to delete problem')
                 throw error
-            } finally {
                 this.loading = false
+            }
+        },
+
+        /**
+         * Upload Testcases Zip
+         */
+        async uploadTestcasesZip(problemId, formData) {
+            try {
+                return await problemsAPI.uploadTestcases(problemId, formData)
+            } catch (error) {
+                console.error('Failed to upload testcases:', error)
+                // Don't throw, just log. Problem is created anyway.
+                ElMessage.warning('Problem created but testcases failed to upload')
             }
         },
 

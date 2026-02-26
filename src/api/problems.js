@@ -68,5 +68,19 @@ export const problemsAPI = {
     deleteProblem: async (id) => {
         const response = await axiosInstance.delete(`/problems/${id}`)
         return response.data
+    },
+
+    /**
+     * Upload testcases zip batch
+     * @param {string} id - Problem UUID
+     * @param {FormData} formData - Multipart form data
+     */
+    uploadTestcases: async (id, formData) => {
+        const response = await axiosInstance.post(`/problems/${id}/testcases/batch-zip`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        return response.data
     }
 }

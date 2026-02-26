@@ -1,11 +1,9 @@
 <script setup>
-import { ref, onBeforeUnmount, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { Plus, CheckCircle, ArrowLeft } from 'lucide-vue-next'
+import { ref, onMounted, reactive, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage } from 'element-plus'
-import JSZip from 'jszip'
 
 // Components
 import GeneralInfoTab from '@/components/problems/GeneralInfoTab.vue'
@@ -13,8 +11,10 @@ import ConstraintsTab from '@/components/problems/ConstraintsTab.vue'
 import ExamplesTab from '@/components/problems/ExamplesTab.vue'
 import TemplatesTab from '@/components/problems/TemplatesTab.vue'
 import TestcaseManager from '@/components/problems/TestcaseManager.vue'
+import { ArrowLeft } from 'lucide-vue-next'
 
 const router = useRouter()
+const route = useRoute()
 const problemStore = useProblemStore()
 
 // Form Data
@@ -26,17 +26,15 @@ const formData = ref({
   constraints: '',
   timeLimitMs: 1000,
   memoryLimitKb: 256,
-  examples: [
-    { inputData: '', outputData: '', explanation: '', orderIndex: 0, expanded: true }
-  ],
+  examples: [],
   templates: [],
   testcases: [] 
 })
 
-// Tab State
 const activeTab = ref('general')
+const loading = ref(false)
+const isSaving = ref(false)
 
-// Validation Rules
 const rules = reactive({
   title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
   difficulty: [{ required: true, message: 'Difficulty is required', trigger: 'change' }],
@@ -46,30 +44,90 @@ const rules = reactive({
 
 const formRef = ref(null)
 
-// Slug Logic
-const generateSlug = (text) => {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')     
-    .replace(/[^\w\-]+/g, '') 
-    .replace(/\-\-+/g, '-')   
-}
+// Load Data
+onMounted(async () => {
+    const id = route.params.id
+    if (!id) {
+        ElMessage.error('Invalid Problem ID')
+        router.push('/dashboard')
+        return
+    }
 
-watch(() => formData.value.title, (newTitle) => {
-  formData.value.slug = generateSlug(newTitle)
+    try {
+        loading.value = true
+        const problem = await problemStore.fetchProblemById(id)
+        if (problem) {
+            // Map SDO to Form Data
+            formData.value.title = problem.title
+            formData.value.slug = problem.slug
+            formData.value.difficulty = problem.difficulty
+            formData.value.description = problem.description
+            formData.value.constraints = problem.constraints
+            formData.value.timeLimitMs = problem.timeLimitMs
+            formData.value.memoryLimitKb = problem.memoryLimitKb
+            
+            // Examples
+            if (problem.examples) {
+                formData.value.examples = problem.examples.map(ex => ({
+                    ...ex,
+                    expanded: false
+                }))
+            }
+
+            // Templates
+            if (problem.templates) {
+                formData.value.templates = problem.templates.map(t => ({
+                    ...t,
+                    expanded: false
+                }))
+            }
+
+            // Testcases
+            if (problem.testCases) {
+                formData.value.testcases = problem.testCases.map(tc => ({
+                    id: tc.id,
+                    name: `Testcase ${tc.orderIndex}`, // or use ID
+                    input: tc.inputData,
+                    output: tc.outputData,
+                    inputUrl: tc.inputUrl,
+                    outputUrl: tc.outputUrl,
+                    isHidden: !tc.isSample, // Map Sample -> Hidden
+                    orderIndex: tc.orderIndex
+                }))
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load problem', e)
+    } finally {
+        loading.value = false
+    }
 })
 
-// Final Zip (Keep this here for Submit logic)
+// Slug Logic (Only update if manually changed or specific logic?)
+// Usually update doesn't auto-update slug to avoid breaking links, 
+// unless user explicitly wants to. 
+// For now, let's allow editing slug manually in GeneralTab if needed, 
+// OR simpler: don't watch title for existing problem. 
+// I'll keep the watch commented out or removed for Update.
+
+/*
+watch(() => formData.value.title, (newTitle) => {
+  // formData.value.slug = generateSlug(newTitle) 
+})
+*/
+
+// Final Zip
 const generateFinalZip = async () => {
     if (!formData.value.testcases || formData.value.testcases.length === 0) return null
+    // We only zip if it's NEW data, e.g., if any of them has `input` instead of `inputUrl`
+    const hasLocalContent = formData.value.testcases.some(tc => tc.input !== undefined)
+    if (!hasLocalContent) return null
+
+    const JSZip = (await import('jszip')).default
     const zip = new JSZip()
     
     formData.value.testcases.forEach(tc => {
-        // e.g. "1" -> "1.in" / "1.out"
         const name = tc.name || `testcase_${tc.id}`
-        // Only if content exists (zip parsing gave us content)
         if (tc.input !== undefined) zip.file(`${name}.in`, tc.input)
         if (tc.output !== undefined) zip.file(`${name}.out`, tc.output)
     })
@@ -77,30 +135,29 @@ const generateFinalZip = async () => {
     return await zip.generateAsync({ type: 'blob' })
 }
 
-const handleSubmit = async (status = 'ACTIVE') => {
+const handleUpdate = async () => {
   if (!formRef.value) return
   
   await formRef.value.validate(async (valid, fields) => {
     if (valid) {
       if (formData.value.examples.length === 0) {
-        ElMessage.warning('Please add at least one example (Examples Tab)')
+        ElMessage.warning('Please add at least one example')
         return
       }
       if (formData.value.templates.length === 0) {
-        ElMessage.warning('Please add at least one code template (Templates Tab)')
+        ElMessage.warning('Please add at least one code template')
         return
       }
 
       try {
-        // 1. Create Problem First
+        isSaving.value = true
+        const id = route.params.id
+        // 1. Update Problem Info (PUT)
         const { testcases, ...problemPayload } = formData.value
         
-        const payload = { ...problemPayload, status }
+        await problemStore.updateProblem(id, problemPayload)
         
-        const newProblem = await problemStore.createProblem(payload)
-        
-        // 2. Upload Testcases Separately
-        // Note: TestcaseManager gives us the parsed list. We re-zip it here.
+        // 2. Handle Testcases Upload if new ones exist
         if (formData.value.testcases.length > 0) {
             const zipBlob = await generateFinalZip()
             if (zipBlob) {
@@ -115,13 +172,15 @@ const handleSubmit = async (status = 'ACTIVE') => {
                 }))
                 testcasesFD.append('metadata', JSON.stringify(metadata))
                 
-                await problemStore.uploadTestcasesZip(newProblem.id, testcasesFD)
+                await problemStore.uploadTestcasesZip(id, testcasesFD)
             }
         }
-
+        
         router.push('/dashboard')
       } catch (error) {
-        console.error('Failed to create problem:', error)
+        console.error('Failed to update problem:', error)
+      } finally {
+        isSaving.value = false
       }
     } else {
       ElMessage.error('Please check all required fields')
@@ -131,16 +190,23 @@ const handleSubmit = async (status = 'ACTIVE') => {
 
 const handleCancel = () => {
   problemStore.clearUploadedImages()
-  router.push('/dashboard')
+  // Navigate back to the Manage Problems tab
+  router.push({ path: '/dashboard', query: { tab: 'problems' } })
 }
 
-onBeforeUnmount(() => {
-  problemStore.clearUploadedImages()
-})
+const handleBack = () => {
+  // Navigate back to the Manage Problems tab
+  router.push({ path: '/dashboard', query: { tab: 'problems' } })
+}
 </script>
 
 <template>
-  <div class="create-problem-container">
+  <div 
+    v-loading="loading"
+    element-loading-background="rgba(20, 20, 20, 0.9)"
+    element-loading-text="Loading problem details..."
+    class="create-problem-container custom-loading"
+  >
     <el-form 
       ref="formRef" 
       :model="formData" 
@@ -152,13 +218,15 @@ onBeforeUnmount(() => {
       <!-- FIXED HEADER -->
       <div class="fixed-header">
          <div class="header-left">
-            <h2 class="page-title">Create New Problem</h2>
+            <button type="button" class="back-btn" @click="handleBack">
+               <ArrowLeft :size="20" />
+            </button>
+            <h2 class="page-title">Edit Problem: {{ formData.title }}</h2>
          </div>
          <div class="header-right">
-            <AppButton variant="text" @click="handleCancel" class="cancel-btn">Cancel</AppButton>
+            <AppButton variant="text" @click="handleCancel" class="cancel-btn" :disabled="isSaving">Cancel</AppButton>
             <div class="divider-v"></div>
-            <AppButton variant="outline" @click="handleSubmit('DRAFT')">Save Draft</AppButton>
-            <AppButton variant="primary" @click="handleSubmit('ACTIVE')">Publish</AppButton>
+            <AppButton variant="primary" @click="handleUpdate" :loading="isSaving" :disabled="isSaving">Save Changes</AppButton>
          </div>
       </div>
 
@@ -185,8 +253,8 @@ onBeforeUnmount(() => {
             <el-tab-pane label="Test Cases" name="testcases">
                <TestcaseManager 
                   :testcases="formData.testcases" 
-                  @update:testcases="(list) => formData.testcases = list" 
-                  mode="CREATE"
+                  mode="UPDATE"
+                  :problemId="route.params.id"
                />
             </el-tab-pane>
 
@@ -197,11 +265,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* Reuse styles from original or extract to global if needed. 
-   Keeping Layout styles here. Component styles are inside components. */
-
+/* Copied from CreateProblemView */
 .create-problem-container {
-  height: calc(100vh - 64px); /* Account for Navbar */
+  height: calc(100vh - 64px); 
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -225,6 +291,32 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-shrink: 0;
 }
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  margin-left: -8px; /* Offset padding to align visually */
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 .page-title {
   font-size: 18px;
   font-weight: 600;
@@ -280,16 +372,24 @@ onBeforeUnmount(() => {
 }
 :deep(.el-tabs__content) {
   flex: 1;
-  overflow: hidden; /* Important for inner scroll */
+  overflow: hidden; 
   display: flex;
   flex-direction: column;
 }
 :deep(.el-tab-pane) {
-  height: 100%; /* Important */
+  height: 100%; 
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
+}
+
+/* Custom Loading Spinner Color override */
+:deep(.custom-loading .el-loading-spinner .path) {
+  stroke: #ffa116;
+}
+:deep(.custom-loading .el-loading-spinner .el-loading-text) {
+  color: #ffa116;
 }
 </style>

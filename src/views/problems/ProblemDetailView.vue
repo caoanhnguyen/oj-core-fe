@@ -30,7 +30,81 @@ const loading = ref(true)
 const activeTab = ref('description')
 const selectedLanguage = ref('java')
 const editorContainer = ref(null)
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 let editorInstance = null
+
+// Testcase Logic
+const activeTestcaseIndex = ref(0)
+const testcaseContent = ref({}) // { [id]: { input: '', output: '', loading: false, error: false } }
+
+const sampleTestcases = computed(() => {
+  if (!problem.value?.testCases) return []
+  return problem.value.testCases
+    .filter(tc => tc.sample)
+    .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+})
+
+watch(problem, () => { 
+    activeTestcaseIndex.value = 0 
+    testcaseContent.value = {}
+})
+
+// Fetch content if needed when active index changes
+watch(activeTestcaseIndex, async (newIndex) => {
+    if (!sampleTestcases.value[newIndex]) return
+    await loadTestcaseContent(sampleTestcases.value[newIndex])
+})
+
+const loadTestcaseContent = async (tc) => {
+    if (testcaseContent.value[tc.id]) return // Already loaded or loading
+    
+    // Initialize state
+    testcaseContent.value[tc.id] = { input: tc.inputData, output: tc.outputData, loading: false }
+    
+    // If data is already there, done.
+    if (tc.inputData && tc.outputData) return
+
+    testcaseContent.value[tc.id].loading = true
+    try {
+        // Fetch Input if missing
+        if (!tc.inputData && tc.inputUrl) {
+            // Note: user said inputUrl is raw key, need to use FileController
+            // Endpoint: /api/files/view?key={key}
+            // Use axios directly or store helper? Axios is fine here.
+            // We need to import axios instance.
+            // Assuming we can use fetch for now or import axios.
+            // Let's use the existing axios instance if available, or fetch.
+            // Since we don't have axios imported in <script setup>, let's import it.
+            // Actually, we can use fetch with authentication header if needed?
+            // FileController /view is public? Let's check... YES, no @PreAuthorize on viewFile.
+            
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/files/view?key=${encodeURIComponent(tc.inputUrl)}`)
+            if (res.ok) {
+                testcaseContent.value[tc.id].input = await res.text()
+            }
+        }
+        
+        // Fetch Output if missing
+        if (!tc.outputData && tc.outputUrl) {
+             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/files/view?key=${encodeURIComponent(tc.outputUrl)}`)
+            if (res.ok) {
+                testcaseContent.value[tc.id].output = await res.text()
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load testcase content', e)
+        testcaseContent.value[tc.id].error = true
+    } finally {
+        testcaseContent.value[tc.id].loading = false
+    }
+}
+
+// Initial load for first case
+watch(sampleTestcases, (newVal) => {
+    if (newVal.length > 0) {
+        loadTestcaseContent(newVal[0])
+    }
+}, { immediate: true })
 
 const languageOptions = [
   { label: 'Java', value: 'java' },
@@ -317,17 +391,58 @@ onMounted(async () => {
             </button>
           </div>
           <div class="testcase-content custom-scrollbar">
-             <!-- Static for now as requested UI only -->
-            <div class="testcase-tabs">
-              <button class="case-tab active">Case 1</button>
-              <button class="case-tab">Case 2</button>
-            </div>
-            <div class="testcase-inputs">
-              <div class="input-group">
-                <label>Input</label>
-                <div class="input-display">nums = [2,7,11,15], target = 9</div>
-              </div>
-            </div>
+             <div v-if="sampleTestcases.length > 0">
+                <!-- Tabs -->
+                <div class="testcase-tabs">
+                  <button 
+                    v-for="(tc, index) in sampleTestcases" 
+                    :key="tc.id"
+                    class="case-tab"
+                    :class="{ active: activeTestcaseIndex === index }"
+                    @click="activeTestcaseIndex = index"
+                  >
+                    Case {{ index + 1 }}
+                  </button>
+                </div>
+                
+                <!-- Content -->
+                <div class="testcase-inputs" v-if="sampleTestcases[activeTestcaseIndex]">
+                  <div v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.loading" class="input-loading">
+                    Loading testcase content...
+                  </div>
+                  <div v-else>
+                      <div class="input-group">
+                        <label>Input =</label>
+                        <div class="input-display" v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.input">
+                            {{ testcaseContent[sampleTestcases[activeTestcaseIndex].id].input }}
+                        </div>
+                        <div class="input-display" v-else-if="sampleTestcases[activeTestcaseIndex].inputUrl">
+                            <a :href="`${apiBaseUrl}/files/view?key=${encodeURIComponent(sampleTestcases[activeTestcaseIndex].inputUrl)}`" target="_blank" style="color: #2cbb5d;">
+                                View Input File (Preview not available)
+                            </a>
+                        </div>
+                        <div class="input-display" v-else>No content</div>
+                      </div>
+
+                      <div class="input-group" style="margin-top: 16px;">
+                        <label>Expected Output =</label>
+                         <div class="input-display" v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.output">
+                            {{ testcaseContent[sampleTestcases[activeTestcaseIndex].id].output }}
+                        </div>
+                         <div class="input-display" v-else-if="sampleTestcases[activeTestcaseIndex].outputUrl">
+                            <a :href="`${apiBaseUrl}/files/view?key=${encodeURIComponent(sampleTestcases[activeTestcaseIndex].outputUrl)}`" target="_blank" style="color: #2cbb5d;">
+                                View Output File (Preview not available)
+                            </a>
+                        </div>
+                         <div class="input-display" v-else>No content</div>
+                      </div>
+                  </div>
+                </div>
+             </div>
+             
+             <div v-else class="empty-state">
+                <span>No public testcases available</span>
+             </div>
           </div>
         </div>
       </div>
@@ -542,7 +657,8 @@ onMounted(async () => {
 .testcase-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
 .case-tab { padding: 4px 12px; background: rgba(255,255,255,0.05); border: none; border-radius: 4px; color: #888; font-size: 12px; cursor: pointer; }
 .case-tab.active { background: rgba(255,255,255,0.1); color: #fff; }
-.input-display { background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #ccc; margin-top: 4px; }
+.input-display { background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #ccc; margin-top: 4px; white-space: pre-wrap; word-break: break-all; }
+.input-loading { color: #888; font-size: 13px; font-style: italic; padding: 10px; }
 
 :deep(.el-select__wrapper) { background-color: #333 !important; box-shadow: none !important; border: none !important; }
 :deep(.el-select__placeholder) { color: #e0e0e0 !important; font-size: 12px; }

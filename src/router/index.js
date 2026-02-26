@@ -76,6 +76,11 @@ const router = createRouter({
           path: 'create-problem',
           name: 'create-problem',
           component: () => import('../views/dashboard/CreateProblemView.vue')
+        },
+        {
+          path: 'update-problem/:id',
+          name: 'update-problem',
+          component: () => import('../views/dashboard/UpdateProblemView.vue')
         }
       ]
     },

@@ -15,7 +15,7 @@ const menuItems = [
   { id: 'users', label: 'Users', icon: Users },
 ]
 
-const activeTab = ref('overview')
+const activeTab = ref(route.query.tab || 'overview')
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
@@ -24,19 +24,18 @@ const toggleCollapse = () => {
 // Handle tab click
 const handleTabClick = (tabId) => {
   activeTab.value = tabId
-  if (route.path !== '/dashboard') {
-    router.push('/dashboard')
-  }
+  router.push({ path: '/dashboard', query: { tab: tabId } })
 }
 
-// Watch route changes
-watch(() => route.path, (newPath) => {
-  if (newPath === '/dashboard') {
-    // Keep current activeTab
-  } else if (newPath.startsWith('/dashboard/')) {
-    // On nested, don't change
+// Watch route and query changes
+watch(
+  () => [route.path, route.query.tab],
+  ([newPath, newTab]) => {
+    if (newPath === '/dashboard') {
+      activeTab.value = newTab || 'overview'
+    }
   }
-})
+)
 </script>
 
 <template>
@@ -72,7 +71,7 @@ watch(() => route.path, (newPath) => {
 
     <!-- Main Content -->
     <main class="dashboard-main">
-      <router-view :active-tab="activeTab" @update:active-tab="activeTab = $event" />
+      <router-view :active-tab="activeTab" @update:active-tab="handleTabClick" />
     </main>
   </div>
 </template>
