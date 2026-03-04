@@ -5,6 +5,7 @@ import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import TopicFormDialog from '@/components/topics/TopicFormDialog.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import DarkPagination from '@/components/common/DarkPagination.vue'
 
 const topicStore = useTopicStore()
 
@@ -241,19 +242,14 @@ onMounted(() => {
       </el-table-column>
     </el-table>
 
-    <div class="pagination-container" v-if="pagination.totalElements > 0">
-      <el-pagination
-        :current-page="pagination.page + 1"
-        :page-size="pagination.size"
-        :page-sizes="[10, 20, 50, 100]"
-        :background="true"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="pagination.totalElements"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-        class="dark-pagination"
-      />
-    </div>
+    <DarkPagination
+      v-if="pagination.totalElements > 0"
+      :current-page="pagination.page + 1"
+      :page-size="pagination.size"
+      :total="pagination.totalElements"
+      @size-change="handleSizeChange"
+      @current-change="handlePageChange"
+    />
 
     <!-- Create/Edit Dialog Component -->
     <TopicFormDialog 
@@ -360,6 +356,14 @@ onMounted(() => {
 :deep(.leetcode-table .el-table__inner-wrapper::before) {
   display: none;
 }
+:deep(.leetcode-table .el-table__inner-wrapper),
+:deep(.leetcode-table .el-table__body-wrapper),
+:deep(.leetcode-table .el-scrollbar),
+:deep(.leetcode-table .el-scrollbar__wrap) {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
 :deep(.leetcode-table th.el-table__cell) {
   background: transparent !important;
   border-bottom: 1px solid #3e3e3e !important;
@@ -448,33 +452,6 @@ onMounted(() => {
 :deep(.action-btn.action-success:hover) {
   color: #00b8a3;
   background: rgba(0, 184, 163, 0.1);
-}
-
-/* Pagination */
-.pagination-container {
-  margin-top: 24px;
-  display: flex;
-  justify-content: right;
-}
-
-:deep(.dark-pagination .el-pagination__total),
-:deep(.dark-pagination .el-pagination__jump) {
-  color: #8a8a8a;
-}
-:deep(.dark-pagination .btn-prev),
-:deep(.dark-pagination .btn-next),
-:deep(.dark-pagination .el-pager li) {
-  background-color: #282828 !important;
-  color: #8a8a8a;
-  border: 1px solid #3e3e3e;
-}
-:deep(.dark-pagination .el-pager li:hover) {
-  color: var(--accent-primary);
-}
-:deep(.dark-pagination .el-pager li.is-active) {
-  background-color: var(--accent-primary) !important;
-  color: #000;
-  border-color: var(--accent-primary);
 }
 
 </style>

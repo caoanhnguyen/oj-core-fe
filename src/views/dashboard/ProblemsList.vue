@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown, Loader2 } from 'lucide-vue-next'
+import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 
 const router = useRouter()
@@ -74,7 +75,7 @@ const handleSort = (command) => {
 }
 
 // Fetch problems with BE filter/sort state
-const fetchProblemsData = async (append = false) => {
+const fetchProblemsData = async () => {
   const queryParams = {
     page: pagination.value.page - 1, // Convert layout 1-based to BE 0-based
     size: pagination.value.size
@@ -104,17 +105,7 @@ const fetchProblemsData = async (append = false) => {
     queryParams.topicSlugs = selectedTopics.map(t => t.slug).join(',')
   }
 
-  await problemStore.fetchProblems(queryParams, append)
-}
-
-const fullyLoaded = computed(() => {
-  return problemStore.problems.length >= problemStore.pagination.totalElements && problemStore.pagination.totalElements > 0
-})
-
-const loadMore = () => {
-  if (problemStore.loading || fullyLoaded.value) return
-  pagination.value.page++
-  fetchProblemsData(true)
+  await problemStore.fetchProblems(queryParams)
 }
 
 // Debounced fetch automatically triggering API for search/filter inputs 
@@ -141,6 +132,10 @@ watch(filters, () => {
   pagination.value.page = 1 // Reset to first page
   debouncedFetchProblems()
 }, { deep: true })
+
+watch(() => pagination.value.page, () => {
+  fetchProblemsData()
+})
 
 
 const getDifficultyClass = (difficulty) => {
@@ -235,30 +230,22 @@ const handleAddProblem = () => {
   router.push('/dashboard/create-problem')
 }
 
-// Removed legacy page change handler
+// Handle page changes
+const handlePageChange = (val) => {
+  pagination.value.page = val
+}
 
-const loadMoreTrigger = ref(null)
-let observer = null
+const handleSizeChange = (val) => {
+  pagination.value.size = val
+  pagination.value.page = 1
+  fetchProblemsData()
+}
 
 onMounted(async () => {
   await Promise.all([
     fetchProblemsData(),
     topicStore.fetchTopics('') // Fetch all topics
   ])
-
-  observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && !problemStore.loading && !fullyLoaded.value) {
-      loadMore()
-    }
-  }, { rootMargin: '100px' })
-
-  if (loadMoreTrigger.value) {
-    observer.observe(loadMoreTrigger.value)
-  }
-})
-
-onUnmounted(() => {
-  if (observer) observer.disconnect()
 })
 </script>
 
@@ -521,12 +508,16 @@ onUnmounted(() => {
         </template>
       </el-table-column>
     </el-table>
-    
-    <div v-if="problemStore.loading && problems.length > 0" class="loading-more">
-      <el-icon class="is-loading"><Loader2 /></el-icon> Loading more...
-    </div>
-    
-    <div ref="loadMoreTrigger" class="load-more-trigger"></div>
+
+    <!-- Generic Pagination -->
+    <DarkPagination
+      v-if="problemStore.pagination.totalElements > 0"
+      :current-page="pagination.page"
+      :page-size="pagination.size"
+      :total="problemStore.pagination.totalElements"
+      @size-change="handleSizeChange"
+      @current-change="handlePageChange"
+    />
   </div>
 </template>
 
@@ -691,6 +682,14 @@ onUnmounted(() => {
 :deep(.leetcode-table .el-table__inner-wrapper::before) {
   display: none;
 }
+:deep(.leetcode-table .el-table__inner-wrapper),
+:deep(.leetcode-table .el-table__body-wrapper),
+:deep(.leetcode-table .el-scrollbar),
+:deep(.leetcode-table .el-scrollbar__wrap) {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
 :deep(.leetcode-table th.el-table__cell) {
   background: transparent !important;
   border-bottom: 1px solid #3e3e3e !important;
@@ -812,17 +811,6 @@ onUnmounted(() => {
 
 .up-arrow {
   transform: rotate(180deg);
-}
-
-.loading-more {
-  text-align: center;
-  padding: 24px;
-  color: #8a8a8a;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
 :deep(.action-btn.action-restore:hover) {
