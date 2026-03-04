@@ -2,7 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
-import { ArrowLeft, Play, Send, MoreVertical, Settings, ChevronUp, ChevronDown } from 'lucide-vue-next'
+import { ArrowLeft, Play, Send, MoreVertical, Settings, ChevronUp, ChevronDown, Tag } from 'lucide-vue-next'
 import * as monaco from 'monaco-editor'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
@@ -30,6 +30,16 @@ const loading = ref(true)
 const activeTab = ref('description')
 const selectedLanguage = ref('java')
 const editorContainer = ref(null)
+const isTopicsExpanded = ref(false)
+
+const scrollToTopics = () => {
+  isTopicsExpanded.value = true
+  nextTick(() => {
+    const el = document.getElementById('topics-section')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  })
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 let editorInstance = null
 
@@ -40,7 +50,7 @@ const testcaseContent = ref({}) // { [id]: { input: '', output: '', loading: fal
 const sampleTestcases = computed(() => {
   if (!problem.value?.testCases) return []
   return problem.value.testCases
-    .filter(tc => tc.sample)
+    .filter(tc => tc.isHidden)
     .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
 })
 
@@ -231,6 +241,11 @@ const handleRun = () => {
   console.log('Run code:', code)
 }
 
+const handleBack = () => {
+  // Navigate back to the Manage Problems tab
+  router.push({ path: '/dashboard', query: { tab: 'problems' } })
+}
+
 onMounted(async () => {
   try {
     loading.value = true
@@ -252,7 +267,7 @@ onMounted(async () => {
     <!-- Header -->
     <div class="problem-header">
       <div class="header-left">
-        <el-button link @click="router.push('/')" class="back-btn">
+        <el-button link @click="handleBack" class="back-btn">
           <ArrowLeft :size="18" />
           <span class="back-text">All Problems</span>
         </el-button>
@@ -303,6 +318,14 @@ onMounted(async () => {
                 <span class="badge" :class="getDifficultyClass(problem.difficulty)">
                   {{ problem.difficulty }}
                 </span>
+                <button 
+                  v-if="problem.topics && problem.topics.length > 0" 
+                  class="meta-btn"
+                  @click="scrollToTopics"
+                >
+                  <Tag :size="12" />
+                  Topics
+                </button>
               </div>
             </div>
 
@@ -333,6 +356,24 @@ onMounted(async () => {
             <div class="constraints-section">
               <h3 class="section-title">Constraints</h3>
               <div class="rich-content constraints-content" v-html="problem.constraints"></div>
+            </div>
+
+            <!-- Topics Section -->
+            <div v-if="problem.topics && problem.topics.length > 0" id="topics-section" class="topics-section">
+              <div class="topics-header" @click="isTopicsExpanded = !isTopicsExpanded">
+                 <div class="topics-header-left">
+                    <Tag :size="16" />
+                    <span>Topics</span>
+                 </div>
+                 <component :is="isTopicsExpanded ? ChevronUp : ChevronDown" :size="16" />
+              </div>
+              <transition name="collapse">
+                <div v-show="isTopicsExpanded" class="topic-tags">
+                   <span v-for="topic in problem.topics" :key="topic.topicId" class="topic-tag">
+                      {{ topic.name }}
+                   </span>
+                </div>
+              </transition>
             </div>
           </div>
           
@@ -553,11 +594,27 @@ onMounted(async () => {
 .panel-content { flex: 1; overflow-y: auto; }
 .description-wrapper { padding: 20px 24px; }
 .problem-title { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
-.problem-meta { margin-bottom: 20px; }
-.badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; background: rgba(255, 255, 255, 0.1); }
+.problem-meta { margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; background: rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center;}
 .difficulty-easy { color: #00b8a3; background: rgba(0, 184, 163, 0.15); }
 .difficulty-medium { color: #ffc01e; background: rgba(255, 192, 30, 0.15); }
 .difficulty-hard { color: #ef4743; background: rgba(239, 71, 67, 0.15); }
+
+.meta-btn {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  line-height: 1.6;
+}
+.meta-btn:hover { background: rgba(255, 255, 255, 0.15); }
 
 /* Rich Content - Unified Fonts */
 .rich-content { font-size: 14px; line-height: 1.6; color: #d0d0d0; }
@@ -627,6 +684,61 @@ onMounted(async () => {
 .constraints-content :deep(li) { 
   margin-bottom: 8px; 
   color: #ccc;
+}
+
+/* Topics Section */
+.topics-section {
+  margin-top: 32px;
+  border-top: 1px solid #333;
+  padding-top: 16px;
+  margin-bottom: 16px; /* Added margin bottom just in case */
+}
+.topics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: #fff;
+  padding: 8px 0;
+}
+.topics-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.topic-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  margin-left: 16px;
+}
+.topic-tag {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* Smooth Collapse Animation */
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+  max-height: 200px; /* Adjust if topics section grows vertically significantly */
+  opacity: 1;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 /* Right Panel specific */

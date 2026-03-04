@@ -29,17 +29,25 @@ export const useProblemStore = defineStore('problem', {
         /**
          * Fetch problems list with pagination and filters
          */
-        async fetchProblems(params = {}) {
+        async fetchProblems(params = {}, append = false) {
             try {
                 this.loading = true
                 const data = await problemsAPI.getProblems({
                     page: params.page || 0,
                     size: params.size || 10,
                     difficulty: params.difficulty,
-                    keyword: params.keyword
+                    keyword: params.keyword,
+                    status: params.status,
+                    problemStatus: params.problemStatus,
+                    topicSlugs: params.topicSlugs,
+                    sort: params.sort // format: field,direction
                 })
 
-                this.problems = data.content || []
+                if (append) {
+                    this.problems = [...this.problems, ...(data.content || [])]
+                } else {
+                    this.problems = data.content || []
+                }
                 this.pagination = {
                     page: data.number || 0,
                     size: data.size || 10,
@@ -187,6 +195,28 @@ export const useProblemStore = defineStore('problem', {
                 console.error('Failed to delete problem:', error)
                 ElMessage.error(error.response?.data?.message || 'Failed to delete problem')
                 throw error
+            } finally {
+                this.loading = false
+            }
+        },
+
+        /**
+         * Restore problem
+         */
+        async restoreProblem(id) {
+            try {
+                this.loading = true
+                await problemsAPI.restoreProblem(id)
+
+                ElMessage.success('Problem restored successfully!')
+
+                // Refresh problems list
+                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size })
+            } catch (error) {
+                console.error('Failed to restore problem:', error)
+                ElMessage.error(error.response?.data?.message || 'Failed to restore problem')
+                throw error
+            } finally {
                 this.loading = false
             }
         },

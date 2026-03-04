@@ -1,72 +1,147 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileText, Search, ArrowUpDown, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb } from 'lucide-vue-next'
+import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown, Loader2 } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
+import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox } from 'element-plus'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import { debounce } from 'lodash'
 
 const router = useRouter()
 const problemStore = useProblemStore()
+const topicStore = useTopicStore()
 
 // Real problems data from store
 const problems = computed(() => problemStore.problems)
+const topics = computed(() => topicStore.topics)
 
 // Search, Sort, Filter state
 const searchQuery = ref('')
-const currentSort = ref('')
-const filterMatch = ref('all')
+const topicSearchQuery = ref('')
+
+const currentSortField = ref('') // initial empty matching image 1
+const currentSortDirection = ref('DESC')
 
 const filters = ref({
   status: { active: false, operator: 'is', value: '' },
+  problemStatus: { active: false, operator: 'is', value: '' },
   difficulty: { active: false, operator: 'is', value: '' },
-  topics: { active: false, operator: 'is', value: '' },
-  language: { active: false, operator: 'is', value: '' }
+  topics: { active: false, operator: 'is', value: [] }
+})
+
+const pagination = ref({
+  page: 1, // Store uses 0-based page, UI uses 1-based page
+  size: 20
 })
 
 const hasActiveFilters = computed(() => {
-  return Object.values(filters.value).some(f => f.active && f.value !== '')
+  return Object.values(filters.value).some(f => {
+    if (!f.active) return false
+    return Array.isArray(f.value) ? f.value.length > 0 : (f.value !== '' && f.value !== null)
+  })
 })
 
 const resetFilters = () => {
   searchQuery.value = ''
-  currentSort.value = ''
+  currentSortField.value = ''
+  currentSortDirection.value = 'DESC'
   filters.value = {
     status: { active: false, operator: 'is', value: '' },
+    problemStatus: { active: false, operator: 'is', value: '' },
     difficulty: { active: false, operator: 'is', value: '' },
-    topics: { active: false, operator: 'is', value: '' },
-    language: { active: false, operator: 'is', value: '' }
+    topics: { active: false, operator: 'is', value: [] }
   }
+}
+
+const resetSort = () => {
+  currentSortField.value = ''
+  currentSortDirection.value = 'DESC'
+  // Watcher will trigger fetch
+}
+
+const toggleSortDirection = () => {
+  currentSortDirection.value = currentSortDirection.value === 'ASC' ? 'DESC' : 'ASC'
 }
 
 const handleSort = (command) => {
-  currentSort.value = currentSort.value === command ? '' : command
+  if (currentSortField.value === command) {
+    toggleSortDirection()
+  } else {
+    currentSortField.value = command
+    currentSortDirection.value = 'DESC'
+  }
 }
 
-const filteredAndSortedProblems = computed(() => {
-  let result = [...problems.value]
+// Fetch problems with BE filter/sort state
+const fetchProblemsData = async (append = false) => {
+  const queryParams = {
+    page: pagination.value.page - 1, // Convert layout 1-based to BE 0-based
+    size: pagination.value.size
+  }
   
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(p => p.title.toLowerCase().includes(q) || p.id.toString().includes(q))
+  if (currentSortField.value) {
+    queryParams.sort = `${currentSortField.value},${currentSortDirection.value}`
+  }
+
+  if (searchQuery.value) queryParams.keyword = searchQuery.value
+  
+  if (filters.value.status.active && filters.value.status.value) {
+    queryParams.status = filters.value.status.value
+  }
+  
+  if (filters.value.problemStatus.active && filters.value.problemStatus.value) {
+    queryParams.problemStatus = filters.value.problemStatus.value
   }
   
   if (filters.value.difficulty.active && filters.value.difficulty.value) {
-    result = result.filter(p => p.difficulty?.toUpperCase() === filters.value.difficulty.value.toUpperCase())
+    queryParams.difficulty = filters.value.difficulty.value
   }
-  
-  if (currentSort.value) {
-    result.sort((a, b) => {
-      if (currentSort.value === 'difficulty') {
-        const order = { 'EASY': 1, 'MEDIUM': 2, 'HARD': 3, 'Easy': 1, 'Medium': 2, 'Hard': 3 }
-        return (order[a.difficulty] || 0) - (order[b.difficulty] || 0)
-      } else if (currentSort.value === 'created') {
-        return new Date(b.createdDate || 0) - new Date(a.createdDate || 0)
-      }
-      return 0
-    })
+
+  if (filters.value.topics.active && filters.value.topics.value.length > 0) {
+    // Backend API expects list of topic slugs
+    const selectedTopics = topics.value.filter(t => filters.value.topics.value.includes(t.name))
+    queryParams.topicSlugs = selectedTopics.map(t => t.slug).join(',')
   }
-  return result
+
+  await problemStore.fetchProblems(queryParams, append)
+}
+
+const fullyLoaded = computed(() => {
+  return problemStore.problems.length >= problemStore.pagination.totalElements && problemStore.pagination.totalElements > 0
 })
+
+const loadMore = () => {
+  if (problemStore.loading || fullyLoaded.value) return
+  pagination.value.page++
+  fetchProblemsData(true)
+}
+
+// Debounced fetch automatically triggering API for search/filter inputs 
+const debouncedFetchProblems = debounce(fetchProblemsData, 500)
+
+watch(searchQuery, () => {
+  pagination.value.page = 1
+  debouncedFetchProblems()
+})
+
+watch([currentSortField, currentSortDirection], () => {
+  pagination.value.page = 1
+  debouncedFetchProblems()
+})
+
+watch(filters, () => {
+  // Do not fetch if an active filter doesn't have a value yet
+  const hasIncompleteFilter = Object.values(filters.value).some(f => 
+    f.active && (!f.value || f.value.length === 0)
+  );
+  if (hasIncompleteFilter) {
+    return;
+  }
+  pagination.value.page = 1 // Reset to first page
+  debouncedFetchProblems()
+}, { deep: true })
+
 
 const getDifficultyClass = (difficulty) => {
   const classes = {
@@ -78,6 +153,27 @@ const getDifficultyClass = (difficulty) => {
     'Hard': 'difficulty-hard'
   }
   return classes[difficulty] || ''
+}
+
+const filteredTopicsList = computed(() => {
+  if (!topicSearchQuery.value) return topics.value
+  const q = topicSearchQuery.value.toLowerCase()
+  return topics.value.filter(t => t.name.toLowerCase().includes(q))
+})
+
+const handleTopicToggle = (topicName) => {
+  const index = filters.value.topics.value.indexOf(topicName)
+  if (index > -1) {
+    filters.value.topics.value.splice(index, 1)
+  } else {
+    filters.value.topics.value.push(topicName)
+  }
+  filters.value.topics.active = true // Auto activate filter if they select a topic
+}
+
+const resetTopicFilter = () => {
+  filters.value.topics.value = []
+  topicSearchQuery.value = ''
 }
 
 const formatDate = (dateString) => {
@@ -115,12 +211,54 @@ const handleDelete = async (row) => {
   }
 }
 
+const handleRestore = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to restore "${row.title}"?`,
+      'Confirm Restore',
+      {
+        confirmButtonText: 'Restore',
+        cancelButtonText: 'Cancel',
+        type: 'info',
+        confirmButtonClass: 'el-button--primary'
+      }
+    )
+    await problemStore.restoreProblem(row.id)
+  } catch(error) {
+    if (error !== 'cancel') {
+      console.error('Restore failed:', error)
+    }
+  }
+}
+
 const handleAddProblem = () => {
   router.push('/dashboard/create-problem')
 }
 
+// Removed legacy page change handler
+
+const loadMoreTrigger = ref(null)
+let observer = null
+
 onMounted(async () => {
-  await problemStore.fetchProblems({ page: 0, size: 100 }) // Fetching a larger size for local filtering
+  await Promise.all([
+    fetchProblemsData(),
+    topicStore.fetchTopics('') // Fetch all topics
+  ])
+
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !problemStore.loading && !fullyLoaded.value) {
+      loadMore()
+    }
+  }, { rootMargin: '100px' })
+
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value)
+  }
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
 })
 </script>
 
@@ -143,27 +281,47 @@ onMounted(async () => {
         <input type="text" v-model="searchQuery" placeholder="Search questions" class="search-input" />
       </div>
       
-      <el-dropdown trigger="click" @command="handleSort" class="control-dropdown">
-        <span class="el-dropdown-link">
-          <el-tooltip content="Sort problems" placement="top" effect="dark" :hide-after="0">
-            <button class="control-btn" :class="{ active: currentSort }">
-              <ArrowUpDown :size="16" />
+        <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
+          <span class="el-dropdown-link">
+            <button class="control-btn sort-btn" :class="{ active: currentSortField, 'has-text': currentSortField }">
+              <ArrowUpDown v-if="!currentSortField" :size="16" />
+              <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" />
+              <ArrowUpDown v-else :size="16" />
+              <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'difficulty' ? 'Difficulty' : 'Created Date' }}</span>
             </button>
-          </el-tooltip>
-        </span>
-        <template #dropdown>
-          <el-dropdown-menu class="dark-dropdown">
-            <el-dropdown-item command="difficulty" :class="{ 'is-active': currentSort === 'difficulty' }">Difficulty</el-dropdown-item>
-            <el-dropdown-item command="created" :class="{ 'is-active': currentSort === 'created' }">Created Date</el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu class="dark-dropdown custom-sort-menu">
+              <el-dropdown-item command="difficulty" :class="{ 'is-active': currentSortField === 'difficulty' }">
+                <div class="sort-menu-content">
+                  <span>Difficulty</span>
+                  <ArrowDownWideNarrow v-if="currentSortField === 'difficulty' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
+                  <ArrowUpNarrowWide v-if="currentSortField === 'difficulty' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
+                </div>
+              </el-dropdown-item>
+              <el-dropdown-item command="createdDate" :class="{ 'is-active': currentSortField === 'createdDate' }">
+                <div class="sort-menu-content">
+                  <span>Created Date</span>
+                  <ArrowDownWideNarrow v-if="currentSortField === 'createdDate' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
+                  <ArrowUpNarrowWide v-if="currentSortField === 'createdDate' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
+                </div>
+              </el-dropdown-item>
+              <div class="filter-footer sort-footer">
+                <el-button link class="reset-filters" @click="resetSort">
+                  <RotateCcw :size="14" style="margin-right: 6px;" /> Reset Sort
+                </el-button>
+              </div>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
 
       <el-popover
         placement="bottom-start"
         :width="350"
         trigger="click"
         popper-class="filter-popover"
+        :hide-after="0"
+        :persistent="true"
       >
         <template #reference>
           <div style="display: inline-block;">
@@ -176,12 +334,7 @@ onMounted(async () => {
         </template>
         <div class="filter-content">
           <div class="filter-header">
-            <span>Match</span>
-            <el-select v-model="filterMatch" size="small" class="dark-select match-select">
-              <el-option label="All" value="all" />
-              <el-option label="Any" value="any" />
-            </el-select>
-            <span>of the following filters:</span>
+            <span>Filter Problems</span>
           </div>
           
           <div class="filter-list">
@@ -194,10 +347,23 @@ onMounted(async () => {
                  <el-option label="is" value="is" />
                </el-select>
                <el-select v-model="filters.status.value" size="small" class="dark-select value-select" :disabled="!filters.status.active" popper-class="dark-select-dropdown">
-                  <el-option label="Published" value="published" />
-                  <el-option label="Draft" value="draft" />
+                  <el-option label="Active" value="ACTIVE" />
+                  <el-option label="Deleted" value="DELETED" />
                </el-select>
-               <Minus :size="14" class="remove-filter" />
+             </div>
+
+             <div class="filter-row">
+               <el-checkbox v-model="filters.problemStatus.active" class="dark-checkbox" />
+               <span class="filter-label" :class="{ 'is-active': filters.problemStatus.active }">
+                 <CheckCircle :size="14" /> Visibility
+               </span>
+               <el-select v-model="filters.problemStatus.operator" size="small" class="dark-select math-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
+                 <el-option label="is" value="is" />
+               </el-select>
+               <el-select v-model="filters.problemStatus.value" size="small" class="dark-select value-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
+                  <el-option label="Published" value="PUBLISHED" />
+                  <el-option label="Draft" value="DRAFT" />
+               </el-select>
              </div>
              
              <div class="filter-row">
@@ -213,7 +379,6 @@ onMounted(async () => {
                   <el-option label="Medium" value="MEDIUM" />
                   <el-option label="Hard" value="HARD" />
                </el-select>
-               <Minus :size="14" class="remove-filter" />
              </div>
              
              <div class="filter-row">
@@ -222,36 +387,55 @@ onMounted(async () => {
                  <Tag :size="14" /> Topics
                </span>
                <el-select v-model="filters.topics.operator" size="small" class="dark-select math-select" :disabled="!filters.topics.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
+                 <el-option label="in" value="in" />
                </el-select>
-               <el-select v-model="filters.topics.value" size="small" class="dark-select value-select" :disabled="!filters.topics.active" popper-class="dark-select-dropdown">
-                  <el-option label="Array" value="Array" />
-                  <el-option label="String" value="String" />
-               </el-select>
-               <Minus :size="14" class="remove-filter" />
-             </div>
-             
-             <div class="filter-row">
-               <el-checkbox v-model="filters.language.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.language.active }">
-                 <Code2 :size="14" /> Language
-               </span>
-               <el-select v-model="filters.language.operator" size="small" class="dark-select math-select" :disabled="!filters.language.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
-               </el-select>
-               <el-select v-model="filters.language.value" size="small" class="dark-select value-select" :disabled="!filters.language.active" popper-class="dark-select-dropdown">
-                  <el-option label="C++" value="cpp" />
-                  <el-option label="Java" value="java" />
-                  <el-option label="Python" value="python" />
-               </el-select>
-               <Minus :size="14" class="remove-filter" />
+               <el-popover
+                 placement="right-start"
+                 :width="280"
+                 trigger="click"
+                 popper-class="topic-popover filter-popover"
+                 :hide-after="0"
+                 :persistent="true"
+                 :teleported="false"
+               >
+                 <template #reference>
+                   <div class="topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop>
+                     <span v-if="filters.topics.value.length === 0">Select</span>
+                     <span v-else class="selected-topics-text">{{ filters.topics.value.join(', ') }}</span>
+                     <ChevronDown :size="14" class="topic-trigger-icon" />
+                   </div>
+                 </template>
+                 <div class="topic-selector-content" @click.stop>
+                   <div class="popover-search">
+                     <Search class="search-icon" :size="14" />
+                     <input type="text" v-model="topicSearchQuery" placeholder="search" class="search-input" />
+                   </div>
+                   <div class="topic-pills-container">
+                     <button
+                       v-for="topic in filteredTopicsList"
+                       :key="topic.id || topic.name"
+                       class="topic-pill"
+                       :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
+                       @click="handleTopicToggle(topic.name)"
+                     >
+                       {{ topic.name }}
+                     </button>
+                     <div v-if="filteredTopicsList.length === 0" class="no-topics">No topics found</div>
+                   </div>
+                   <div class="topic-selector-footer">
+                     <el-button link class="reset-filters" @click="resetTopicFilter">
+                       <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
+                     </el-button>
+                   </div>
+                 </div>
+               </el-popover>
              </div>
           </div>
 
           <div class="filter-footer">
             <div class="spacer"></div>
             <el-button link class="reset-filters" @click="resetFilters">
-              <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
+              <RotateCcw :size="14" style="margin-right: 6px;" /> Reset All
             </el-button>
           </div>
         </div>
@@ -260,39 +444,70 @@ onMounted(async () => {
       <div class="spacer"></div>
       <div class="solved-count">
          <div class="circle-progress"></div>
-         <span>{{ filteredAndSortedProblems.length }}/{{ problems.length || 0 }} Managed</span>
+         <span>{{ problemStore.pagination.totalElements || 0 }} Problems</span>
       </div>
     </div>
 
-    <el-table :data="filteredAndSortedProblems" class="dashboard-table leetcode-table" v-loading="problemStore.loading" :show-header="false">
-      <el-table-column width="60" align="center">
+    <TableSkeleton v-if="problemStore.loading && problems.length === 0" :columns="6" :rows="10" />
+
+    <el-table 
+      v-else 
+      :data="problems" 
+      class="dashboard-table leetcode-table" 
+      v-loading="problemStore.loading" 
+      :show-header="true"
+    >
+      <template #empty>
+        <el-empty description="No problems found" />
+      </template>
+
+      <el-table-column label="#" width="60" align="center">
         <template #default="{ $index }">
-          <span class="cell-index">{{ $index + 1 }}</span>
+          <span class="cell-index">{{ (pagination.page - 1) * pagination.size + $index + 1 }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="280">
+      <el-table-column label="ID" width="300">
         <template #default="{ row }">
           <span class="cell-id">{{ row.id }}</span>
         </template>
       </el-table-column>
-      <el-table-column min-width="400">
+      <el-table-column label="Title" min-width="300">
         <template #default="{ row }">
           <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="140" align="center">
+      <el-table-column label="Created Date" width="120" align="center">
         <template #default="{ row }">
           <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="100" align="center">
+      <el-table-column label="Difficulty" width="100" align="center">
         <template #default="{ row }">
-           <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med.' : 'Hard' }}</span>
+           <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="160" align="center" fixed="right">
+      <el-table-column label="Status" width="100" align="center">
         <template #default="{ row }">
-          <div class="action-buttons">
+          <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
+            {{ row.status }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Visibility" width="150" align="center">
+        <template #default="{ row }">
+          <span :class="['status-badge', row.problemStatus === 'PUBLISHED' ? 'status-active' : 'status-draft']">
+            {{ row.problemStatus }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" width="140" align="center" fixed="right">
+        <template #default="{ row }">
+          <div class="action-buttons" v-if="row.status === 'DELETED'">
+            <el-tooltip content="Restore Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
+            </el-tooltip>
+          </div>
+          <div class="action-buttons" v-else>
             <el-tooltip content="View Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Eye" @click="handleView(row)" class="action-btn action-view" />
             </el-tooltip>
@@ -306,6 +521,12 @@ onMounted(async () => {
         </template>
       </el-table-column>
     </el-table>
+    
+    <div v-if="problemStore.loading && problems.length > 0" class="loading-more">
+      <el-icon class="is-loading"><Loader2 /></el-icon> Loading more...
+    </div>
+    
+    <div ref="loadMoreTrigger" class="load-more-trigger"></div>
   </div>
 </template>
 
@@ -427,6 +648,40 @@ onMounted(async () => {
   transform: rotate(-45deg);
 }
 
+.sort-btn.has-text {
+  width: auto;
+  padding: 0 16px;
+  gap: 8px;
+  border-radius: 20px;
+}
+
+.sort-text {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.custom-sort-menu .el-dropdown-menu__item {
+  padding: 0 12px;
+}
+
+.sort-footer {
+  padding: 8px 12px 4px 12px;
+  border-top: 1px solid #3e3e3e;
+  margin-top: 4px;
+}
+
+.sort-menu-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 140px;
+  width: 100%;
+}
+.sort-indicator {
+  color: var(--accent-primary);
+  margin-left: 12px;
+}
+
 /* LeetCode Table CSS Override */
 :deep(.leetcode-table) {
   background: transparent !important;
@@ -435,6 +690,13 @@ onMounted(async () => {
 }
 :deep(.leetcode-table .el-table__inner-wrapper::before) {
   display: none;
+}
+:deep(.leetcode-table th.el-table__cell) {
+  background: transparent !important;
+  border-bottom: 1px solid #3e3e3e !important;
+  color: #8a8a8a;
+  font-weight: 500;
+  font-size: 13px;
 }
 :deep(.leetcode-table td.el-table__cell) {
   border-bottom: none !important;
@@ -489,6 +751,25 @@ onMounted(async () => {
 :deep(.leetcode-table .difficulty-medium) { background: transparent !important; color: #ffc01e !important; padding: 0; }
 :deep(.leetcode-table .difficulty-hard) { background: transparent !important; color: #ef4743 !important; padding: 0; }
 
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.status-active {
+  background: rgba(0, 184, 163, 0.1);
+  color: #00b8a3;
+}
+.status-deleted {
+  background: rgba(239, 71, 67, 0.1);
+  color: #ef4743;
+}
+.status-draft {
+  background: rgba(138, 138, 138, 0.1);
+  color: #8a8a8a;
+}
+
 /* Action Buttons */
 .action-buttons {
   display: flex;
@@ -527,6 +808,26 @@ onMounted(async () => {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.up-arrow {
+  transform: rotate(180deg);
+}
+
+.loading-more {
+  text-align: center;
+  padding: 24px;
+  color: #8a8a8a;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+:deep(.action-btn.action-restore:hover) {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
 }
 </style>
 
@@ -569,7 +870,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 90px;
+  width: 105px;
   color: #8a8a8a;
   font-size: 13px;
   transition: color 0.2s;
@@ -605,7 +906,7 @@ onMounted(async () => {
 .reset-filters:hover { color: #fff !important; }
 
 .dark-select.match-select { width: 80px; }
-.dark-select.math-select { width: 60px; }
+.dark-select.math-select { width: 75px; }
 .dark-select.value-select { width: 110px; flex: 1; }
 /* V2 style wrappers */
 .dark-select .el-input__wrapper,
@@ -679,5 +980,129 @@ onMounted(async () => {
 .dark-select-dropdown.el-popper .el-popper__arrow::before {
   background: #282828 !important;
   border: 1px solid #3e3e3e !important;
+}
+
+/* Custom Topic Selector UI */
+.topic-trigger {
+  width: 110px;
+  flex: 1;
+  background-color: #333;
+  box-shadow: 0 0 0 1px #3e3e3e inset;
+  border-radius: 6px;
+  height: 24px; /* match el-select small size */
+  display: flex;
+  align-items: center;
+  padding: 0 8px; /* Slightly reduced padding */
+  color: #eff2f6;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.topic-trigger .topic-trigger-icon {
+  margin-left: auto;
+  color: #8a8a8a;
+  flex-shrink: 0;
+}
+.topic-trigger:not(.is-disabled):hover {
+  box-shadow: 0 0 0 1px #5c5c5c inset;
+}
+.topic-trigger.is-disabled {
+  background-color: #282828;
+  box-shadow: 0 0 0 1px #333 inset;
+  color: #5c5c5c;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.selected-topics-text {
+  color: var(--accent-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topic-popover {
+  padding: 12px !important;
+}
+.topic-selector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.popover-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.popover-search .search-icon {
+  position: absolute;
+  left: 12px;
+  color: #8a8a8a;
+}
+.popover-search .search-input {
+  background-color: #333;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  padding: 6px 12px 6px 32px;
+  color: #eff2f6;
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  transition: all 0.2s;
+}
+.popover-search .search-input:focus {
+  border-color: #5c5c5c;
+}
+.popover-search .search-input::placeholder {
+  color: #8a8a8a;
+}
+.topic-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+/* Scrollbar for pills */
+.topic-pills-container::-webkit-scrollbar {
+  width: 6px;
+}
+.topic-pills-container::-webkit-scrollbar-thumb {
+  background-color: #444;
+  border-radius: 3px;
+}
+.topic-pill {
+  background: #3e3e3e;
+  border: 1px solid transparent;
+  color: #eff2f6;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.topic-pill:hover {
+  background: #5c5c5c;
+}
+.topic-pill.is-active {
+  background: rgba(255, 161, 22, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(255, 161, 22, 0.3);
+}
+.no-topics {
+  color: #8a8a8a;
+  font-size: 12px;
+  padding: 8px 0;
+  text-align: center;
+  width: 100%;
+}
+.topic-selector-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #3e3e3e;
+  padding-top: 8px;
+  margin-top: 4px;
 }
 </style>

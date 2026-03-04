@@ -1,7 +1,8 @@
 <script setup>
-import { defineProps } from 'vue'
+import { defineProps, ref, onMounted } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { topicsAPI } from '@/api/topics'
 
 const props = defineProps({
     modelValue: {
@@ -19,13 +20,69 @@ const getDifficultyClass = (difficulty) => {
    if (difficulty === 'HARD') return 'difficulty-hard'
    return ''
 }
+
+const activeTopics = ref([])
+const loadingTopics = ref(false)
+const topicPage = ref(0)
+const topicSize = 100
+const hasMoreTopics = ref(true)
+
+const loadActiveTopics = async (loadMore = false) => {
+   if (loadingTopics.value) return
+   if (loadMore && !hasMoreTopics.value) return
+
+   if (!loadMore) {
+      topicPage.value = 0
+   }
+
+   try {
+      loadingTopics.value = true
+      const response = await topicsAPI.getAllActiveTopics({ page: topicPage.value, size: topicSize })
+      
+      const content = response.content || []
+      const totalPages = response.totalPages || 1
+
+      if (loadMore) {
+         activeTopics.value = [...activeTopics.value, ...content]
+      } else {
+         activeTopics.value = content
+      }
+
+      topicPage.value++
+      hasMoreTopics.value = topicPage.value < totalPages
+   } catch (error) {
+      console.error('Failed to load active topics', error)
+   } finally {
+      loadingTopics.value = false
+   }
+}
+
+onMounted(() => {
+   loadActiveTopics()
+})
+
+const handleDropdownVisibleChange = (visible) => {
+   if (visible) {
+      setTimeout(() => {
+         const popoverWrap = document.querySelector('.topic-dropdown-popover .el-select-dropdown__wrap')
+         if (popoverWrap && !popoverWrap.hasAttribute('data-scroll-bound')) {
+            popoverWrap.setAttribute('data-scroll-bound', 'true')
+            popoverWrap.addEventListener('scroll', () => {
+               if (popoverWrap.scrollHeight - popoverWrap.scrollTop <= popoverWrap.clientHeight + 20) {
+                  loadActiveTopics(true)
+               }
+            })
+         }
+      }, 50)
+   }
+}
 </script>
 
 <template>
    <div class="tab-content-wrapper full-width">
       <div class="form-section mb-6">
          <el-row :gutter="32">
-            <el-col :span="18">
+            <el-col :span="12">
                <el-form-item label="Problem Title" prop="title">
                   <el-input 
                      v-model="modelValue.title" 
@@ -35,6 +92,35 @@ const getDifficultyClass = (difficulty) => {
                   />
                </el-form-item>
             </el-col>
+
+            <el-col :span="6">
+               <el-form-item label="Topics" prop="topicIds">
+                  <el-select 
+                     v-model="modelValue.topicIds" 
+                     multiple
+                     collapse-tags
+                     :max-collapse-tags="3"
+                     collapse-tags-tooltip
+                     effect="dark"
+                     placeholder="Select topics" 
+                     size="large"
+                     filterable
+                     class="custom-select w-full"
+                     popper-class="topic-dropdown-popover"
+                     :loading="loadingTopics"
+                     loading-text="Loading topics..."
+                     @visible-change="handleDropdownVisibleChange"
+                  >
+                     <el-option
+                        v-for="topic in activeTopics"
+                        :key="topic.topicId || topic.id"
+                        :label="topic.name"
+                        :value="topic.topicId || topic.id"
+                     />
+                  </el-select>
+               </el-form-item>
+            </el-col>
+
             <el-col :span="6">
                <el-form-item label="Difficulty" prop="difficulty">
                   <el-select 
@@ -53,7 +139,7 @@ const getDifficultyClass = (difficulty) => {
          </el-row>
       </div>
 
-      <div class="form-section">
+      <div class="form-section mb-6">
           <el-form-item label="Description" prop="description">
              <div class="quill-wrapper main-quill">
                 <QuillEditor 
@@ -121,6 +207,17 @@ const getDifficultyClass = (difficulty) => {
   box-shadow: 0 0 0 1px #ffa116 inset !important;
 }
 
+/* Multiple Select Tags Dark Theme */
+:deep(.el-select .el-tag) {
+  background-color: #262626 !important;
+  border-color: #404040 !important;
+  color: #e0e0e0 !important;
+}
+:deep(.el-select .el-tag__close:hover) {
+  background-color: #404040 !important;
+  color: #fff !important;
+}
+
 /* Difficulty Colors */
 .difficulty-easy :deep(.el-input__inner) { color: #2cbb5d !important; font-weight: 600; }
 .difficulty-medium :deep(.el-input__inner) { color: #ffb800 !important; font-weight: 600; }
@@ -159,5 +256,92 @@ const getDifficultyClass = (difficulty) => {
 :deep(.ql-editor.ql-blank::before) {
   color: #a0a0a0 !important; 
   font-style: italic;
+}
+</style>
+
+<style>
+/* Global because el-select popovers are appended to body */
+.topic-dropdown-popover.el-popper {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+  border-radius: 8px !important;
+  padding: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+}
+
+.topic-dropdown-popover.el-popper .el-popper__arrow::before {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+}
+
+.topic-dropdown-popover .el-scrollbar__wrap {
+  max-height: 250px !important;
+}
+
+.topic-dropdown-popover .el-select-dropdown__list {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 4px !important;
+  margin: 0 !important;
+}
+
+.topic-dropdown-popover .el-select-dropdown__item {
+  background: #3e3e3e !important;
+  border: 1px solid transparent !important;
+  color: #eff2f6 !important;
+  border-radius: 20px !important;
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  height: auto !important;
+  line-height: normal !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important; /* overrides el-option 100% width */
+}
+
+/* Hover effect */
+.topic-dropdown-popover .el-select-dropdown__item:hover,
+.topic-dropdown-popover .el-select-dropdown__item.hover {
+  background: #5c5c5c !important;
+  color: #eff2f6 !important;
+}
+
+/* Active/selected effect */
+.topic-dropdown-popover .el-select-dropdown__item.selected {
+  background: rgba(255, 161, 22, 0.1) !important;
+  color: #ffa116 !important;
+  border-color: rgba(255, 161, 22, 0.3) !important;
+  font-weight: normal !important;
+}
+
+.topic-dropdown-popover .el-select-dropdown__item.selected::after {
+  display: none !important; /* hide default checkmark */
+}
+
+/* Fix collapse-tags tooltip background when hovering +1 (Usually defaults to is-light) */
+.el-popper.is-light {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+  color: #eff2f6 !important;
+}
+
+.el-popper.is-light .el-popper__arrow::before {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+}
+
+/* Fix the tags inside the tooltip popup so they match dark theme too */
+.el-popper .el-tag {
+  background-color: #3e3e3e !important;
+  border-color: transparent !important;
+  color: #eff2f6 !important;
+  margin: 2px !important;
+}
+
+.el-popper .el-tag .el-tag__close:hover {
+  background-color: #5c5c5c !important;
+  color: #fff !important;
 }
 </style>

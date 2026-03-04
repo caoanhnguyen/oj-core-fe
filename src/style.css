@@ -84,11 +84,6 @@
   --el-box-shadow-dark: none;
 }
 
-/* Element Plus Message Overrides - LeetCode Theme */
-:root {
-  /* ...existing code... */
-}
-
 /* Message notification styling */
 .el-message {
   --el-message-bg-color: var(--bg-tertiary) !important;
@@ -293,4 +288,179 @@ button {
 .el-popper.is-dark .el-popper__arrow::before {
   background: var(--bg-tertiary) !important;
   border: 1px solid var(--border-primary) !important;
+}
+
+/* ElMessageBox Dark Theme Overrides */
+.el-overlay.is-message-box {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.el-message-box {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+.el-message-box__title {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.el-message-box__content {
+  color: var(--text-secondary) !important;
+}
+
+.el-message-box__btns .el-button {
+  background-color: transparent;
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.el-message-box__btns .el-button:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.el-message-box__btns .el-button--primary {
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: #000 !important;
+}
+
+.el-message-box__btns .el-button--primary:hover {
+  background-color: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+}
+
+/* Global Element Plus Inputs & Selects Dark Theme */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  background-color: var(--bg-tertiary) !important;
+  box-shadow: 0 0 0 1px var(--border-primary) inset !important;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--text-tertiary) inset !important;
+}
+
+.el-input.is-focus .el-input__wrapper,
+.el-select__wrapper.is-focused,
+.el-select:has(.el-select__wrapper.is-focused) .el-select__wrapper,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--accent-primary) inset !important;
+}
+
+.el-input__inner,
+.el-select__placeholder {
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+/* Global Disabled states */
+.el-input.is-disabled .el-input__wrapper,
+.el-select__wrapper.is-disabled {
+  background-color: var(--bg-secondary) !important;
+  box-shadow: 0 0 0 1px var(--border-primary) inset !important;
+}
+
+.el-input.is-disabled .el-input__inner,
+.el-select__wrapper.is-disabled .el-select__placeholder {
+  color: var(--text-tertiary) !important;
+  -webkit-text-fill-color: var(--text-tertiary) !important;
+}
+
+/* Global Dropdown List Background */
+.el-select-dropdown.el-popper {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+/* Dialog wrapper styling */
+.dark-dialog {
+  background-color: var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.dark-dialog .el-dialog__title {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.dark-form .el-form-item__label {
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  padding-bottom: 4px !important;
+}
+
+/* Global Loading Spinner & Mask Dark Theme */
+.el-loading-mask {
+  background-color: var(--bg-primary) !important;
+  transition: opacity 0.3s;
+}
+
+.el-loading-spinner .path {
+  stroke: var(--accent-primary) !important;
+  stroke-width: 3 !important;
+}
+
+.el-loading-spinner .el-loading-text {
+  color: var(--accent-primary) !important;
+}
+
+/* Global Skeleton Dark Theme & Animation Gradient */
+@keyframes el-skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.el-skeleton {
+  --el-skeleton-color: #282828 !important;
+  --el-skeleton-to-color: #3e3e3e !important;
+}
+
+.el-skeleton.is-animated .el-skeleton__item {
+  background: linear-gradient(90deg, #282828 25%, #3e3e3e 37%, #282828 63%) !important;
+  background-size: 400% 100% !important;
+  animation: el-skeleton-loading 1.4s ease infinite !important;
+}
+
+/* Global Empty State Dark Theme Variables */
+:root {
+  --el-empty-fill-color-0: var(--bg-primary);
+  --el-empty-fill-color-1: #3e3e3e;
+  --el-empty-fill-color-2: #333333;
+  --el-empty-fill-color-3: #1f1f1f;
+  --el-empty-fill-color-4: #2d2d2d;
+  --el-empty-fill-color-5: #262626;
+  --el-empty-fill-color-6: #282828;
+  --el-empty-fill-color-7: #1a1a1a;
+  --el-empty-fill-color-8: #212121;
+  --el-empty-fill-color-9: #151515;
+}
+
+.el-empty {
+  --el-empty-fill-color-0: var(--bg-primary) !important;
+  --el-empty-fill-color-1: #3e3e3e !important;
+  --el-empty-fill-color-2: #333333 !important;
+  --el-empty-fill-color-3: #1f1f1f !important;
+  --el-empty-fill-color-4: #2d2d2d !important;
+  --el-empty-fill-color-5: #262626 !important;
+  --el-empty-fill-color-6: #282828 !important;
+  --el-empty-fill-color-7: #1a1a1a !important;
+  --el-empty-fill-color-8: #212121 !important;
+  --el-empty-fill-color-9: #151515 !important;
+}
+
+.el-empty__description p {
+  color: var(--text-secondary) !important;
 }

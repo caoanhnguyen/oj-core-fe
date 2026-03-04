@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { FileText, MessageSquare, Users, Trophy, TrendingUp, CheckCircle } from 'lucide-vue-next'
 
 import ProblemsList from './ProblemsList.vue'
+import TopicsList from './TopicsList.vue'
 import ContestsList from './ContestsList.vue'
 import DiscussionsList from './DiscussionsList.vue'
 import UsersList from './UsersList.vue'
@@ -81,6 +82,9 @@ const stats = ref([
 
     <!-- Problems Tab -->
     <ProblemsList v-if="activeTab === 'problems'" />
+
+    <!-- Topics Tab -->
+    <TopicsList v-if="activeTab === 'topics'" />
 
     <!-- Contests Tab -->
     <ContestsList v-if="activeTab === 'contests'" />

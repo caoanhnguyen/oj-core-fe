@@ -15,7 +15,7 @@ export const problemsAPI = {
      * @returns {Promise<{content: Array, totalElements: number, totalPages: number}>}
      */
     getProblems: async (params = {}) => {
-        const response = await axiosInstance.get('/problems', { params })
+        const response = await axiosInstance.get('/admin/problems', { params })
         return response.data.data
     },
 
@@ -25,7 +25,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Problem details
      */
     getProblemById: async (id) => {
-        const response = await axiosInstance.get(`/problems/${id}`)
+        const response = await axiosInstance.get(`/admin/problems/${id}`)
         return response.data.data
     },
 
@@ -35,7 +35,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Problem details
      */
     getProblemBySlug: async (slug) => {
-        const response = await axiosInstance.get(`/problems/slug/${slug}`)
+        const response = await axiosInstance.get(`/admin/problems/slug/${slug}`)
         return response.data.data
     },
 
@@ -45,7 +45,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Created problem
      */
     createProblem: async (data) => {
-        const response = await axiosInstance.post('/problems', data)
+        const response = await axiosInstance.post('/admin/problems', data)
         return response.data.data
     },
 
@@ -56,7 +56,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Updated problem
      */
     updateProblem: async (id, data) => {
-        const response = await axiosInstance.put(`/problems/${id}`, data)
+        const response = await axiosInstance.put(`/admin/problems/${id}`, data)
         return response.data.data
     },
 
@@ -66,7 +66,7 @@ export const problemsAPI = {
      * @returns {Promise<void>}
      */
     deleteProblem: async (id) => {
-        const response = await axiosInstance.delete(`/problems/${id}`)
+        const response = await axiosInstance.delete(`/admin/problems/${id}`)
         return response.data
     },
 
@@ -76,11 +76,21 @@ export const problemsAPI = {
      * @param {FormData} formData - Multipart form data
      */
     uploadTestcases: async (id, formData) => {
-        const response = await axiosInstance.post(`/problems/${id}/testcases/batch-zip`, formData, {
+        const response = await axiosInstance.post(`/admin/problems/${id}/testcases/batch-zip`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
         })
+        return response.data
+    },
+
+    /**
+     * Restore a deleted problem (Admin only)
+     * @param {string} id - Problem UUID
+     * @returns {Promise<void>}
+     */
+    restoreProblem: async (id) => {
+        const response = await axiosInstance.post(`/admin/problems/${id}/restore`)
         return response.data
     }
 }

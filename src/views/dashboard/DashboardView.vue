@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight, Tag } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,6 +10,7 @@ const isCollapsed = ref(false)
 const menuItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'problems', label: 'Problems', icon: FileText },
+  { id: 'topics', label: 'Topics', icon: Tag },
   { id: 'contests', label: 'Contests', icon: Trophy },
   { id: 'discussions', label: 'Discussions', icon: MessageSquare },
   { id: 'users', label: 'Users', icon: Users },

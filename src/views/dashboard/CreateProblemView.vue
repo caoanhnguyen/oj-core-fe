@@ -26,6 +26,7 @@ const formData = ref({
   constraints: '',
   timeLimitMs: 1000,
   memoryLimitKb: 256,
+  topicIds: [],
   examples: [
     { inputData: '', outputData: '', explanation: '', orderIndex: 0, expanded: true }
   ],
@@ -137,6 +138,11 @@ const handleCancel = () => {
 onBeforeUnmount(() => {
   problemStore.clearUploadedImages()
 })
+
+const handleBack = () => {
+  // Navigate back to the Manage Problems tab
+  router.push({ path: '/dashboard', query: { tab: 'problems' } })
+}
 </script>
 
 <template>
@@ -152,6 +158,9 @@ onBeforeUnmount(() => {
       <!-- FIXED HEADER -->
       <div class="fixed-header">
          <div class="header-left">
+            <button type="button" class="back-btn" @click="handleBack">
+               <ArrowLeft :size="20" />
+            </button>
             <h2 class="page-title">Create New Problem</h2>
          </div>
          <div class="header-right">
@@ -214,6 +223,26 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  margin-left: -8px; /* Offset padding to align visually */
 }
 
 .fixed-header {

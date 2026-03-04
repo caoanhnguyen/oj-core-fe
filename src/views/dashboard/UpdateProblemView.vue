@@ -26,6 +26,7 @@ const formData = ref({
   constraints: '',
   timeLimitMs: 1000,
   memoryLimitKb: 256,
+  topicIds: [],
   examples: [],
   templates: [],
   testcases: [] 
@@ -65,6 +66,11 @@ onMounted(async () => {
             formData.value.constraints = problem.constraints
             formData.value.timeLimitMs = problem.timeLimitMs
             formData.value.memoryLimitKb = problem.memoryLimitKb
+            
+            // Topics
+            if (problem.topics) {
+                formData.value.topicIds = problem.topics.map(t => t.topicId)
+            }
             
             // Examples
             if (problem.examples) {

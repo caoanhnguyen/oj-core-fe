@@ -208,11 +208,11 @@ const clearAll = () => {
                        <button 
                           type="button"
                           class="status-toggle" 
-                          :class="{ 'is-hidden': tc.isHidden }"
+                          :class="{ 'is-hidden': !tc.isHidden }"
                           @click="toggleVisibility(index)"
                        >
-                          <component :is="tc.isHidden ? EyeOff : Eye" :size="14" />
-                          <span>{{ tc.isHidden ? 'Hidden' : 'Sample' }}</span>
+                          <component :is="tc.isHidden ? Eye : EyeOff" :size="14" />
+                          <span>{{ tc.isHidden ? 'Sample' : 'Hidden' }}</span>
                        </button>
                     </div>
                     <div class="col-action">
