@@ -15,6 +15,15 @@ export const problemsAPI = {
      * @returns {Promise<{content: Array, totalElements: number, totalPages: number}>}
      */
     getProblems: async (params = {}) => {
+        const response = await axiosInstance.get('/problems', { params })
+        return response.data.data
+    },
+
+    /**
+     * Get list of problems for Admin with all statuses (draft, deleted)
+     * @param {Object} params - Query parameters
+     */
+    getAdminProblems: async (params = {}) => {
         const response = await axiosInstance.get('/admin/problems', { params })
         return response.data.data
     },
@@ -25,7 +34,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Problem details
      */
     getProblemById: async (id) => {
-        const response = await axiosInstance.get(`/admin/problems/${id}`)
+        const response = await axiosInstance.get(`/problems/${id}`)
         return response.data.data
     },
 
@@ -35,7 +44,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Problem details
      */
     getProblemBySlug: async (slug) => {
-        const response = await axiosInstance.get(`/admin/problems/slug/${slug}`)
+        const response = await axiosInstance.get(`/problems/slug/${slug}`)
         return response.data.data
     },
 
@@ -56,7 +65,7 @@ export const problemsAPI = {
      * @returns {Promise<Object>} Updated problem
      */
     updateProblem: async (id, data) => {
-        const response = await axiosInstance.put(`/admin/problems/${id}`, data)
+        const response = await axiosInstance.patch(`/admin/problems/${id}`, data)
         return response.data.data
     },
 
@@ -73,10 +82,10 @@ export const problemsAPI = {
     /**
      * Upload testcases zip batch
      * @param {string} id - Problem UUID
-     * @param {FormData} formData - Multipart form data
+     * @param {FormData} formData - Multipart form data containing the ZIP file
      */
     uploadTestcases: async (id, formData) => {
-        const response = await axiosInstance.post(`/admin/problems/${id}/testcases/batch-zip`, formData, {
+        const response = await axiosInstance.post(`/admin/testcases/upload/${id}`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
@@ -91,6 +100,16 @@ export const problemsAPI = {
      */
     restoreProblem: async (id) => {
         const response = await axiosInstance.post(`/admin/problems/${id}/restore`)
+        return response.data
+    },
+
+    /**
+     * Publish a draft problem (Admin only)
+     * @param {string} id - Problem UUID
+     * @returns {Promise<void>}
+     */
+    publishProblem: async (id) => {
+        const response = await axiosInstance.patch(`/admin/problems/${id}/publish`)
         return response.data
     }
 }

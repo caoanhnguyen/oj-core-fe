@@ -29,10 +29,11 @@ export const useProblemStore = defineStore('problem', {
         /**
          * Fetch problems list with pagination and filters
          */
-        async fetchProblems(params = {}, append = false) {
+        async fetchProblems(params = {}, append = false, isAdmin = false) {
             try {
                 this.loading = true
-                const data = await problemsAPI.getProblems({
+                const apiCall = isAdmin ? problemsAPI.getAdminProblems : problemsAPI.getProblems
+                const data = await apiCall({
                     page: params.page || 0,
                     size: params.size || 10,
                     difficulty: params.difficulty,
@@ -134,7 +135,7 @@ export const useProblemStore = defineStore('problem', {
                 this.clearUploadedImages()
 
                 // Refresh problems list
-                await this.fetchProblems({ page: 0, size: this.pagination.size })
+                await this.fetchProblems({ page: 0, size: this.pagination.size }, false, true)
 
                 return result
             } catch (error) {
@@ -167,7 +168,7 @@ export const useProblemStore = defineStore('problem', {
                 this.clearUploadedImages()
 
                 // Refresh problems list
-                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size })
+                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
 
                 return result
             } catch (error) {
@@ -190,7 +191,7 @@ export const useProblemStore = defineStore('problem', {
                 ElMessage.success('Problem deleted successfully!')
 
                 // Refresh problems list
-                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size })
+                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
                 console.error('Failed to delete problem:', error)
                 ElMessage.error(error.response?.data?.message || 'Failed to delete problem')
@@ -211,10 +212,31 @@ export const useProblemStore = defineStore('problem', {
                 ElMessage.success('Problem restored successfully!')
 
                 // Refresh problems list
-                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size })
+                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
                 console.error('Failed to restore problem:', error)
                 ElMessage.error(error.response?.data?.message || 'Failed to restore problem')
+                throw error
+            } finally {
+                this.loading = false
+            }
+        },
+
+        /**
+         * Publish problem
+         */
+        async publishProblem(id) {
+            try {
+                this.loading = true
+                await problemsAPI.publishProblem(id)
+
+                ElMessage.success('Problem published successfully!')
+
+                // Refresh problems list
+                await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
+            } catch (error) {
+                console.error('Failed to publish problem:', error)
+                ElMessage.error(error.response?.data?.message || 'Failed to publish problem')
                 throw error
             } finally {
                 this.loading = false

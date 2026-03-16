@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import Navbar from './components/layout/Navbar.vue'
+import Footer from './components/layout/Footer.vue'
 import EmailVerificationBanner from './components/auth/EmailVerificationBanner.vue'
 import { useAuthStore } from './stores/auth'
 
@@ -15,6 +16,18 @@ const showVerificationBanner = computed(() => {
   return authStore.isAuthenticated && !authStore.isEmailVerified && !GUEST_PATHS.includes(route.path)
 })
 
+// Không hiển thị footer khi đang ở trang chi tiết bài tập
+const showFooter = computed(() => {
+  return route.name !== 'problem-detail'
+})
+
+onMounted(async () => {
+  try {
+    await authStore.getCurrentUser()
+  } catch (error) {
+    console.log('No active session')
+  }
+})
 </script>
 
 <template>
@@ -23,6 +36,7 @@ const showVerificationBanner = computed(() => {
     <main class="main-content">
       <RouterView />
     </main>
+    <Footer v-if="showFooter" />
   </div>
 </template>
 

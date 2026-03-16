@@ -140,6 +140,48 @@ const handleDropdownVisibleChange = (visible) => {
       </div>
 
       <div class="form-section mb-6">
+         <el-row :gutter="32">
+            <el-col :span="8">
+               <el-form-item label="Rule Type" prop="ruleType">
+                  <el-select 
+                     v-model="modelValue.ruleType" 
+                     placeholder="Select rule type" 
+                     size="large"
+                     class="custom-select w-full"
+                  >
+                     <el-option label="ACM (Pass all = Accept)" value="ACM" />
+                     <el-option label="OI (Partial scoring)" value="OI" />
+                  </el-select>
+               </el-form-item>
+            </el-col>
+
+            <el-col :span="8">
+               <el-form-item label="Total Score (Optional)" prop="totalScore">
+                  <el-input-number 
+                     v-model="modelValue.totalScore" 
+                     :min="1" 
+                     :max="1000"
+                     placeholder="100"
+                     size="large"
+                     class="custom-input-number w-full"
+                  />
+               </el-form-item>
+            </el-col>
+
+            <el-col :span="8">
+               <el-form-item label="Source / Original Author" prop="source">
+                  <el-input 
+                     v-model="modelValue.source" 
+                     placeholder="e.g. Codeforces, LeetCode" 
+                     size="large"
+                     class="custom-input"
+                  />
+               </el-form-item>
+            </el-col>
+         </el-row>
+      </div>
+
+      <div class="form-section mb-6">
           <el-form-item label="Description" prop="description">
              <div class="quill-wrapper main-quill">
                 <QuillEditor 
@@ -151,8 +193,22 @@ const handleDropdownVisibleChange = (visible) => {
                 />
              </div>
           </el-form-item>
-      </div>
-   </div>
+       </div>
+       
+       <div class="form-section mb-6">
+          <el-form-item label="Author Hint (Optional)" prop="hint">
+             <div class="quill-wrapper main-quill">
+                <QuillEditor 
+                   v-model:content="modelValue.hint" 
+                   theme="snow" 
+                   toolbar="essential" 
+                   contentType="html"
+                   placeholder="Give a small hint to the user if they get stuck..." 
+                />
+             </div>
+          </el-form-item>
+       </div>
+    </div>
 </template>
 
 <style scoped>
@@ -185,8 +241,21 @@ const handleDropdownVisibleChange = (visible) => {
   box-shadow: 0 0 0 1px #666 inset !important;
 }
 
-:deep(.el-input__wrapper.is-focus) {
+:deep(.el-input__wrapper.is-focus),
+:deep(.el-textarea__inner:focus) {
   box-shadow: 0 0 0 1px #ffa116 inset !important;
+}
+
+/* Input Number specific fix */
+:deep(.el-input-number__decrease),
+:deep(.el-input-number__increase) {
+  background-color: #262626 !important;
+  border-color: #333 !important;
+  color: #a0a0a0 !important;
+}
+:deep(.el-input-number__decrease:hover),
+:deep(.el-input-number__increase:hover) {
+  color: #ffa116 !important;
 }
 
 /* Select/Combobox Styles - Force Dark Theme */

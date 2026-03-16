@@ -1,6 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import ProblemView from '../views/problems/ProblemView.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
@@ -9,17 +7,31 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue')
     },
     {
       path: '/problems',
       name: 'problems',
-      component: () => import('../views/HomeView.vue')
+      component: () => import('../views/problems/ProblemListView.vue')
     },
     {
       path: '/problems/:slug',
+      redirect: to => `/problems/${to.params.slug}/description`
+    },
+    {
+      path: '/problems/:slug/:tab',
       name: 'problem-detail',
-      component: () => import('../views/problems/ProblemDetailView.vue'),
+      component: () => import('../views/problems/ProblemDetailView.vue')
+    },
+    {
+      path: '/submissions',
+      name: 'submissions',
+      component: () => import('../views/submissions/SubmissionsList.vue'),
+    },
+    {
+      path: '/submissions/:id',
+      name: 'submission-detail',
+      component: () => import('../views/submissions/SubmissionDetailView.vue'), // To be created
       meta: { requiresAuth: true }
     },
     {
@@ -84,40 +96,53 @@ const router = createRouter({
         }
       ]
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFoundView.vue')
+    }
   ],
 })
 
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore()
-  let isAuthenticated = authStore.isAuthenticated
+  try {
+    const authStore = useAuthStore()
 
-  // Nếu route cần auth mà store chưa có user, thử fetch /users/me (từ cookie)
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    try {
-      await authStore.getCurrentUser()
-      isAuthenticated = true
-    } catch {
-      // User không có cookie hợp lệ
+    if (!window.__authInitialized) {
+      window.__authInitialized = true
+      try {
+        await authStore.getCurrentUser()
+      } catch (err) {
+        // Nuốt lỗi an toàn
+        console.warn("Chưa đăng nhập hoặc phiên hết hạn")
+      }
     }
-  }
 
-  // Admin auto-redirect to dashboard
-  if (isAuthenticated && authStore.isAdmin && to.path === '/') {
-    next('/dashboard')
-    return
-  }
+    // 🌟 Rút biến ra để tránh việc chọc vào getter nhiều lần có thể gây lỗi
+    const isAuthenticated = !!authStore.isAuthenticated
+    const isAdmin = !!authStore.isAdmin
 
-  if (to.meta.requiresGuest && isAuthenticated) {
-    // Redirect admin to dashboard, others to home
-    next(authStore.isAdmin ? '/dashboard' : '/')
-  } else if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
-  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    // Nếu route cần admin mà user không phải admin, redirect về home
-    next('/')
-  } else {
+    // Admin auto-redirect to dashboard
+    if (isAuthenticated && isAdmin && to.path === '/') {
+      return next('/dashboard')
+    }
+
+    if (to.meta.requiresGuest && isAuthenticated) {
+      // Redirect admin to dashboard, others to home
+      return next(isAdmin ? '/dashboard' : '/')
+    } else if (to.meta.requiresAuth && !isAuthenticated) {
+      return next('/login')
+    } else if (to.meta.requiresAdmin && !isAdmin) {
+      // Nếu route cần admin mà user không phải admin, redirect về home
+      return next('/')
+    }
+
     next()
+  } catch (error) {
+    console.error("Lỗi nghiêm trọng tại Router Guard:", error)
+    // Nếu sập Router, ép về một trang public để không bị trắng màn hình
+    next('/login')
   }
 })
 

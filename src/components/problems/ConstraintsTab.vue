@@ -28,11 +28,11 @@ const props = defineProps({
                </el-form-item>
             </el-col>
             <el-col :span="12">
-               <el-form-item label="Memory Limit (KB)" prop="memoryLimitKb">
+               <el-form-item label="Memory Limit (MB)" prop="memoryLimitMb">
                   <el-input-number 
-                     v-model="modelValue.memoryLimitKb" 
-                     :min="1024" 
-                     :step="1024" 
+                     v-model="modelValue.memoryLimitMb" 
+                     :min="1" 
+                     :step="1" 
                      controls-position="right"
                      class="custom-number-input w-full" 
                      size="large"
@@ -42,7 +42,7 @@ const props = defineProps({
          </el-row>
        </div>
        
-       <div class="form-section">
+       <div class="form-section mb-6">
           <el-form-item label="Constraints Details" prop="constraints">
              <div class="quill-wrapper main-quill">
                 <QuillEditor 
@@ -54,6 +54,37 @@ const props = defineProps({
                 />
              </div>
           </el-form-item>
+       </div>
+
+       <div class="form-section mb-6">
+          <el-row :gutter="32">
+             <el-col :span="12">
+                 <el-form-item label="Input Format (Optional)" prop="inputFormat">
+                     <div class="quill-wrapper main-quill">
+                        <QuillEditor 
+                           v-model:content="modelValue.inputFormat" 
+                           theme="snow" 
+                           toolbar="essential" 
+                           contentType="html"
+                           placeholder="Describe the input format..." 
+                        />
+                     </div>
+                 </el-form-item>
+             </el-col>
+             <el-col :span="12">
+                 <el-form-item label="Output Format (Optional)" prop="outputFormat">
+                     <div class="quill-wrapper main-quill">
+                        <QuillEditor 
+                           v-model:content="modelValue.outputFormat" 
+                           theme="snow" 
+                           toolbar="essential" 
+                           contentType="html"
+                           placeholder="Describe the output format..." 
+                        />
+                     </div>
+                 </el-form-item>
+             </el-col>
+          </el-row>
        </div>
    </div>
 </template>

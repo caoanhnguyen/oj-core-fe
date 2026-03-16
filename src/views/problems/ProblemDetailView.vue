@@ -2,8 +2,13 @@
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
-import { ArrowLeft, Play, Send, MoreVertical, Settings, ChevronUp, ChevronDown, Tag } from 'lucide-vue-next'
+import { useAuthStore } from '../../stores/auth'
+import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn } from 'lucide-vue-next'
+import { ElMessage, ElNotification } from 'element-plus'
 import * as monaco from 'monaco-editor'
+import { useSubmissionStore } from '../../stores/submission'
+import StatisticsTab from '../../components/problems/StatisticsTab.vue'
+import SubmissionsTab from '../../components/problems/SubmissionsTab.vue'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
@@ -24,13 +29,31 @@ self.MonacoEnvironment = {
 const route = useRoute()
 const router = useRouter()
 const problemStore = useProblemStore()
+const submissionStore = useSubmissionStore()
+
+const executionLoading = ref(false)
+const executionResult = ref(null)
 
 const problem = ref(null)
 const loading = ref(true)
-const activeTab = ref('description')
 const selectedLanguage = ref('java')
 const editorContainer = ref(null)
+const submissionsTabRef = ref(null)
 const isTopicsExpanded = ref(false)
+const isHintExpanded = ref(false)
+
+// Tab is driven by the URL: /problems/:slug/:tab
+const VALID_TABS = ['description', 'submissions', 'statistics']
+const activeTab = computed(() => {
+  const t = route.params.tab
+  return VALID_TABS.includes(t) ? t : 'description'
+})
+
+const switchTab = (tab) => {
+  router.push({ name: 'problem-detail', params: { slug: route.params.slug, tab } })
+}
+
+const authStore = useAuthStore()
 
 const scrollToTopics = () => {
   isTopicsExpanded.value = true
@@ -40,24 +63,64 @@ const scrollToTopics = () => {
   })
 }
 
+const scrollToHint = () => {
+  isHintExpanded.value = true
+  nextTick(() => {
+    const el = document.getElementById('hint-section')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  })
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 let editorInstance = null
 
 // Testcase Logic
 const activeTestcaseIndex = ref(0)
-const testcaseContent = ref({}) // { [id]: { input: '', output: '', loading: false, error: false } }
+const sampleTestcases = ref([])
 
-const sampleTestcases = computed(() => {
-  if (!problem.value?.testCases) return []
-  return problem.value.testCases
-    .filter(tc => tc.isHidden)
-    .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
-})
+const copiedStates = ref({}) 
+const copyToClipboard = async (text, key) => {
+   try {
+       await navigator.clipboard.writeText(text || '')
+       copiedStates.value[key] = true
+       setTimeout(() => { copiedStates.value[key] = false }, 2000)
+   } catch(e) {
+       console.error('Failed to copy', e)
+   }
+}
 
-watch(problem, () => { 
+watch(problem, (newProb) => { 
+    if (newProb?.examples) {
+        sampleTestcases.value = JSON.parse(JSON.stringify(newProb.examples)).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+    } else {
+        sampleTestcases.value = []
+    }
     activeTestcaseIndex.value = 0 
-    testcaseContent.value = {}
 })
+
+const addCustomTestcase = () => {
+    const maxCustom = (problem.value?.examples?.length || 0) + 3
+    if (sampleTestcases.value.length >= maxCustom) {
+        ElMessage.warning('You can only create up to 3 custom testcases.')
+        return
+    }
+    sampleTestcases.value.push({
+        id: 'custom-' + Date.now(),
+        rawInput: '',
+        rawOutput: '',
+        isCustom: true
+    })
+    activeTestcaseIndex.value = sampleTestcases.value.length - 1
+}
+
+const removeCustomTestcase = (index) => {
+    sampleTestcases.value.splice(index, 1)
+    if (activeTestcaseIndex.value >= sampleTestcases.value.length) {
+        activeTestcaseIndex.value = Math.max(0, sampleTestcases.value.length - 1)
+    } else if (activeTestcaseIndex.value > index) {
+        activeTestcaseIndex.value--
+    }
+}
 
 // Fetch content if needed when active index changes
 watch(activeTestcaseIndex, async (newIndex) => {
@@ -66,7 +129,7 @@ watch(activeTestcaseIndex, async (newIndex) => {
 })
 
 const loadTestcaseContent = async (tc) => {
-    if (testcaseContent.value[tc.id]) return // Already loaded or loading
+    return;
     
     // Initialize state
     testcaseContent.value[tc.id] = { input: tc.inputData, output: tc.outputData, loading: false }
@@ -116,12 +179,7 @@ watch(sampleTestcases, (newVal) => {
     }
 }, { immediate: true })
 
-const languageOptions = [
-  { label: 'Java', value: 'java' },
-  { label: 'C++', value: 'cpp' },
-  { label: 'Python', value: 'python' },
-  { label: 'JavaScript', value: 'javascript' }
-]
+const languageOptions = ref([])
 
 const getDifficultyClass = (difficulty) => {
   const classes = {
@@ -178,12 +236,22 @@ onBeforeUnmount(() => {
 })
 
 // Monaco & Template Logic
+const getMonacoLang = (backendKey) => {
+   const map = {
+       'CPP': 'cpp',
+       'C': 'c',
+       'JAVA': 'java',
+       'PYTHON3': 'python',
+   }
+   return map[backendKey] || 'plaintext'
+}
+
 const initMonaco = () => {
   if (!editorContainer.value) return
 
   editorInstance = monaco.editor.create(editorContainer.value, {
     value: getInitialCode(),
-    language: selectedLanguage.value,
+    language: getMonacoLang(selectedLanguage.value),
     theme: 'vs-dark',
     automaticLayout: true,
     minimap: { enabled: false },
@@ -203,61 +271,185 @@ const initMonaco = () => {
   })
 }
 
-// Map frontend language value to backend ENUM key
-const getBackendLangKey = (langValue) => {
-  const map = {
-    'java': 'JAVA',
-    'cpp': 'CPP',
-    'python': 'PYTHON',
-    'javascript': 'JAVASCRIPT'
-  }
-  return map[langValue]
-}
-
 const getInitialCode = () => {
   if (problem.value?.templates?.length > 0) {
-    const backendKey = getBackendLangKey(selectedLanguage.value)
-    const template = problem.value.templates.find(t => t.language === backendKey)
+    const template = problem.value.templates.find(t => t.languageKey === selectedLanguage.value)
     return template?.codeTemplate || '// Write your code here...'
   }
   return '// Write your code here...'
 }
 
-watch(selectedLanguage, (newLang) => {
+watch(selectedLanguage, (newLangKey) => {
   if (editorInstance) {
     const model = editorInstance.getModel()
-    monaco.editor.setModelLanguage(model, newLang)
+    monaco.editor.setModelLanguage(model, getMonacoLang(newLangKey))
     editorInstance.setValue(getInitialCode())
   }
 })
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('Vui lòng đăng nhập để nộp bài')
+    router.push('/login')
+    return
+  }
   const code = editorInstance?.getValue()
-  console.log('Submit code:', code)
+  if (!code) {
+      ElMessage.warning('Vui lòng nhập code trước khi nộp bài')
+      return;
+  }
+  
+  try {
+     const payload = {
+        problemId: problem.value.id,
+        languageKey: selectedLanguage.value,
+        sourceCode: code
+     }
+     
+     ElMessage.info('Đang nộp bài...')
+     const submissionId = await submissionStore.submitCode(payload)
+     
+     // Switch to submissions tab
+     switchTab('submissions')
+     
+     submissionStore.startPollingSubmission(submissionId,
+       (res) => {
+          ElNotification({
+            title: 'Chấm bài hoàn tất',
+            message: `Kết quả: ${res.verdict}`,
+            type: res.verdict === 'AC' ? 'success' : 'warning'
+          })
+          // Reload the submissions tab to show updated result
+          submissionsTabRef.value?.loadSubmissions()
+       },
+       (err) => {
+          ElMessage.error('Chấm bài thất bại hoặc quá thời gian chờ.')
+       }
+     )
+  } catch (e) {
+      console.error(e)
+  }
 }
 
-const handleRun = () => {
+const handleRun = async () => {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('Vui lòng đăng nhập để chạy thử code')
+    router.push('/login')
+    return
+  }
   const code = editorInstance?.getValue()
-  console.log('Run code:', code)
+  if (!code) {
+      ElMessage.warning('Vui lòng nhập code trước khi chạy thử')
+      return;
+  }
+  
+  try {
+     const payload = {
+        problemId: problem.value.id,
+        languageKey: selectedLanguage.value,
+        sourceCode: code,
+        customInputs: sampleTestcases.value.map(tc => ({ rawInput: tc.rawInput }))
+     }
+     
+     const token = await submissionStore.runCode(payload)
+     
+     activeTestcaseIndex.value = -1 
+     executionLoading.value = true
+     executionResult.value = null
+     rightTopHeight.value = 60
+     
+     submissionStore.startPollingRunCode(token, 
+       (res) => {
+          executionLoading.value = false
+          executionResult.value = res
+       },
+       (err) => {
+          executionLoading.value = false
+          ElMessage.error(err.message || 'Chạy code thất bại hoặc quá thời gian chờ.')
+       }
+     )
+  } catch (e) {
+      console.error(e)
+  }
 }
 
 const handleBack = () => {
-  // Navigate back to the Manage Problems tab
-  router.push({ path: '/dashboard', query: { tab: 'problems' } })
+  router.push('/problems')
 }
 
-onMounted(async () => {
+// Reset editor to the problem's default template for current language
+const handleResetCode = () => {
+  if (editorInstance) {
+    editorInstance.setValue(getInitialCode())
+    ElMessage.success('Code đã được reset về mặc định')
+  }
+}
+
+// TODO: Implement API call to retrieve last submitted code when BE is ready
+const handleRetrieveLastCode = async () => {
+  try {
+    const sourceCode = await submissionStore.getLatestSubmissionSourceCode(problem.value.id, selectedLanguage.value)
+    if (editorInstance) {
+      editorInstance.setValue(sourceCode ? sourceCode : getInitialCode())
+    }
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('Lấy mã nguồn thất bại')
+  }
+}
+
+const initPage = async () => {
   try {
     loading.value = true
     const slug = route.params.slug
+    if (!slug) return
+
     problem.value = await problemStore.fetchProblemBySlug(slug)
+    
+    // Setup Languages
+    if (problem.value && problem.value.allowedLanguages) {
+        const displayMap = {
+            'JAVA': 'Java',
+            'CPP': 'C++',
+            'PYTHON3': 'Python 3',
+            'C': 'C',
+            'JAVASCRIPT': 'JavaScript',
+            'GO': 'Go'
+        }
+        
+        languageOptions.value = problem.value.allowedLanguages.map(l => ({
+            label: displayMap[l] || l,
+            value: l
+        }))
+            
+        if (languageOptions.value.length > 0) {
+            // Only set if not already set or if current not in allowed
+            if (!selectedLanguage.value || !problem.value.allowedLanguages.includes(selectedLanguage.value)) {
+              selectedLanguage.value = languageOptions.value[0].value
+            }
+        }
+    }
   } catch (error) {
     console.error('Failed to load problem:', error)
   } finally {
     loading.value = false
     nextTick(() => {
-      initMonaco()
+      if (editorInstance) {
+        editorInstance.setValue(getInitialCode())
+        const model = editorInstance.getModel()
+        if (model) monaco.editor.setModelLanguage(model, getMonacoLang(selectedLanguage.value))
+      } else {
+        initMonaco()
+      }
     })
+  }
+}
+
+onMounted(initPage)
+
+watch(() => route.params.slug, (newSlug, oldSlug) => {
+  if (newSlug && newSlug !== oldSlug) {
+    initPage()
   }
 })
 </script>
@@ -277,11 +469,34 @@ onMounted(async () => {
         </div>
       </div>
       <div class="header-right">
-        <el-button class="action-btn run-btn" @click="handleRun">
-          <Play :size="14" fill="currentColor" />
+        <el-tooltip
+          v-if="!authStore.isAuthenticated"
+          content="Đăng nhập để chạy thử"
+          placement="bottom"
+          effect="dark"
+        >
+          <el-button class="action-btn run-btn guest-btn" @click="handleRun">
+            <LogIn class="run-icon" :size="14" />
+            Run
+          </el-button>
+        </el-tooltip>
+        <el-button v-else class="action-btn run-btn" @click="handleRun">
+          <Play class="run-icon" :size="14" fill="currentColor" />
           Run
         </el-button>
-        <el-button class="action-btn submit-btn" type="primary" @click="handleSubmit">
+
+        <el-tooltip
+          v-if="!authStore.isAuthenticated"
+          content="Đăng nhập để nộp bài"
+          placement="bottom"
+          effect="dark"
+        >
+          <el-button class="action-btn submit-btn guest-btn" @click="handleSubmit">
+            <LogIn class="run-icon" :size="14" />
+            Submit
+          </el-button>
+        </el-tooltip>
+        <el-button v-else class="action-btn submit-btn" type="primary" @click="handleSubmit">
           Submit
         </el-button>
       </div>
@@ -299,13 +514,13 @@ onMounted(async () => {
       <div class="left-panel" :style="{ width: `${leftWidth}%` }">
         <div class="panel-tabs">
           <button 
-            v-for="tab in ['Description', 'Editorial', 'Solutions']"
+            v-for="tab in ['description', 'submissions', 'statistics']"
             :key="tab"
             class="tab-btn" 
-            :class="{ active: activeTab === tab.toLowerCase() }"
-            @click="activeTab = tab.toLowerCase()"
+            :class="{ active: activeTab === tab }"
+            @click="switchTab(tab)"
           >
-            {{ tab }}
+            {{ tab.charAt(0).toUpperCase() + tab.slice(1) }}
           </button>
         </div>
 
@@ -326,10 +541,30 @@ onMounted(async () => {
                   <Tag :size="12" />
                   Topics
                 </button>
+                <button 
+                  v-if="problem.hint" 
+                  class="meta-btn"
+                  @click="scrollToHint"
+                >
+                  <Tag :size="12" />
+                  Hint
+                </button>
               </div>
             </div>
 
             <div class="rich-content" v-html="problem.description"></div>
+
+            <!-- Input / Output Format -->
+            <div v-if="problem.inputFormat || problem.outputFormat" class="format-section">
+              <div v-if="problem.inputFormat" class="format-block">
+                <h3 class="section-title">Input Format</h3>
+                <div class="rich-content" v-html="problem.inputFormat"></div>
+              </div>
+              <div v-if="problem.outputFormat" class="format-block">
+                <h3 class="section-title">Output Format</h3>
+                <div class="rich-content" v-html="problem.outputFormat"></div>
+              </div>
+            </div>
 
             <!-- Examples -->
             <div v-if="problem.examples && problem.examples.length > 0" class="examples-section">
@@ -337,12 +572,22 @@ onMounted(async () => {
                 <div class="example-header">Example {{ index + 1 }}</div>
                 <div class="example-body">
                   <div class="io-group">
-                    <span class="io-label">Input:</span>
-                    <code class="io-content">{{ example.inputData }}</code>
+                    <div class="io-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <span class="io-label">Input:</span>
+                      <button class="icon-btn copy-btn" @click="copyToClipboard(example.rawInput, index + '-in')">
+                        <component :is="copiedStates[index + '-in'] ? Check : Copy" :size="14" :color="copiedStates[index + '-in'] ? '#2cbb5d' : '#888'" />
+                      </button>
+                    </div>
+                    <pre class="monospace-textarea io-pre bg-dark">{{ example.rawInput }}</pre>
                   </div>
                   <div class="io-group">
-                    <span class="io-label">Output:</span>
-                    <code class="io-content">{{ example.outputData }}</code>
+                    <div class="io-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <span class="io-label">Output:</span>
+                      <button class="icon-btn copy-btn" @click="copyToClipboard(example.rawOutput, index + '-out')">
+                        <component :is="copiedStates[index + '-out'] ? Check : Copy" :size="14" :color="copiedStates[index + '-out'] ? '#2cbb5d' : '#888'" />
+                      </button>
+                    </div>
+                    <pre class="monospace-textarea io-pre bg-dark">{{ example.rawOutput }}</pre>
                   </div>
                   <div v-if="example.explanation" class="io-group explanation">
                     <span class="io-label">Explanation:</span>
@@ -359,9 +604,9 @@ onMounted(async () => {
             </div>
 
             <!-- Topics Section -->
-            <div v-if="problem.topics && problem.topics.length > 0" id="topics-section" class="topics-section">
-              <div class="topics-header" @click="isTopicsExpanded = !isTopicsExpanded">
-                 <div class="topics-header-left">
+            <div v-if="problem.topics && problem.topics.length > 0" id="topics-section" class="collapsible-section">
+              <div class="collapsible-header" @click="isTopicsExpanded = !isTopicsExpanded">
+                 <div class="collapsible-header-left">
                     <Tag :size="16" />
                     <span>Topics</span>
                  </div>
@@ -375,9 +620,35 @@ onMounted(async () => {
                 </div>
               </transition>
             </div>
+
+            <!-- Hints Section -->
+            <div v-if="problem.hint" id="hint-section" class="collapsible-section">
+              <div class="collapsible-header" @click="isHintExpanded = !isHintExpanded">
+                 <div class="collapsible-header-left">
+                    <Lightbulb :size="16" />
+                    <span>Hint 1</span>
+                 </div>
+                 <component :is="isHintExpanded ? ChevronUp : ChevronDown" :size="16" />
+              </div>
+              <transition name="collapse">
+                <div v-show="isHintExpanded" class="collapsible-content">
+                  <div class="rich-content hint-content" v-html="problem.hint"></div>
+                </div>
+              </transition>
+            </div>
+          </div>
+
+          <!-- Submissions Tab -->
+          <div v-if="activeTab === 'submissions'" class="submissions-wrapper">
+             <SubmissionsTab ref="submissionsTabRef" :problem-id="problem.id" />
           </div>
           
-          <div v-else class="placeholder-content">
+          <!-- Statistics Tab -->
+          <div v-if="activeTab === 'statistics'" class="statistics-wrapper">
+             <StatisticsTab :problem-id="problem.id" />
+          </div>
+          
+          <div v-if="!['description', 'submissions', 'statistics'].includes(activeTab)" class="placeholder-content">
             <div class="empty-state">
               <span>Coming Soon</span>
             </div>
@@ -401,7 +672,14 @@ onMounted(async () => {
                <span class="code-label">Code</span>
             </div>
             <div class="lang-selector">
-              <el-select v-model="selectedLanguage" size="small" class="lang-select">
+              <el-select 
+                v-model="selectedLanguage" 
+                size="small" 
+                class="lang-select"
+                placement="bottom-end"
+                :fallback-placements="['bottom-end']" 
+                :fit-input-width="false"
+              >
                 <el-option
                   v-for="lang in languageOptions"
                   :key="lang.value"
@@ -409,7 +687,16 @@ onMounted(async () => {
                   :value="lang.value"
                 />
               </el-select>
-              <button class="icon-btn"><Settings :size="14" /></button>
+              <el-tooltip content="Reset to default code" placement="bottom" effect="dark" :hide-after="0">
+                <button class="icon-btn" @click="handleResetCode">
+                  <RotateCcw :size="14" />
+                </button>
+              </el-tooltip>
+              <el-tooltip content="Retrieve last submitted code" placement="bottom" effect="dark" :hide-after="0">
+                <button class="icon-btn" @click="handleRetrieveLastCode">
+                  <History :size="14" />
+                </button>
+              </el-tooltip>
             </div>
           </div>
           <div class="editor-container" ref="editorContainer"></div>
@@ -434,48 +721,100 @@ onMounted(async () => {
           <div class="testcase-content custom-scrollbar">
              <div v-if="sampleTestcases.length > 0">
                 <!-- Tabs -->
-                <div class="testcase-tabs">
-                  <button 
-                    v-for="(tc, index) in sampleTestcases" 
-                    :key="tc.id"
-                    class="case-tab"
-                    :class="{ active: activeTestcaseIndex === index }"
-                    @click="activeTestcaseIndex = index"
-                  >
-                    Case {{ index + 1 }}
+                <div class="testcase-tabs-container" style="display: flex; gap: 8px; align-items: center; overflow-x: auto; margin-bottom: 12px; height: 32px;">
+                  <div class="testcase-tabs" style="display: flex; gap: 4px; margin: 0;">
+                    <div
+                      class="case-tab-wrapper"
+                      :class="{ 'active': activeTestcaseIndex === -1 }"
+                      style="display: flex; align-items: center; position: relative;"
+                    >
+                      <button 
+                        class="case-tab"
+                        :class="{ active: activeTestcaseIndex === -1 }"
+                        @click="activeTestcaseIndex = -1"
+                      >
+                        Result <span v-if="executionLoading" style="margin-left: 4px" class="loader-inline"></span>
+                      </button>
+                    </div>
+                    <div
+                      v-for="(tc, index) in sampleTestcases" 
+                      :key="tc.id || index"
+                      class="case-tab-wrapper"
+                      :class="{ 'active': activeTestcaseIndex === index }"
+                      style="display: flex; align-items: center; position: relative;"
+                    >
+                      <button 
+                        class="case-tab"
+                        :class="{ active: activeTestcaseIndex === index }"
+                        @click="activeTestcaseIndex = index"
+                      >
+                        Case {{ index + 1 }}
+                      </button>
+                      <button v-if="tc.isCustom" class="icon-btn remove-case-btn" @click.stop="removeCustomTestcase(index)" title="Remove Testcase">
+                        <X :size="10" />
+                      </button>
+                    </div>
+                  </div>
+                  <button class="icon-btn plus-btn" @click="addCustomTestcase" title="Add Custom Testcase">
+                      <Plus :size="16" />
                   </button>
                 </div>
                 
                 <!-- Content -->
-                <div class="testcase-inputs" v-if="sampleTestcases[activeTestcaseIndex]">
-                  <div v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.loading" class="input-loading">
-                    Loading testcase content...
-                  </div>
-                  <div v-else>
-                      <div class="input-group">
-                        <label>Input =</label>
-                        <div class="input-display" v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.input">
-                            {{ testcaseContent[sampleTestcases[activeTestcaseIndex].id].input }}
+                <div class="testcase-result" v-if="activeTestcaseIndex === -1">
+                    <div v-if="executionLoading" style="padding: 20px; color: #888; text-align: center;">
+                        <div class="loader" style="margin: 0 auto 10px; width: 24px; height: 24px;"></div>
+                        Đang chờ kết quả từ máy chấm...
+                    </div>
+                    <div v-else-if="executionResult" class="result-display">
+                        <div v-if="executionResult.status === 'FAILED'" style="color: #ef4743; font-family: monospace; white-space: pre-wrap; background: rgba(239, 71, 67, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                           <div style="font-weight: 600; margin-bottom: 8px;">Compile Error:</div>
+                           {{ executionResult.compileMessage }}
                         </div>
-                        <div class="input-display" v-else-if="sampleTestcases[activeTestcaseIndex].inputUrl">
-                            <a :href="`${apiBaseUrl}/files/view?key=${encodeURIComponent(sampleTestcases[activeTestcaseIndex].inputUrl)}`" target="_blank" style="color: #2cbb5d;">
-                                View Input File (Preview not available)
-                            </a>
-                        </div>
-                        <div class="input-display" v-else>No content</div>
-                      </div>
+                        <template v-else>
+                            <div v-for="(res, idx) in executionResult.results" :key="idx" class="result-block" style="margin-bottom: 16px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
+                               <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px" :style="{ color: res.verdict === 'SUCCESS' ? '#2cbb5d' : '#ef4743' }">
+                                   Testcase {{ idx + 1 }}: {{ res.verdict || res.status }}
+                               </div>
+                               <div style="display: flex; gap: 16px; font-size: 12px; color: #a0a0a0; margin-bottom: 8px;">
+                                   <span>Time: {{ res.timeTakenMs || 0 }} ms</span>
+                               </div>
+                               <div v-if="res.errorMessage" style="color: #ef4743; font-family: monospace; white-space: pre-wrap; background: rgba(239, 71, 67, 0.1); padding: 8px; border-radius: 4px; margin-bottom: 8px;">{{ res.errorMessage }}</div>
+                               
+                               <!-- Display IO -->
+                               <div style="display: flex; flex-direction: column; gap: 8px;">
+                                   <div v-if="res.input">
+                                       <div style="color: #888; font-size: 12px;">Input:</div>
+                                       <div class="input-display">{{ res.input }}</div>
+                                   </div>
+                                   <div>
+                                       <div style="color: #888; font-size: 12px;">Your Output:</div>
+                                       <div class="input-display">{{ res.output || 'No output' }}</div>
+                                   </div>
+                                   <div v-if="res.expectedOutput">
+                                       <div style="color: #888; font-size: 12px;">Expected:</div>
+                                       <div class="input-display">{{ res.expectedOutput }}</div>
+                                   </div>
+                               </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div v-else style="padding: 20px; color: #888; text-align: center;">
+                        Chưa có kết quả. Hãy bấm Run để chạy thử.
+                    </div>
+                </div>
 
-                      <div class="input-group" style="margin-top: 16px;">
-                        <label>Expected Output =</label>
-                         <div class="input-display" v-if="testcaseContent[sampleTestcases[activeTestcaseIndex].id]?.output">
-                            {{ testcaseContent[sampleTestcases[activeTestcaseIndex].id].output }}
-                        </div>
-                         <div class="input-display" v-else-if="sampleTestcases[activeTestcaseIndex].outputUrl">
-                            <a :href="`${apiBaseUrl}/files/view?key=${encodeURIComponent(sampleTestcases[activeTestcaseIndex].outputUrl)}`" target="_blank" style="color: #2cbb5d;">
-                                View Output File (Preview not available)
-                            </a>
-                        </div>
-                         <div class="input-display" v-else>No content</div>
+                <div class="testcase-inputs" v-if="activeTestcaseIndex >= 0 && sampleTestcases[activeTestcaseIndex]">
+                  <div>
+                      <div class="input-group">
+                        <label style="margin-bottom: 8px; display: block; color: #a0a0a0; font-size: 13px; font-weight: 500;">Input =</label>
+                        <el-input 
+                          v-model="sampleTestcases[activeTestcaseIndex].rawInput" 
+                          type="textarea"
+                          :autosize="{ minRows: 2, maxRows: 15 }"
+                          class="custom-textarea monospace-textarea"
+                          placeholder="Enter your input here..."
+                        />
                       </div>
                   </div>
                 </div>
@@ -499,11 +838,11 @@ onMounted(async () => {
   flex-direction: column;
   background: #1a1a1a;
   color: #e0e0e0;
-  user-select: none; /* Prevent text selection during drag */
 }
 
 .problem-view.is-dragging {
   cursor: col-resize;
+  user-select: none;
 }
 .problem-view.is-dragging .left-panel, 
 .problem-view.is-dragging .right-panel {
@@ -533,6 +872,9 @@ onMounted(async () => {
 .run-btn:hover { background: #404040; color: #fff; }
 .submit-btn { background: #2cbb5d; color: #fff; }
 .submit-btn:hover { background: #3ddc72; }
+.guest-btn { opacity: 0.6; cursor: pointer; }
+.guest-btn:hover { opacity: 0.85; }
+.run-icon { margin-right: 6px; }
 
 /* Layout */
 .problem-content {
@@ -651,9 +993,9 @@ onMounted(async () => {
   padding: 16px; 
   border-left: 2px solid rgba(255, 255, 255, 0.1); 
 }
-.io-group { margin-bottom: 12px; display: flex; gap: 8px; align-items: flex-start; }
-.io-label { font-weight: 600; color: #888; min-width: 50px; font-size: 13px; margin-top: 2px; }
-.io-content { font-family: 'JetBrains Mono', monospace; color: #fff; font-size: 13px; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; flex: 1; }
+.io-group { margin-bottom: 16px; display: flex; flex-direction: column; width: 100%; }
+.io-label { font-weight: 600; color: #888; font-size: 13px; }
+.io-content { font-family: 'JetBrains Mono', monospace; color: #fff; font-size: 13px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; white-space: pre-wrap; word-wrap: break-word; }
 
 /* Explanation Fix */
 .explanation { flex-direction: column; gap: 6px; }
@@ -675,7 +1017,9 @@ onMounted(async () => {
 }
 
 /* Constraints Fix */
-.constraints-section { margin-top: 32px; }
+.constraints-section { 
+  margin: 32px 0;
+ }
 .section-title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 16px; }
 .constraints-content :deep(ul), .constraints-content :deep(ol) { 
   padding-left: 20px; 
@@ -686,14 +1030,13 @@ onMounted(async () => {
   color: #ccc;
 }
 
-/* Topics Section */
-.topics-section {
-  margin-top: 32px;
+/* Collapsible Sections (Topics, Hints, etc.) */
+.collapsible-section {
   border-top: 1px solid #333;
   padding-top: 16px;
-  margin-bottom: 16px; /* Added margin bottom just in case */
+  margin-bottom: 16px; 
 }
-.topics-header {
+.collapsible-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -701,12 +1044,16 @@ onMounted(async () => {
   color: #fff;
   padding: 8px 0;
 }
-.topics-header-left {
+.collapsible-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
+}
+.collapsible-content {
+  margin-top: 8px;
+  margin-left: 24px;
 }
 .topic-tags {
   display: flex;
@@ -755,7 +1102,7 @@ onMounted(async () => {
 }
 .code-lang-wrapper { display: flex; align-items: center; gap: 6px; color: #2cbb5d; font-size: 13px; font-weight: 600; }
 .lang-selector { display: flex; align-items: center; gap: 8px; }
-.lang-select { width: 110px; }
+.lang-select { width: 140px; }
 .icon-btn { background: transparent; border: none; color: #888; cursor: pointer; padding: 4px; border-radius: 4px; }
 .icon-btn:hover { background: #333; color: #fff; }
 
@@ -767,8 +1114,29 @@ onMounted(async () => {
 .testcase-title-group { display: flex; align-items: center; gap: 6px; color: #a0a0a0; font-size: 12px; font-weight: 600; }
 .testcase-content { padding: 16px; flex: 1; overflow-y: auto; }
 .testcase-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.case-tab { padding: 4px 12px; background: rgba(255,255,255,0.05); border: none; border-radius: 4px; color: #888; font-size: 12px; cursor: pointer; }
-.case-tab.active { background: rgba(255,255,255,0.1); color: #fff; }
+.case-tab-wrapper { background: rgba(255,255,255,0.05); border-radius: 4px; border: 1px solid transparent; }
+.case-tab-wrapper.active { background: rgba(255,255,255,0.1); }
+.case-tab { padding: 4px 12px; background: transparent !important; border: none; color: #888; font-size: 12px; cursor: pointer; }
+.case-tab.active { color: #fff !important; }
+.remove-case-btn { 
+  position: absolute; 
+  top: -4px; 
+  right: -4px; 
+  padding: 0; 
+  border-radius: 50%; 
+  color: #ddd; 
+  background: rgba(0,0,0,0.8) !important; 
+  border: 1px solid rgba(255,255,255,0.2);
+  opacity: 0; 
+  transition: opacity 0.2s, background 0.2s;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+.case-tab-wrapper:hover .remove-case-btn { opacity: 1; }
+.remove-case-btn:hover { background: rgba(239, 71, 67, 0.9) !important; color: #fff !important; }
 .input-display { background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #ccc; margin-top: 4px; white-space: pre-wrap; word-break: break-all; }
 .input-loading { color: #888; font-size: 13px; font-style: italic; padding: 10px; }
 
@@ -778,5 +1146,37 @@ onMounted(async () => {
 /* Loading */
 .loading-container { flex: 1; display: flex; justify-content: center; align-items: center; background: #1a1a1a; }
 .loader { width: 32px; height: 32px; border: 3px solid #333; border-bottom-color: #ffa116; border-radius: 50%; animation: rotation 1s linear infinite; }
+.loader-inline { display: inline-block; width: 10px; height: 10px; border: 2px solid #333; border-bottom-color: #ffa116; border-radius: 50%; animation: rotation 1s linear infinite; }
 @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+/* Monospace Textarea */
+:deep(.monospace-textarea textarea) {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 0 0 1px #333 inset !important;
+  border: none;
+  padding: 12px;
+}
+:deep(.monospace-textarea textarea:focus) {
+  box-shadow: 0 0 0 1px #ffa116 inset !important;
+}
+
+.plus-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plus-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
 </style>

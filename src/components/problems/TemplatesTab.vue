@@ -1,9 +1,10 @@
 <script setup>
-import { defineProps } from 'vue'
+import { defineProps, ref, onMounted } from 'vue'
 import { Plus, X, Upload, ChevronDown, ChevronRight } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { ElMessage } from 'element-plus'
+import { systemAPI } from '@/api/system'
 
 const props = defineProps({
     templates: {
@@ -13,39 +14,46 @@ const props = defineProps({
 })
 
 // Options
-const languageOptions = [
-  { label: 'Java', value: 'JAVA' },
-  { label: 'C++', value: 'CPP' },
-  { label: 'Python', value: 'PYTHON' },
-  { label: 'JavaScript', value: 'JAVASCRIPT' }
-]
+const languageOptions = ref([])
+
+onMounted(async () => {
+    try {
+        const langs = await systemAPI.getLanguages()
+        languageOptions.value = langs.map(l => ({
+            label: l.displayName,
+            value: l.languageKey
+        }))
+    } catch(e) {
+        console.error("Failed to load languages:", e)
+    }
+})
 
 const getAvailableLanguages = (currentLang) => {
-  const usedLangs = props.templates.map(t => t.language)
-  return languageOptions.filter(opt => opt.value === currentLang || !usedLangs.includes(opt.value))
+  const usedLangs = props.templates.map(t => t.languageKey)
+  return languageOptions.value.filter(opt => opt.value === currentLang || !usedLangs.includes(opt.value))
 }
 
 const getDefaultTemplate = (lang) => {
   const templates = {
     'JAVA': `import java.io.*;\nimport java.util.*;\n\nclass Solution {\n    public void solve() {\n        // Write your code here\n    }\n}`,
     'CPP': `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve() {\n        // Write your code here\n    }\n};`,
-    'PYTHON': `class Solution:\n    def solve(self):\n        # Write your code here\n        pass`,
-    'JAVASCRIPT': `/**\n * @param {any} args\n * @return {void}\n */\nvar solve = function(args) {\n    // Write your code here\n};`
+    'PYTHON3': `class Solution:\n    def solve(self):\n        # Write your code here\n        pass`,
+    'JS': `/**\n * @param {any} args\n * @return {void}\n */\nvar solve = function(args) {\n    // Write your code here\n};`
   }
   return templates[lang] || '// Write your code here'
 }
 
 const addTemplate = () => {
-  const usedLangs = props.templates.map(t => t.language)
-  const availableLang = languageOptions.find(opt => !usedLangs.includes(opt.value))
+  const usedLangs = props.templates.map(t => t.languageKey)
+  const availableLang = languageOptions.value.find(opt => !usedLangs.includes(opt.value))
   
   if (!availableLang) {
-    ElMessage.warning('All supported languages have been added')
+    ElMessage.warning('All supported languages have been added or options not loaded yet')
     return
   }
 
   props.templates.push({
-    language: availableLang.value,
+    languageKey: availableLang.value,
     codeTemplate: getDefaultTemplate(availableLang.value),
     expanded: true 
   })
@@ -75,7 +83,7 @@ const handleFileUpload = (event, templateIndex) => {
 <template>
     <div class="tab-content-wrapper full-width">
        <div class="examples-header-row mb-6">
-          <h3 class="section-title">Code Templates</h3>
+          <h3 class="section-title">Language & Template</h3>
           <AppButton variant="primary" :icon="Plus" @click="addTemplate">Add Template</AppButton>
        </div>
 
@@ -89,14 +97,14 @@ const handleFileUpload = (event, templateIndex) => {
              <div class="template-header-left">
                 <component :is="template.expanded ? ChevronDown : ChevronRight" :size="20" class="text-gray" />
                 <el-select 
-                   v-model="template.language" 
+                   v-model="template.languageKey" 
                    size="default" 
                    style="width: 200px" 
                    class="custom-select"
                    @click.stop
                 >
                    <el-option 
-                     v-for="l in getAvailableLanguages(template.language)" 
+                     v-for="l in getAvailableLanguages(template.languageKey)" 
                      :key="l.value" 
                      :label="l.label" 
                      :value="l.value" 
@@ -124,7 +132,7 @@ const handleFileUpload = (event, templateIndex) => {
              <el-form-item class="no-label-item">
                 <CodeEditor 
                   v-model="template.codeTemplate" 
-                  :language="template.language.toLowerCase()" 
+                  :language="template.languageKey.toLowerCase()" 
                   height="500px" 
                 />
              </el-form-item>

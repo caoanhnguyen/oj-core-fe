@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown } from 'lucide-vue-next'
+import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown, Send } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox } from 'element-plus'
@@ -105,7 +105,7 @@ const fetchProblemsData = async () => {
     queryParams.topicSlugs = selectedTopics.map(t => t.slug).join(',')
   }
 
-  await problemStore.fetchProblems(queryParams)
+  await problemStore.fetchProblems(queryParams, false, true)
 }
 
 // Debounced fetch automatically triggering API for search/filter inputs 
@@ -222,6 +222,26 @@ const handleRestore = async (row) => {
   } catch(error) {
     if (error !== 'cancel') {
       console.error('Restore failed:', error)
+    }
+  }
+}
+
+const handlePublish = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to publish "${row.title}"?`,
+      'Confirm Publish',
+      {
+        confirmButtonText: 'Publish',
+        cancelButtonText: 'Cancel',
+        type: 'info',
+        confirmButtonClass: 'el-button--primary'
+      }
+    )
+    await problemStore.publishProblem(row.id)
+  } catch(error) {
+    if (error !== 'cancel') {
+      console.error('Publish failed:', error)
     }
   }
 }
@@ -501,7 +521,10 @@ onMounted(async () => {
             <el-tooltip content="Edit Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
             </el-tooltip>
-            <el-tooltip content="Delete Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Publish Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-button link :icon="Send" @click="handlePublish(row)" class="action-btn action-publish" />
+            </el-tooltip>
+            <el-tooltip v-else content="Delete Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
             </el-tooltip>
           </div>
@@ -795,6 +818,11 @@ onMounted(async () => {
 :deep(.action-btn.action-danger:hover) {
   color: var(--error);
   background: rgba(239, 71, 67, 0.1);
+}
+
+:deep(.action-btn.action-publish:hover) {
+  color: #2cbb5d;
+  background: rgba(44, 187, 93, 0.1);
 }
 
 /* Responsive */

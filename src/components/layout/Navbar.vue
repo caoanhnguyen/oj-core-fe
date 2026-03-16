@@ -9,8 +9,8 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-// Active state theo route (vì Problems list ở '/', detail ở '/problems/:id')
-const isProblemsActive = computed(() => route.path === '/' || route.path.startsWith('/problems/'))
+// Active state theo route
+const isProblemsActive = computed(() => route.path.startsWith('/problems'))
 
 const handleLogout = async () => {
   try {
@@ -28,16 +28,25 @@ const handleLogout = async () => {
     <div class="navbar-content">
       <RouterLink to="/" class="logo">
         <Code2 :size="20" />
-        <span>Leet KMA</span>
+        <span>KMA OJ</span>
       </RouterLink>
 
       <div class="nav-links">
-        <RouterLink to="/" class="nav-link" :class="{ 'is-active': isProblemsActive }">
+
+        <RouterLink to="/" class="nav-link" :class="{ 'is-active': route.path === '/' }">
+          <span>Home</span>
+        </RouterLink>
+
+        <RouterLink v-if="authStore.isAdmin" to="/dashboard" class="nav-link" :class="{ 'is-active': route.path.startsWith('/dashboard') }">
+          <span>Dashboard</span>
+        </RouterLink>
+
+        <RouterLink to="/problems" class="nav-link" :class="{ 'is-active': isProblemsActive }">
           <span>Problems</span>
         </RouterLink>
 
-        <RouterLink v-if="authStore.isAdmin" to="/dashboard" class="nav-link">
-          <span>Dashboard</span>
+        <RouterLink to="/submissions" class="nav-link" :class="{ 'is-active': route.path.startsWith('/submissions') }">
+          <span>Submissions</span>
         </RouterLink>
 
         <a href="#" class="nav-link" @click.prevent>

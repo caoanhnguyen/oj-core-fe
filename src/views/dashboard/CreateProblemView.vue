@@ -25,13 +25,19 @@ const formData = ref({
   description: '',
   constraints: '',
   timeLimitMs: 1000,
-  memoryLimitKb: 256,
+  memoryLimitMb: 256,
+  ruleType: 'ACM',
+  totalScore: 100,
+  source: '',
+  hint: '',
+  inputFormat: '',
+  outputFormat: '',
   topicIds: [],
   examples: [
-    { inputData: '', outputData: '', explanation: '', orderIndex: 0, expanded: true }
+    { rawInput: '', rawOutput: '', explanation: '', orderIndex: 0, expanded: true }
   ],
   templates: [],
-  testcases: [] 
+  testcaseFile: null 
 })
 
 // Tab State
@@ -62,22 +68,6 @@ watch(() => formData.value.title, (newTitle) => {
   formData.value.slug = generateSlug(newTitle)
 })
 
-// Final Zip (Keep this here for Submit logic)
-const generateFinalZip = async () => {
-    if (!formData.value.testcases || formData.value.testcases.length === 0) return null
-    const zip = new JSZip()
-    
-    formData.value.testcases.forEach(tc => {
-        // e.g. "1" -> "1.in" / "1.out"
-        const name = tc.name || `testcase_${tc.id}`
-        // Only if content exists (zip parsing gave us content)
-        if (tc.input !== undefined) zip.file(`${name}.in`, tc.input)
-        if (tc.output !== undefined) zip.file(`${name}.out`, tc.output)
-    })
-    
-    return await zip.generateAsync({ type: 'blob' })
-}
-
 const handleSubmit = async (status = 'ACTIVE') => {
   if (!formRef.value) return
   
@@ -94,30 +84,25 @@ const handleSubmit = async (status = 'ACTIVE') => {
 
       try {
         // 1. Create Problem First
-        const { testcases, ...problemPayload } = formData.value
+        const { testcaseFile, ...problemPayload } = formData.value
         
-        const payload = { ...problemPayload, status }
+        const allowedLanguages = problemPayload.templates.map(t => t.languageKey)
+
+        // Convert templates to backend format 
+        const templates = problemPayload.templates.map(t => ({
+            languageKey: t.languageKey,
+            codeTemplate: t.codeTemplate
+        }))
+
+        const payload = { ...problemPayload, status, allowedLanguages, templates }
         
         const newProblem = await problemStore.createProblem(payload)
         
         // 2. Upload Testcases Separately
-        // Note: TestcaseManager gives us the parsed list. We re-zip it here.
-        if (formData.value.testcases.length > 0) {
-            const zipBlob = await generateFinalZip()
-            if (zipBlob) {
-                const zipFile = new File([zipBlob], `testcases.zip`, { type: 'application/zip' })
-                
-                const testcasesFD = new FormData()
-                testcasesFD.append('file', zipFile)
-                
-                const metadata = formData.value.testcases.map(tc => ({
-                    name: tc.name,
-                    isHidden: tc.isHidden
-                }))
-                testcasesFD.append('metadata', JSON.stringify(metadata))
-                
-                await problemStore.uploadTestcasesZip(newProblem.id, testcasesFD)
-            }
+        if (testcaseFile) {
+            const testcasesFD = new FormData()
+            testcasesFD.append('file', testcaseFile)
+            await problemStore.uploadTestcasesZip(newProblem.id, testcasesFD)
         }
 
         router.push('/dashboard')
@@ -187,14 +172,14 @@ const handleBack = () => {
                 <ExamplesTab :examples="formData.examples" />
             </el-tab-pane>
 
-            <el-tab-pane label="Code Templates" name="templates">
+            <el-tab-pane label="Language & Template" name="templates">
                <TemplatesTab :templates="formData.templates" />
             </el-tab-pane>
 
             <el-tab-pane label="Test Cases" name="testcases">
                <TestcaseManager 
-                  :testcases="formData.testcases" 
-                  @update:testcases="(list) => formData.testcases = list" 
+                  :testcaseFile="formData.testcaseFile" 
+                  @update:file="(file) => formData.testcaseFile = file" 
                   mode="CREATE"
                />
             </el-tab-pane>

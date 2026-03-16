@@ -15,8 +15,8 @@ const props = defineProps({
 
 const addExample = () => {
     props.examples.push({
-        inputData: '',
-        outputData: '',
+        rawInput: '',
+        rawOutput: '',
         explanation: '',
         orderIndex: props.examples.length,
         expanded: true 
@@ -63,28 +63,24 @@ const toggleExample = (index) => {
                     <el-row :gutter="24">
                         <el-col :span="12">
                             <el-form-item label="Input">
-                                <div class="quill-wrapper small-quill">
-                                    <QuillEditor 
-                                        v-model:content="example.inputData" 
-                                        contentType="text"
-                                        theme="snow" 
-                                        :toolbar="[['code-block'], ['clean']]"
-                                        placeholder="Input data..." 
-                                    />
-                                </div>
+                                <el-input 
+                                    v-model="example.rawInput" 
+                                    type="textarea"
+                                    :rows="6"
+                                    placeholder="Input data..." 
+                                    class="custom-textarea monospace-textarea"
+                                />
                             </el-form-item>
                         </el-col>
                         <el-col :span="12">
                             <el-form-item label="Output">
-                                <div class="quill-wrapper small-quill">
-                                    <QuillEditor 
-                                        v-model:content="example.outputData" 
-                                        contentType="text"
-                                        theme="snow" 
-                                        :toolbar="[['code-block'], ['clean']]"
-                                        placeholder="Expected output..." 
-                                    />
-                                </div>
+                                <el-input 
+                                    v-model="example.rawOutput" 
+                                    type="textarea"
+                                    :rows="6"
+                                    placeholder="Expected output..." 
+                                    class="custom-textarea monospace-textarea"
+                                />
                             </el-form-item>
                         </el-col>
                     </el-row>
@@ -154,5 +150,21 @@ const toggleExample = (index) => {
 :deep(.ql-editor.ql-blank::before) {
   color: #a0a0a0 !important; 
   font-style: italic;
+}
+
+/* Monospace Textarea */
+:deep(.monospace-textarea textarea) {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 0 0 1px #333 inset !important;
+  border: none;
+  padding: 12px;
+}
+:deep(.monospace-textarea textarea:focus) {
+  box-shadow: 0 0 0 1px #ffa116 inset !important;
 }
 </style>

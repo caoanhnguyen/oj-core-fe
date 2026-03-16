@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage } from 'element-plus'
+import { cloneDeep, isEqual } from 'lodash'
 
 // Components
 import GeneralInfoTab from '@/components/problems/GeneralInfoTab.vue'
@@ -25,12 +26,21 @@ const formData = ref({
   description: '',
   constraints: '',
   timeLimitMs: 1000,
-  memoryLimitKb: 256,
+  memoryLimitMb: 256,
+  ruleType: 'ACM',
+  totalScore: 100,
+  source: '',
+  hint: '',
+  inputFormat: '',
+  outputFormat: '',
   topicIds: [],
   examples: [],
   templates: [],
-  testcases: [] 
+  testcaseFile: null,
+  testcaseDir: ''
 })
+
+let originalData = null
 
 const activeTab = ref('general')
 const loading = ref(false)
@@ -65,7 +75,16 @@ onMounted(async () => {
             formData.value.description = problem.description
             formData.value.constraints = problem.constraints
             formData.value.timeLimitMs = problem.timeLimitMs
-            formData.value.memoryLimitKb = problem.memoryLimitKb
+            formData.value.memoryLimitMb = problem.memoryLimitMb
+            
+            // New fields mapping (defaults applied if null)
+            formData.value.ruleType = problem.ruleType || 'ACM'
+            formData.value.totalScore = problem.totalScore || 100
+            formData.value.source = problem.source || ''
+            formData.value.hint = problem.hint || ''
+            formData.value.inputFormat = problem.inputFormat || ''
+            formData.value.outputFormat = problem.outputFormat || ''
+            formData.value.testcaseDir = problem.testcaseDir || ''
             
             // Topics
             if (problem.topics) {
@@ -87,20 +106,12 @@ onMounted(async () => {
                     expanded: false
                 }))
             }
-
-            // Testcases
-            if (problem.testCases) {
-                formData.value.testcases = problem.testCases.map(tc => ({
-                    id: tc.id,
-                    name: `Testcase ${tc.orderIndex}`, // or use ID
-                    input: tc.inputData,
-                    output: tc.outputData,
-                    inputUrl: tc.inputUrl,
-                    outputUrl: tc.outputUrl,
-                    isHidden: !tc.isSample, // Map Sample -> Hidden
-                    orderIndex: tc.orderIndex
-                }))
-            }
+            
+            // Extract allowedLanguages from templates right away because it represents the actual list of languages
+            formData.value.allowedLanguages = formData.value.templates.map(t => t.languageKey) || []
+            
+            // Save original state for diffing
+            originalData = cloneDeep(formData.value)
         }
     } catch (e) {
         console.error('Failed to load problem', e)
@@ -108,38 +119,6 @@ onMounted(async () => {
         loading.value = false
     }
 })
-
-// Slug Logic (Only update if manually changed or specific logic?)
-// Usually update doesn't auto-update slug to avoid breaking links, 
-// unless user explicitly wants to. 
-// For now, let's allow editing slug manually in GeneralTab if needed, 
-// OR simpler: don't watch title for existing problem. 
-// I'll keep the watch commented out or removed for Update.
-
-/*
-watch(() => formData.value.title, (newTitle) => {
-  // formData.value.slug = generateSlug(newTitle) 
-})
-*/
-
-// Final Zip
-const generateFinalZip = async () => {
-    if (!formData.value.testcases || formData.value.testcases.length === 0) return null
-    // We only zip if it's NEW data, e.g., if any of them has `input` instead of `inputUrl`
-    const hasLocalContent = formData.value.testcases.some(tc => tc.input !== undefined)
-    if (!hasLocalContent) return null
-
-    const JSZip = (await import('jszip')).default
-    const zip = new JSZip()
-    
-    formData.value.testcases.forEach(tc => {
-        const name = tc.name || `testcase_${tc.id}`
-        if (tc.input !== undefined) zip.file(`${name}.in`, tc.input)
-        if (tc.output !== undefined) zip.file(`${name}.out`, tc.output)
-    })
-    
-    return await zip.generateAsync({ type: 'blob' })
-}
 
 const handleUpdate = async () => {
   if (!formRef.value) return
@@ -158,28 +137,39 @@ const handleUpdate = async () => {
       try {
         isSaving.value = true
         const id = route.params.id
-        // 1. Update Problem Info (PUT)
-        const { testcases, ...problemPayload } = formData.value
+        // 1. Build Sparse Payload (PATCH)
+        const { testcaseFile, testcaseDir, ...currentPayload } = formData.value
+        currentPayload.allowedLanguages = currentPayload.templates.map(t => t.languageKey)
         
-        await problemStore.updateProblem(id, problemPayload)
+        currentPayload.templates = currentPayload.templates.map(t => ({
+            languageKey: t.languageKey,
+            codeTemplate: t.codeTemplate
+        }))
         
-        // 2. Handle Testcases Upload if new ones exist
-        if (formData.value.testcases.length > 0) {
-            const zipBlob = await generateFinalZip()
-            if (zipBlob) {
-                const zipFile = new File([zipBlob], `testcases.zip`, { type: 'application/zip' })
-                
-                const testcasesFD = new FormData()
-                testcasesFD.append('file', zipFile)
-                
-                const metadata = formData.value.testcases.map(tc => ({
-                    name: tc.name,
-                    isHidden: tc.isHidden
-                }))
-                testcasesFD.append('metadata', JSON.stringify(metadata))
-                
-                await problemStore.uploadTestcasesZip(id, testcasesFD)
-            }
+        const partialPayload = {}
+        
+        // Compare with originalData to only send changes
+        if (originalData) {
+            Object.keys(currentPayload).forEach(key => {
+                if (!isEqual(currentPayload[key], originalData[key])) {
+                    partialPayload[key] = currentPayload[key]
+                }
+            })
+        } else {
+            // Fallback if originalData wasn't captured somehow
+            Object.assign(partialPayload, currentPayload)
+        }
+        
+        // If there's something to update
+        if (Object.keys(partialPayload).length > 0) {
+            await problemStore.updateProblem(id, partialPayload)
+        }
+        
+        // 2. Handle Testcases Upload
+        if (testcaseFile) {
+            const testcasesFD = new FormData()
+            testcasesFD.append('file', testcaseFile)
+            await problemStore.uploadTestcasesZip(id, testcasesFD)
         }
         
         router.push('/dashboard')
@@ -252,15 +242,16 @@ const handleBack = () => {
                 <ExamplesTab :examples="formData.examples" />
             </el-tab-pane>
 
-            <el-tab-pane label="Code Templates" name="templates">
+            <el-tab-pane label="Language & Template" name="templates">
                <TemplatesTab :templates="formData.templates" />
             </el-tab-pane>
 
             <el-tab-pane label="Test Cases" name="testcases">
                <TestcaseManager 
-                  :testcases="formData.testcases" 
+                  :testcaseFile="formData.testcaseFile" 
+                  :existingDir="formData.testcaseDir"
+                  @update:file="(file) => formData.testcaseFile = file" 
                   mode="UPDATE"
-                  :problemId="route.params.id"
                />
             </el-tab-pane>
 

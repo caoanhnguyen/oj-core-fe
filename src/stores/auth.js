@@ -11,7 +11,9 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => !!state.user,
     currentUser: (state) => state.user,
     isEmailVerified: (state) => state.user?.emailVerified || false,
-    isAdmin: (state) => state.user?.roles.includes('ROLE_ADMIN')
+    isAdmin: (state) => state.user?.roles?.includes('ROLE_ADMIN'),
+    isModerator: (state) => state.user?.roles?.includes('ROLE_MODERATOR'),
+    isAdminOrMod: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR')
   },
 
   actions: {
@@ -47,6 +49,10 @@ export const useAuthStore = defineStore('auth', {
       } finally {
         // Xóa user khỏi store
         this.user = null
+        // Reset authInitialized để lần đăng nhập kế tiếp vẫn fetch session đúng
+        if (typeof window !== 'undefined') {
+          window.__authInitialized = false
+        }
       }
     },
 
