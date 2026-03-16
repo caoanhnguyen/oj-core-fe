@@ -9,6 +9,13 @@ const axiosInstance = axios.create({
   }
 })
 
+
+// Create a separate instance for refresh to avoid interceptor loops
+const refreshInstance = axios.create({
+  baseURL: 'http://localhost:8088/api/v1',
+  withCredentials: true
+})
+
 // Biến để quản lý việc refresh token
 let isRefreshing = false
 let failedQueue = []
@@ -40,7 +47,6 @@ axiosInstance.interceptors.response.use(
     if (status === 401 && !originalRequest._retry) {
 
       // 🚨 CHỐT CHẶN 0: Đang ở trang login thì cấm tuyệt đối mọi hành vi redirect hay refresh
-      // (Để bẻ gãy vòng lặp Router)
       if (window.location.pathname.includes('/login')) {
         return Promise.reject(error)
       }
@@ -48,9 +54,15 @@ axiosInstance.interceptors.response.use(
       const authStore = useAuthStore()
 
       // 🚨 CHỐT CHẶN 1: Nếu chính API refresh hoặc login bị lỗi 401 -> Dọn dẹp và văng ra Login
-      if (originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')) {
+      // Kiểm tra kỹ hơn URL
+      const isAuthRequest = originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')
+      
+      if (isAuthRequest) {
         authStore.user = null // Dọn sạch Pinia Store
-        window.location.href = '/login'
+        // Chỉ redirect nếu không phải đang ở sẵn login rồi
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
         return Promise.reject(error)
       }
 
@@ -67,8 +79,8 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // 🌟 Gọi API xin token mới
-        await axiosInstance.post('/auth/refresh')
+        // 🌟 Gọi API xin token mới bằng instance riêng biệt (tránh loops)
+        await refreshInstance.post('/auth/refresh')
 
         isRefreshing = false
         processQueue(null)
@@ -77,7 +89,7 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest)
 
       } catch (refreshError) {
-        // 🚨 CHỐT CHẶN 2: Xin token mới thất bại (Do bị Postman cướp phiên hoặc hết hạn thật)
+        // 🚨 CHỐT CHẶN 2: Xin token mới thất bại
         isRefreshing = false
         processQueue(refreshError, null)
 
@@ -85,7 +97,9 @@ axiosInstance.interceptors.response.use(
         authStore.user = null
 
         // Đá văng về trang Login
-        window.location.href = '/login'
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
       }
     }

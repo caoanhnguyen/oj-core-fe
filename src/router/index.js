@@ -123,10 +123,9 @@ router.beforeEach(async (to, from, next) => {
     const isAuthenticated = !!authStore.isAuthenticated
     const isAdmin = !!authStore.isAdmin
 
-    // Admin auto-redirect to dashboard
-    if (isAuthenticated && isAdmin && to.path === '/') {
-      return next('/dashboard')
-    }
+
+    // Removed admin auto-redirect to dashboard from home page so admins can view the landing page
+
 
     if (to.meta.requiresGuest && isAuthenticated) {
       // Redirect admin to dashboard, others to home
