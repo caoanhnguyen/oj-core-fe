@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, RotateCcw, ChevronDown, CheckCircle, Check } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
+import { useAuthStore } from '@/stores/auth'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
@@ -11,6 +12,7 @@ import { debounce } from 'lodash'
 const router = useRouter()
 const problemStore = useProblemStore()
 const topicStore = useTopicStore()
+const authStore = useAuthStore()
 
 // Real problems data from store
 const problems = computed(() => problemStore.problems)
@@ -92,6 +94,25 @@ const fetchProblemsData = async () => {
   }
 
   await problemStore.fetchProblems(queryParams, false, false)
+}
+
+const solvedCount = ref(0)
+const progressPercent = computed(() => {
+  const total = problemStore.pagination.totalElements || 0
+  if (total === 0) return 0
+  return Math.min(100, Math.round((solvedCount.value / total) * 100))
+})
+
+const fetchSolvedCount = async () => {
+  if (!authStore.isAuthenticated) return
+  
+  try {
+    const count = await problemStore.getSolvedCount()
+    // count đã là giá trị number trả về từ store
+    solvedCount.value = count || 0
+  } catch (error) {
+    console.error('Failed to fetch solved count:', error)
+  }
 }
 
 // Debounced fetch automatically triggering API for search/filter inputs 
@@ -188,7 +209,8 @@ const handleSizeChange = (val) => {
 onMounted(async () => {
   await Promise.all([
     fetchProblemsData(),
-    topicStore.fetchTopics('') // Fetch all topics
+    topicStore.fetchTopics(''), // Fetch all topics
+    fetchSolvedCount()
   ])
 })
 </script>
@@ -342,9 +364,19 @@ onMounted(async () => {
         </el-popover>
         
         <div class="spacer"></div>
-        <div class="solved-count">
-           <div class="circle-progress"></div>
-           <span>{{ problemStore.pagination.totalElements || 0 }} Problems</span>
+        <div class="solved-count-container" v-if="authStore.isAuthenticated">
+          <div class="progress-ring">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path class="circle"
+                :stroke-dasharray="`${progressPercent}, 100`"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+          </div>
+          <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
         </div>
       </div>
 
@@ -504,21 +536,47 @@ onMounted(async () => {
 .spacer {
   flex: 1;
 }
-.solved-count {
+.solved-count-container {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #8a8a8a;
-  font-size: 13px;
-  font-weight: 500;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
-.circle-progress {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #3e3e3e;
-  border-top-color: #00b8a3;
-  transform: rotate(-45deg);
+
+.progress-ring {
+  width: 18px;
+  height: 18px;
+}
+
+.circular-chart {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: #3e3e3e;
+  stroke-width: 3.8;
+}
+
+.circle {
+  fill: none;
+  stroke: #00b8a3;
+  stroke-width: 3.8;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.solved-text {
+  color: #eff2f6;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .sort-btn.has-text {

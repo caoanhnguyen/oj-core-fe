@@ -91,7 +91,7 @@ const toggleExample = (index) => {
                                 v-model:content="example.explanation" 
                                 contentType="html" 
                                 theme="snow" 
-                                :toolbar="['bold', 'italic', 'code-block', 'clean']"
+                                toolbar="full"
                                 placeholder="Explain the logic..." 
                             />
                         </div>

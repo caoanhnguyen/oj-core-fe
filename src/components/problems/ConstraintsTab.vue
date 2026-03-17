@@ -48,7 +48,7 @@ const props = defineProps({
                 <QuillEditor 
                    v-model:content="modelValue.constraints" 
                    theme="snow" 
-                   toolbar="essential" 
+                   toolbar="full" 
                    contentType="html"
                    placeholder="e.g. 1 <= n <= 100"
                 />
@@ -64,7 +64,7 @@ const props = defineProps({
                         <QuillEditor 
                            v-model:content="modelValue.inputFormat" 
                            theme="snow" 
-                           toolbar="essential" 
+                           toolbar="full" 
                            contentType="html"
                            placeholder="Describe the input format..." 
                         />
@@ -77,7 +77,7 @@ const props = defineProps({
                         <QuillEditor 
                            v-model:content="modelValue.outputFormat" 
                            theme="snow" 
-                           toolbar="essential" 
+                           toolbar="full" 
                            contentType="html"
                            placeholder="Describe the output format..." 
                         />

@@ -18,6 +18,16 @@ export const topicsAPI = {
     },
 
     /**
+     * Get topic details with statistics by slug
+     * @param {string} slug - Topic slug
+     * @returns {Promise<Object>} Topic details and statistics
+     */
+    getTopicDetails: async (slug) => {
+        const response = await axiosInstance.get(`/topics/${slug}/details`)
+        return response.data.data
+    },
+
+    /**
      * Get list of topics for Admin (with pagination and search)
      * @param {Object} params - Query parameters (page, size, name)
      * @returns {Promise<{content: Array, totalElements: number, totalPages: number}>}

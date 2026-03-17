@@ -111,5 +111,14 @@ export const problemsAPI = {
     publishProblem: async (id) => {
         const response = await axiosInstance.patch(`/admin/problems/${id}/publish`)
         return response.data
+    },
+
+    /**
+     * Get count of solved problems
+     * @returns {Promise<number>} Count of solved problems
+     */
+    getSolvedCount: async () => {
+        const response = await axiosInstance.get('/problems/solved/count')
+        return response.data.data
     }
 }

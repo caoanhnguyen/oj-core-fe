@@ -15,6 +15,11 @@ const router = createRouter({
       component: () => import('../views/problems/ProblemListView.vue')
     },
     {
+      path: '/topics/:slug',
+      name: 'topic-detail',
+      component: () => import('../views/topics/TopicDetailView.vue')
+    },
+    {
       path: '/problems/:slug',
       redirect: to => `/problems/${to.params.slug}/description`
     },

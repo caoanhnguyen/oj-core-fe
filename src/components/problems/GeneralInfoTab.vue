@@ -201,7 +201,7 @@ const handleDropdownVisibleChange = (visible) => {
                 <QuillEditor 
                    v-model:content="modelValue.hint" 
                    theme="snow" 
-                   toolbar="essential" 
+                   toolbar="full" 
                    contentType="html"
                    placeholder="Give a small hint to the user if they get stuck..." 
                 />

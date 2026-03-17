@@ -244,6 +244,23 @@ export const useProblemStore = defineStore('problem', {
         },
 
         /**
+         * Get solved count
+         */
+        async getSolvedCount() {
+            try {
+                this.loading = true
+                const data = await problemsAPI.getSolvedCount()
+                return data
+            } catch (error) {
+                console.error('Failed to get solved count:', error)
+                ElMessage.error(error.response?.data?.message || 'Failed to get solved count')
+                throw error
+            } finally {
+                this.loading = false
+            }
+        },
+
+        /**
          * Upload Testcases Zip
          */
         async uploadTestcasesZip(problemId, formData) {

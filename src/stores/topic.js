@@ -34,6 +34,21 @@ export const useTopicStore = defineStore('topic', {
         },
 
         /**
+         * Get topic details with statistics by slug (Public)
+         */
+        async getTopicDetails(slug) {
+            try {
+                this.loading = true
+                return await topicsAPI.getTopicDetails(slug)
+            } catch (error) {
+                console.error('Failed to fetch topic details:', error)
+                throw error
+            } finally {
+                this.loading = false
+            }
+        },
+
+        /**
          * Fetch topics list for Admin with pagination
          */
         async fetchAdminTopics(params = {}) {

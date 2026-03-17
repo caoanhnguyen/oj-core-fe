@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Search, Plus, Edit, Trash2, RotateCcw } from 'lucide-vue-next'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -7,6 +8,7 @@ import TopicFormDialog from '@/components/topics/TopicFormDialog.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 
+const router = useRouter()
 const topicStore = useTopicStore()
 
 // State
@@ -49,6 +51,12 @@ const handleSizeChange = (size) => {
   pagination.value.size = size
   pagination.value.page = 0
   loadTopics()
+}
+
+const handleRowClick = (row) => {
+  if (row.slug) {
+    router.push(`/topics/${row.slug}`)
+  }
 }
 
 const openCreateDialog = () => {
@@ -183,9 +191,10 @@ onMounted(() => {
     <el-table 
       v-else 
       :data="topics" 
-      class="dashboard-table leetcode-table" 
+      class="dashboard-table leetcode-table click-table" 
       v-loading="loading" 
       :show-header="true"
+      @row-click="handleRowClick"
     >
       <template #empty>
         <el-empty description="No topics found" />
@@ -198,7 +207,9 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="Name" min-width="100">
         <template #default="{ row }">
-          <span class="cell-title">{{ row.name }}</span>
+          <router-link :to="`/topics/${row.slug}`" class="cell-title topic-link" @click.stop>
+            {{ row.name }}
+          </router-link>
         </template>
       </el-table-column>
       <el-table-column label="Slug" min-width="100">
@@ -386,6 +397,19 @@ onMounted(() => {
 :deep(.leetcode-table tr:hover td.el-table__cell) {
   background: rgba(255, 255, 255, 0.1) !important;
 }
+:deep(.leetcode-table.click-table tr) {
+  cursor: pointer;
+}
+.topic-link {
+  text-decoration: none;
+  transition: color 0.2s;
+  color: #eff2f6;
+  font-weight: 500;
+}
+.topic-link:hover {
+  color: var(--accent-primary) !important;
+  text-decoration: underline;
+}
 :deep(.leetcode-table .cell-index) {
   font-weight: 500;
   color: #8a8a8a;
@@ -403,6 +427,7 @@ onMounted(() => {
 :deep(.leetcode-table .description-text) {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;

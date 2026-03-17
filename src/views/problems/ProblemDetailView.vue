@@ -3,7 +3,7 @@ import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import { useAuthStore } from '../../stores/auth'
-import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn } from 'lucide-vue-next'
+import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn, User, Globe, Award } from 'lucide-vue-next'
 import { ElMessage, ElNotification } from 'element-plus'
 import * as monaco from 'monaco-editor'
 import { useSubmissionStore } from '../../stores/submission'
@@ -267,6 +267,28 @@ const initMonaco = () => {
       horizontal: 'visible',
       verticalScrollbarSize: 10,
       horizontalScrollbarSize: 10
+    },
+    // Enhanced suggestions
+    suggestOnTriggerCharacters: true,
+    quickSuggestions: {
+      other: true,
+      comments: true,
+      strings: true
+    },
+    wordBasedSuggestions: 'allDocuments',
+    snippetSuggestions: 'top',
+    suggestSelection: 'first',
+    acceptSuggestionOnEnter: 'on',
+    tabCompletion: 'on',
+    formatOnType: true,
+    formatOnPaste: true,
+    suggest: {
+      showWords: true,
+      showSnippets: true,
+      showFunctions: true,
+      showVariables: true,
+      showConstants: true,
+      showClasses: true,
     }
   })
 }
@@ -529,26 +551,55 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
           <div v-if="activeTab === 'description'" class="description-wrapper">
             <div class="problem-title-section">
               <h1 class="problem-title">{{ problem.title }}</h1>
-              <div class="problem-meta">
-                <span class="badge" :class="getDifficultyClass(problem.difficulty)">
-                  {{ problem.difficulty }}
-                </span>
-                <button 
-                  v-if="problem.topics && problem.topics.length > 0" 
-                  class="meta-btn"
-                  @click="scrollToTopics"
-                >
-                  <Tag :size="12" />
-                  Topics
-                </button>
-                <button 
-                  v-if="problem.hint" 
-                  class="meta-btn"
-                  @click="scrollToHint"
-                >
-                  <Tag :size="12" />
-                  Hint
-                </button>
+              
+              <div class="problem-meta-new">
+                <!-- Row 1: Information (Author, Source, Score) -->
+                <div class="meta-row info-row">
+                  <div class="meta-item-wrap">
+                    <User :size="14" class="meta-icon author-icon" />
+                    <span class="meta-label">Author:</span>
+                    <router-link :to="`/users/${problem.author?.userId}`" class="meta-link author-name">
+                      {{ problem.author?.authorName }}
+                    </router-link>
+                  </div>
+
+                  <div class="meta-item-wrap" v-if="problem.source">
+                    <Globe :size="14" class="meta-icon source-icon" />
+                    <span class="meta-label">Source:</span>
+                    <span class="meta-text">{{ problem.source }}</span>
+                  </div>
+
+                  <div class="meta-item-wrap" v-if="problem.totalScore">
+                    <Award :size="14" class="meta-icon score-icon" />
+                    <span class="meta-label">Score:</span>
+                    <span class="meta-text">{{ problem.totalScore }} Points</span>
+                  </div>
+                </div>
+
+                <!-- Row 2: Badges & Interactions (Difficulty, Topics, Hint) -->
+                <div class="meta-row badge-row">
+                  <span class="badge" :class="getDifficultyClass(problem.difficulty)">
+                    {{ problem.difficulty }}
+                  </span>
+                  
+                  <button 
+                    v-if="problem.topics && problem.topics.length > 0" 
+                    class="meta-btn"
+                    @click="scrollToTopics"
+                  >
+                    <Tag :size="12" />
+                    Topics
+                  </button>
+
+                  <button 
+                    v-if="problem.hint" 
+                    class="meta-btn"
+                    @click="scrollToHint"
+                  >
+                    <Lightbulb :size="12" />
+                    Hint
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -614,9 +665,14 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               </div>
               <transition name="collapse">
                 <div v-show="isTopicsExpanded" class="topic-tags">
-                   <span v-for="topic in problem.topics" :key="topic.topicId" class="topic-tag">
+                   <router-link 
+                     v-for="topic in problem.topics" 
+                     :key="topic.topicId" 
+                     :to="`/topics/${topic.slug}`"
+                     class="topic-tag clickable"
+                   >
                       {{ topic.name }}
-                   </span>
+                   </router-link>
                 </div>
               </transition>
             </div>
@@ -935,7 +991,70 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 
 .panel-content { flex: 1; overflow-y: auto; }
 .description-wrapper { padding: 20px 24px; }
-.problem-title { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+/* Meta Section New Design */
+.problem-meta-new {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+  padding-bottom: 20px;
+  /* border-bottom: 1px solid rgba(255, 255, 255, 0.08); */
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.info-row {
+  opacity: 0.9;
+}
+
+.badge-row {
+  gap: 10px;
+}
+
+.meta-item-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+
+.meta-icon {
+  color: #888;
+}
+
+.score-icon { color: #ffa116; }
+.author-icon { color: #00b8a3; }
+.source-icon { color: #5c7cfa; }
+
+.meta-label {
+  font-weight: 500;
+  color: #888;
+}
+
+.meta-text {
+  color: #eff2f6;
+}
+
+.meta-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.meta-link:hover {
+  text-decoration: underline;
+  filter: brightness(1.2);
+}
+
+.problem-title {
+ font-size: 20px; font-weight: 600; margin-bottom: 12px; }
 .problem-meta { margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
 .badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; background: rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center;}
 .difficulty-easy { color: #00b8a3; background: rgba(0, 184, 163, 0.15); }
@@ -957,6 +1076,45 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
   line-height: 1.6;
 }
 .meta-btn:hover { background: rgba(255, 255, 255, 0.15); }
+
+.badge-score {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e0e0e0;
+}
+
+.problem-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.source-label {
+  font-weight: 600;
+}
+
+.source-value {
+  color: #e0e0e0;
+}
+
+.problem-author {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.author-label {
+  font-weight: 600;
+}
+
+.author-value {
+  color: #e0e0e0;
+}
 
 /* Rich Content - Unified Fonts */
 .rich-content { font-size: 14px; line-height: 1.6; color: #d0d0d0; }
