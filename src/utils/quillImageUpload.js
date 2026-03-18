@@ -3,10 +3,10 @@ import axiosInstance from '../api/axios'
 
 /**
  * Helper to get full image URL from relative path
- * BE returns /api/files/view?key=..., we need to prepend API domain
  */
 const getFullImageUrl = (url) => {
     if (!url) return ''
+    // 🌟 Nếu URL đã là link public chọc thẳng vào MinIO (bắt đầu bằng http) thì trả về luôn, không cần nối proxy nữa!
     if (url.startsWith('http')) return url
 
     const baseURL = axiosInstance.defaults.baseURL
@@ -23,9 +23,6 @@ const getFullImageUrl = (url) => {
 
 /**
  * Create Quill image upload handler
- * @param {Function} uploadFn - Function to upload image, returns {objectKey, url}
- * @param {Function} trackFn - Function to track uploaded image
- * @returns {Function} Quill image handler
  */
 export const createQuillImageHandler = (uploadFn, trackFn) => {
     return async function () {
@@ -37,13 +34,11 @@ export const createQuillImageHandler = (uploadFn, trackFn) => {
             const file = input.files?.[0]
             if (!file) return
 
-            // Validate size (5MB)
             if (file.size > 5 * 1024 * 1024) {
                 ElMessage.error('Image size must be less than 5MB')
                 return
             }
 
-            // Validate type
             const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
             if (!allowedTypes.includes(file.type)) {
                 ElMessage.error('Only JPEG, PNG, GIF, and WebP images are allowed')
@@ -51,21 +46,22 @@ export const createQuillImageHandler = (uploadFn, trackFn) => {
             }
 
             try {
-                // Show loading message
                 const loadingMsg = ElMessage.info('Uploading image...')
 
                 // Upload image
-                const imageData = await uploadFn(file)
+                const responseData = await uploadFn(file)
 
-                // Close loading message
                 loadingMsg.close()
 
-                // Get Quill instance and insert image
                 const quill = this.quill
                 const range = quill.getSelection(true)
 
+                // 🌟 FIX LỖI TÀNG HÌNH: Bóc tách đúng cục data bên trong ApiResponse
+                // Đề phòng trường hợp Axios interceptor đã bóc sẵn data, ta dùng fallback
+                const actualData = responseData.data ? responseData.data : responseData
+
                 // Get full URL for display
-                const imageUrl = getFullImageUrl(imageData.url)
+                const imageUrl = getFullImageUrl(actualData.url)
 
                 // Insert image at cursor position
                 quill.insertEmbed(range.index, 'image', imageUrl)
@@ -74,7 +70,7 @@ export const createQuillImageHandler = (uploadFn, trackFn) => {
                 quill.setSelection(range.index + 1)
 
                 // Track uploaded image for commit
-                trackFn(imageData)
+                trackFn(actualData)
 
                 ElMessage.success('Image uploaded successfully')
             } catch (error) {
@@ -88,26 +84,24 @@ export const createQuillImageHandler = (uploadFn, trackFn) => {
 }
 
 /**
- * Extract image object keys from HTML content
- * Useful for finding which temp images are actually used in content
- * @param {string} htmlContent - HTML content with img tags
- * @returns {string[]} Array of object keys found in src attributes
+ * Extract image object keys from HTML content or Delta Object
  */
-export const extractImageKeysFromHtml = (htmlContent) => {
-    if (!htmlContent) return []
+export const extractImageKeysFromHtml = (content) => {
+    if (!content) return []
 
-    const imgRegex = /<img[^>]+src="([^"]+)"/g
-    const keys = []
-    let match
+    // 1. Đề phòng trường hợp content là Object (Quill Delta JSON) thay vì HTML string
+    // Ta ép tất cả thành chuỗi để regex dễ làm việc
+    const contentStr = typeof content === 'string' ? content : JSON.stringify(content)
 
-    while ((match = imgRegex.exec(htmlContent)) !== null) {
-        const src = match[1]
-        // Extract object key from URL (temp/xxx.png or problems/xxx/yyy.png)
-        const keyMatch = src.match(/(temp\/[^"?]+|problems\/[^"?]+)/)
-        if (keyMatch) {
-            keys.push(keyMatch[1])
-        }
-    }
+    // 2. Regex siêu "trâu bò": Quét thẳng vào chuỗi để tìm các file có đuôi ảnh nằm trong các thư mục của MinIO
+    // Bất chấp thẻ img hay JSON, nháy đơn hay nháy kép
+    const regex = /(?:editor|temp|problems)\/[a-zA-Z0-9-]+\.(?:png|jpg|jpeg|gif|webp)/gi
 
-    return keys
+    // 3. Lấy ra tất cả các kết quả khớp
+    const matches = contentStr.match(regex)
+
+    if (!matches) return []
+
+    // 4. Lọc bỏ các kết quả trùng lặp (nếu có 1 ảnh copy 2 chỗ)
+    return [...new Set(matches)]
 }

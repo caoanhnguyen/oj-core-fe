@@ -13,22 +13,16 @@ export const useProblemStore = defineStore('problem', {
             size: 10,
             totalElements: 0,
             totalPages: 0
-        },
-        uploadedImages: [] // Track uploaded temp images for commit
+        }
     }),
 
     getters: {
         getProblemById: (state) => (id) => {
             return state.problems.find(p => p.id === id)
-        },
-
-        hasUploadedImages: (state) => state.uploadedImages.length > 0
+        }
     },
 
     actions: {
-        /**
-         * Fetch problems list with pagination and filters
-         */
         async fetchProblems(params = {}, append = false, isAdmin = false) {
             try {
                 this.loading = true
@@ -41,7 +35,7 @@ export const useProblemStore = defineStore('problem', {
                     status: params.status,
                     problemStatus: params.problemStatus,
                     topicSlugs: params.topicSlugs,
-                    sort: params.sort // format: field,direction
+                    sort: params.sort
                 })
 
                 if (append) {
@@ -66,9 +60,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Fetch single problem by ID
-         */
         async fetchProblemById(id) {
             try {
                 this.loading = true
@@ -84,9 +75,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Fetch single problem by Slug
-         */
         async fetchProblemBySlug(slug) {
             try {
                 this.loading = true
@@ -102,39 +90,15 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Create new problem
-         */
         async createProblem(problemData) {
             try {
                 this.loading = true
 
-                let data = problemData
-
-                // Handle FormData explicitly (for Testcases Zip)
-                if (problemData instanceof FormData) {
-                    if (this.uploadedImages.length > 0) {
-                        // Append uploaded image keys if any
-                        const keys = this.uploadedImages.map(img => img.objectKey)
-                        // Note: Backend must parse this JSON string
-                        data.append('temporaryImageKeys', JSON.stringify(keys))
-                    }
-                } else {
-                    // Standard JSON payload
-                    data = {
-                        ...problemData,
-                        temporaryImageKeys: this.uploadedImages.map(img => img.objectKey)
-                    }
-                }
-
-                const result = await problemsAPI.createProblem(data)
+                // 🌟 FIX: Truyền thẳng problemData (đã chứa mảng ảnh quét từ Regex) xuống API
+                const result = await problemsAPI.createProblem(problemData)
 
                 ElMessage.success('Problem created successfully!')
 
-                // Clear uploaded images after successful creation
-                this.clearUploadedImages()
-
-                // Refresh problems list
                 await this.fetchProblems({ page: 0, size: this.pagination.size }, false, true)
 
                 return result
@@ -147,27 +111,15 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Update existing problem
-         */
         async updateProblem(id, problemData) {
             try {
                 this.loading = true
 
-                // Add uploaded image keys (for new images)
-                const data = {
-                    ...problemData,
-                    temporaryImageKeys: this.uploadedImages.map(img => img.objectKey)
-                }
-
-                const result = await problemsAPI.updateProblem(id, data)
+                // 🌟 FIX: Truyền thẳng problemData (đã chứa mảng ảnh quét từ Regex) xuống API
+                const result = await problemsAPI.updateProblem(id, problemData)
 
                 ElMessage.success('Problem updated successfully!')
 
-                // Clear uploaded images
-                this.clearUploadedImages()
-
-                // Refresh problems list
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
 
                 return result
@@ -180,9 +132,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Delete problem (soft delete)
-         */
         async deleteProblem(id) {
             try {
                 this.loading = true
@@ -190,7 +139,6 @@ export const useProblemStore = defineStore('problem', {
 
                 ElMessage.success('Problem deleted successfully!')
 
-                // Refresh problems list
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
                 console.error('Failed to delete problem:', error)
@@ -201,9 +149,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Restore problem
-         */
         async restoreProblem(id) {
             try {
                 this.loading = true
@@ -211,7 +156,6 @@ export const useProblemStore = defineStore('problem', {
 
                 ElMessage.success('Problem restored successfully!')
 
-                // Refresh problems list
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
                 console.error('Failed to restore problem:', error)
@@ -222,9 +166,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Publish problem
-         */
         async publishProblem(id) {
             try {
                 this.loading = true
@@ -232,7 +173,6 @@ export const useProblemStore = defineStore('problem', {
 
                 ElMessage.success('Problem published successfully!')
 
-                // Refresh problems list
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
                 console.error('Failed to publish problem:', error)
@@ -243,9 +183,6 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Get solved count
-         */
         async getSolvedCount() {
             try {
                 this.loading = true
@@ -260,68 +197,21 @@ export const useProblemStore = defineStore('problem', {
             }
         },
 
-        /**
-         * Upload Testcases Zip
-         */
         async uploadTestcasesZip(problemId, formData) {
             try {
                 return await problemsAPI.uploadTestcases(problemId, formData)
             } catch (error) {
                 console.error('Failed to upload testcases:', error)
-                // Don't throw, just log. Problem is created anyway.
                 ElMessage.warning('Problem created but testcases failed to upload')
             }
         },
 
-        /**
-         * Upload temporary image
-         * @param {File} file - Image file
-         * @returns {Promise<{objectKey: string, url: string}>}
-         */
-        async uploadImage(file) {
-            try {
-                // Validate file size (5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    ElMessage.error('Image size must be less than 5MB')
-                    throw new Error('File too large')
-                }
+        // 🌟 Các hàm upload/track ảnh cũ thừa thãi đã được loại bỏ cho sạch sẽ!
+        // Giờ FE gọi API chọc MinIO thẳng trong Component, Store không cần ôm rơm rặm bụng nữa.
 
-                // Validate file type
-                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-                if (!allowedTypes.includes(file.type)) {
-                    ElMessage.error('Only JPEG, PNG, GIF, and WebP images are allowed')
-                    throw new Error('Invalid file type')
-                }
-
-                const imageData = await imagesAPI.uploadTemporary(file)
-
-                // Track uploaded image for commit
-                this.uploadedImages.push(imageData)
-
-                return imageData
-            } catch (error) {
-                console.error('Failed to upload image:', error)
-                if (!error.message.includes('File too large') && !error.message.includes('Invalid file type')) {
-                    ElMessage.error('Failed to upload image')
-                }
-                throw error
-            }
-        },
-
-        /**
-         * Track uploaded image (called after successful upload)
-         */
-        trackUploadedImage(imageData) {
-            if (!this.uploadedImages.find(img => img.objectKey === imageData.objectKey)) {
-                this.uploadedImages.push(imageData)
-            }
-        },
-
-        /**
-         * Clear uploaded images (after submit or cancel)
-         */
         clearUploadedImages() {
-            this.uploadedImages = []
+            // Hàm này để lại chống lỗi (nếu trong component lỡ còn gọi đến)
+            // Nhưng thực tế không còn xài
         }
     }
 })

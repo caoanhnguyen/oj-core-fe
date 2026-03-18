@@ -1,7 +1,6 @@
 <script setup>
 import { defineProps } from 'vue'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
 const props = defineProps({
     modelValue: {
@@ -44,12 +43,9 @@ const props = defineProps({
        
        <div class="form-section mb-6">
           <el-form-item label="Constraints Details" prop="constraints">
-             <div class="quill-wrapper main-quill">
-                <QuillEditor 
+             <div style="height: 500px; width: 100%;">
+                <RichTextEditor 
                    v-model:content="modelValue.constraints" 
-                   theme="snow" 
-                   toolbar="full" 
-                   contentType="html"
                    placeholder="e.g. 1 <= n <= 100"
                 />
              </div>
@@ -60,12 +56,9 @@ const props = defineProps({
           <el-row :gutter="32">
              <el-col :span="12">
                  <el-form-item label="Input Format (Optional)" prop="inputFormat">
-                     <div class="quill-wrapper main-quill">
-                        <QuillEditor 
+                     <div style="height: 300px; width: 100%;">
+                        <RichTextEditor 
                            v-model:content="modelValue.inputFormat" 
-                           theme="snow" 
-                           toolbar="full" 
-                           contentType="html"
                            placeholder="Describe the input format..." 
                         />
                      </div>
@@ -73,12 +66,9 @@ const props = defineProps({
              </el-col>
              <el-col :span="12">
                  <el-form-item label="Output Format (Optional)" prop="outputFormat">
-                     <div class="quill-wrapper main-quill">
-                        <QuillEditor 
+                     <div style="height: 300px; width: 100%;">
+                        <RichTextEditor 
                            v-model:content="modelValue.outputFormat" 
-                           theme="snow" 
-                           toolbar="full" 
-                           contentType="html"
                            placeholder="Describe the output format..." 
                         />
                      </div>
@@ -128,39 +118,5 @@ const props = defineProps({
 :deep(.el-input-number.is-controls-right .el-input__wrapper) {
     padding-left: 15px;
     padding-right: 50px;
-}
-
-.quill-wrapper { 
-  background-color: #1a1a1a; 
-  border-radius: 8px; 
-  border: 1px solid #333; 
-  overflow: hidden; 
-  display: flex; 
-  flex-direction: column; 
-  height: 500px;
-  width: 100%; /* Fix width */
-}
-.main-quill { height: 100%; }
-
-:deep(.ql-toolbar) { 
-  border: none !important; 
-  border-bottom: 1px solid #333 !important; 
-  background: #262626; 
-}
-:deep(.ql-container) { 
-  border: none !important; 
-  color: #e0e0e0; 
-  font-size: 14px; 
-  font-family: 'Inter', sans-serif; 
-  flex: 1; 
-  overflow-y: auto; 
-}
-:deep(.ql-editor) { 
-  padding: 24px; 
-  min-height: 100%; 
-}
-:deep(.ql-editor.ql-blank::before) {
-  color: #a0a0a0 !important; 
-  font-style: italic;
 }
 </style>

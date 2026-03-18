@@ -2,10 +2,8 @@
 import { defineProps } from 'vue'
 import { Plus, X, ChevronDown, ChevronRight } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
-// Accepts the entire examples array prop (reactive)
 const props = defineProps({
     examples: {
         type: Array,
@@ -50,7 +48,6 @@ const toggleExample = (index) => {
 
         <div class="examples-grid">
             <div v-for="(example, index) in examples" :key="index" class="example-card">
-                <!-- Collapsible Header -->
                 <div class="card-header-row clickable-header" @click="toggleExample(index)">
                     <div class="header-left">
                         <component :is="example.expanded !== false ? ChevronDown : ChevronRight" :size="20" class="text-gray" />
@@ -86,12 +83,9 @@ const toggleExample = (index) => {
                     </el-row>
                     
                     <el-form-item label="Explanation (Optional)" class="mt-4">
-                        <div class="quill-wrapper medium-quill">
-                            <QuillEditor 
+                        <div style="height: 250px; width: 100%;">
+                            <RichTextEditor 
                                 v-model:content="example.explanation" 
-                                contentType="html" 
-                                theme="snow" 
-                                toolbar="full"
                                 placeholder="Explain the logic..." 
                             />
                         </div>
@@ -117,40 +111,6 @@ const toggleExample = (index) => {
 .card-badge { font-size: 13px; font-weight: 600; color: #e0e0e0; background: rgba(255, 255, 255, 0.1); padding: 2px 8px; border-radius: 4px; }
 .example-body { padding: 20px; }
 .mt-4 { margin-top: 16px; }
-
-.quill-wrapper { 
-  background-color: #1a1a1a; 
-  border-radius: 8px; 
-  border: 1px solid #333; 
-  overflow: hidden; 
-  display: flex; 
-  flex-direction: column;
-  width: 100%; /* Fix width */
-}
-.small-quill { height: 200px; } /* Increased from 150px */
-.medium-quill { height: 250px; } /* Increased from 200px */
-
-:deep(.ql-toolbar) { 
-  border: none !important; 
-  border-bottom: 1px solid #333 !important; 
-  background: #262626; 
-}
-:deep(.ql-container) { 
-  border: none !important; 
-  color: #e0e0e0; 
-  font-size: 14px; 
-  font-family: 'Inter', sans-serif; 
-  flex: 1; 
-  overflow-y: auto; 
-}
-:deep(.ql-editor) { 
-  padding: 16px; 
-  min-height: 100%; 
-}
-:deep(.ql-editor.ql-blank::before) {
-  color: #a0a0a0 !important; 
-  font-style: italic;
-}
 
 /* Monospace Textarea */
 :deep(.monospace-textarea textarea) {

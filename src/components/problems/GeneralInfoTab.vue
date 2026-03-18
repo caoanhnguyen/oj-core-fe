@@ -1,19 +1,17 @@
 <script setup>
 import { defineProps, ref, onMounted } from 'vue'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { topicsAPI } from '@/api/topics'
+// 🌟 Chỉ cần import Component Editor xịn xò vào là đủ
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
 const props = defineProps({
-    modelValue: {
-        type: Object,
-        required: true
-    }
+   modelValue: {
+      type: Object,
+      required: true
+   }
 })
 
-// Helper logic if needed, otherwise parent handles title->slug watcher
-// We assume parent passes reactive object
-
+// Helper logic
 const getDifficultyClass = (difficulty) => {
    if (difficulty === 'EASY') return 'difficulty-easy'
    if (difficulty === 'MEDIUM') return 'difficulty-medium'
@@ -182,44 +180,30 @@ const handleDropdownVisibleChange = (visible) => {
       </div>
 
       <div class="form-section mb-6">
-          <el-form-item label="Description" prop="description">
-             <div class="quill-wrapper main-quill">
-                <QuillEditor 
-                   v-model:content="modelValue.description" 
-                   theme="snow" 
-                   toolbar="full" 
-                   contentType="html"
-                   placeholder="Describe the problem statement here..."
-                />
-             </div>
-          </el-form-item>
-       </div>
+         <el-form-item label="Description" prop="description">
+            <div style="height: 500px; width: 100%;">
+               <RichTextEditor 
+                  v-model:content="modelValue.description" 
+                  placeholder="Describe the problem statement here..."
+               />
+            </div>
+         </el-form-item>
+      </div>
        
-       <div class="form-section mb-6">
-          <el-form-item label="Author Hint (Optional)" prop="hint">
-             <div class="quill-wrapper main-quill">
-                <QuillEditor 
-                   v-model:content="modelValue.hint" 
-                   theme="snow" 
-                   toolbar="full" 
-                   contentType="html"
-                   placeholder="Give a small hint to the user if they get stuck..." 
-                />
-             </div>
-          </el-form-item>
-       </div>
-    </div>
+      <div class="form-section mb-6">
+         <el-form-item label="Author Hint (Optional)" prop="hint">
+            <div style="height: 300px; width: 100%;">
+               <RichTextEditor 
+                  v-model:content="modelValue.hint" 
+                  placeholder="Give a small hint to the user if they get stuck..." 
+               />
+            </div>
+         </el-form-item>
+      </div>
+   </div>
 </template>
 
 <style scoped>
-/* Reuse styles from CreateProblemView or allow global css */
-/* Assuming global css or parent provided styles works, but better ensuring scoping */
-/* For now rely on scoped styles being available where components are used, OR migrate CSS */
-/* The user asked to split components. I'll rely on the existing style architecture or scoped here if necessary */
-/* Since it's Vue scoped, we might need to copy essential styles or assume parent passes deep styles? */
-/* Actually, Element Plus styles are global. Custom classes like .custom-input need to be ensured. */
-/* I will copy relevant small styles to be safe. */
-
 .full-width { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .form-section { background: rgba(255, 255, 255, 0.02); padding: 24px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
 .mb-6 { margin-bottom: 24px; }
@@ -291,41 +275,6 @@ const handleDropdownVisibleChange = (visible) => {
 .difficulty-easy :deep(.el-input__inner) { color: #2cbb5d !important; font-weight: 600; }
 .difficulty-medium :deep(.el-input__inner) { color: #ffb800 !important; font-weight: 600; }
 .difficulty-hard :deep(.el-input__inner) { color: #ef4444 !important; font-weight: 600; }
-
-.quill-wrapper { 
-  background-color: #1a1a1a; 
-  border-radius: 8px; 
-  border: 1px solid #333; 
-  overflow: hidden; 
-  display: flex; 
-  flex-direction: column;
-  height: 500px;
-  width: 100%; /* Force full width */
-}
-.main-quill { height: 100%; }
-
-:deep(.ql-toolbar) { 
-  border: none !important; 
-  border-bottom: 1px solid #333 !important; 
-  background: #262626; 
-}
-:deep(.ql-container) { 
-  border: none !important; 
-  color: #e0e0e0; 
-  font-size: 14px; 
-  font-family: 'Inter', sans-serif; 
-  flex: 1; 
-  overflow-y: auto; 
-}
-:deep(.ql-editor) { 
-  padding: 24px; 
-  min-height: 100%; 
-}
-/* Placeholder Color Fix */
-:deep(.ql-editor.ql-blank::before) {
-  color: #a0a0a0 !important; 
-  font-style: italic;
-}
 </style>
 
 <style>

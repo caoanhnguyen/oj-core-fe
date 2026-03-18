@@ -6,6 +6,9 @@ import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage } from 'element-plus'
 import { cloneDeep, isEqual } from 'lodash'
 
+// 🌟 Import hàm bóc tách link ảnh
+import { extractImageKeysFromHtml } from '@/utils/quillImageUpload'
+
 // Components
 import GeneralInfoTab from '@/components/problems/GeneralInfoTab.vue'
 import ConstraintsTab from '@/components/problems/ConstraintsTab.vue'
@@ -120,6 +123,45 @@ onMounted(async () => {
     }
 })
 
+// 🌟 HÀM QUÉT TOÀN BỘ ẢNH TRONG FORM
+const gatherAllImageKeys = (data) => {
+    let keys = []
+    
+    const htmlFields = [
+        data.description,
+        data.hint,
+        data.constraints,
+        data.inputFormat,
+        data.outputFormat
+    ]
+
+    // 🌟 Regex quét trực tiếp chọc thẳng vào chuỗi, không qua hàm import nào cả
+    const regex = /(?:editor|temp|problems)\/[a-zA-Z0-9-]+\.(?:png|jpg|jpeg|gif|webp)/gi
+
+    // Quét các trường thông tin chung
+    htmlFields.forEach(html => {
+        if (html && typeof html === 'string') {
+            const matches = html.match(regex)
+            if (matches) keys = [...keys, ...matches]
+        }
+    })
+
+    // Quét trong các examples
+    if (data.examples && data.examples.length > 0) {
+        data.examples.forEach(ex => {
+            if (ex.explanation && typeof ex.explanation === 'string') {
+                const matches = ex.explanation.match(regex)
+                if (matches) keys = [...keys, ...matches]
+            }
+        })
+    }
+
+    // Lọc trùng lặp
+    const uniqueKeys = [...new Set(keys)]
+    
+    return uniqueKeys
+}
+
 const handleUpdate = async () => {
   if (!formRef.value) return
   
@@ -160,7 +202,12 @@ const handleUpdate = async () => {
             Object.assign(partialPayload, currentPayload)
         }
         
-        // If there's something to update
+        // 🌟 LUÔN LUÔN GỬI DANH SÁCH ẢNH XUỐNG ĐỂ BE ĐỒNG BỘ (Xóa rác nếu có)
+        partialPayload.temporaryImageKeys = gatherAllImageKeys(formData.value)
+
+        console.log("Nội dung HTML thực tế trước khi quét:", formData.value.description)
+
+        // Nếu có sự thay đổi (bao gồm cả việc có temporaryImageKeys)
         if (Object.keys(partialPayload).length > 0) {
             await problemStore.updateProblem(id, partialPayload)
         }
@@ -211,7 +258,6 @@ const handleBack = () => {
       class="problem-form"
       hide-required-asterisk
     >
-      <!-- FIXED HEADER -->
       <div class="fixed-header">
          <div class="header-left">
             <button type="button" class="back-btn" @click="handleBack">
@@ -226,7 +272,6 @@ const handleBack = () => {
          </div>
       </div>
 
-      <!-- MAIN TABS CONTENT -->
       <div class="tabs-container">
          <el-tabs v-model="activeTab" class="custom-tabs">
             

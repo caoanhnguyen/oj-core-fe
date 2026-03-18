@@ -56,7 +56,7 @@ const initMonaco = () => {
     language: props.language,
     theme: props.theme,
     automaticLayout: true,
-    minimap: { enabled: false },
+    minimap: { enabled: true },
     fontSize: 14,
     lineHeight: 24,
     padding: { top: 16, bottom: 16 },

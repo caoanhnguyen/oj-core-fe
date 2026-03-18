@@ -7,6 +7,9 @@ import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage } from 'element-plus'
 import JSZip from 'jszip'
 
+// 🌟 Import hàm bóc tách link ảnh
+import { extractImageKeysFromHtml } from '@/utils/quillImageUpload'
+
 // Components
 import GeneralInfoTab from '@/components/problems/GeneralInfoTab.vue'
 import ConstraintsTab from '@/components/problems/ConstraintsTab.vue'
@@ -68,6 +71,27 @@ watch(() => formData.value.title, (newTitle) => {
   formData.value.slug = generateSlug(newTitle)
 })
 
+// 🌟 HÀM QUÉT TOÀN BỘ ẢNH TRONG FORM
+const gatherAllImageKeys = (data) => {
+    let keys = []
+    const htmlFields = [
+        data.description,
+        data.hint,
+        data.constraints,
+        data.inputFormat,
+        data.outputFormat
+    ]
+    htmlFields.forEach(html => {
+        if (html) keys = [...keys, ...extractImageKeysFromHtml(html)]
+    })
+    if (data.examples && data.examples.length > 0) {
+        data.examples.forEach(ex => {
+            if (ex.explanation) keys = [...keys, ...extractImageKeysFromHtml(ex.explanation)]
+        })
+    }
+    return [...new Set(keys)] // Unique keys
+}
+
 const handleSubmit = async (status = 'ACTIVE') => {
   if (!formRef.value) return
   
@@ -83,7 +107,6 @@ const handleSubmit = async (status = 'ACTIVE') => {
       }
 
       try {
-        // 1. Create Problem First
         const { testcaseFile, ...problemPayload } = formData.value
         
         const allowedLanguages = problemPayload.templates.map(t => t.languageKey)
@@ -94,8 +117,15 @@ const handleSubmit = async (status = 'ACTIVE') => {
             codeTemplate: t.codeTemplate
         }))
 
-        const payload = { ...problemPayload, status, allowedLanguages, templates }
-        
+        // 🌟 Gắn mảng temporaryImageKeys vào payload
+        const payload = { 
+            ...problemPayload, 
+            status, 
+            allowedLanguages, 
+            templates,
+            temporaryImageKeys: gatherAllImageKeys(formData.value)
+        }
+
         const newProblem = await problemStore.createProblem(payload)
         
         // 2. Upload Testcases Separately
@@ -125,7 +155,6 @@ onBeforeUnmount(() => {
 })
 
 const handleBack = () => {
-  // Navigate back to the Manage Problems tab
   router.push({ path: '/dashboard', query: { tab: 'problems' } })
 }
 </script>
@@ -140,7 +169,6 @@ const handleBack = () => {
       class="problem-form"
       hide-required-asterisk
     >
-      <!-- FIXED HEADER -->
       <div class="fixed-header">
          <div class="header-left">
             <button type="button" class="back-btn" @click="handleBack">
@@ -156,7 +184,6 @@ const handleBack = () => {
          </div>
       </div>
 
-      <!-- MAIN TABS CONTENT -->
       <div class="tabs-container">
          <el-tabs v-model="activeTab" class="custom-tabs">
             
@@ -191,9 +218,6 @@ const handleBack = () => {
 </template>
 
 <style scoped>
-/* Reuse styles from original or extract to global if needed. 
-   Keeping Layout styles here. Component styles are inside components. */
-
 .create-problem-container {
   height: calc(100vh - 64px); /* Account for Navbar */
   overflow: hidden;
