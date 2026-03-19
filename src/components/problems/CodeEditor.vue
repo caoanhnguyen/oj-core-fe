@@ -1,4 +1,4 @@
-<script setup>
+<!-- <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Play, Send } from 'lucide-vue-next'
 import loader from '@monaco-editor/loader'
@@ -30,7 +30,7 @@ onMounted(async () => {
   try {
     const monaco = await loader.init()
     
-    // Define custom theme
+    // Define custom theme (Giữ nguyên của bro vì nó quá đẹp rồi)
     monaco.editor.defineTheme('leetcode-dark', {
       base: 'vs-dark',
       inherit: true,
@@ -51,14 +51,15 @@ onMounted(async () => {
       }
     })
     
-    // Create editor instance
+    // Create editor instance với BỘ VŨ KHÍ BÍ MẬT INTELLISENSE
     editor = monaco.editor.create(editorContainer.value, {
       value: code.value,
       language: language.value,
       theme: 'leetcode-dark',
       minimap: { enabled: false },
-      fontSize: 14,
-      fontFamily: 'JetBrains Mono, Fira Code, SF Mono, Consolas, monospace',
+      fontSize: 15, // Tăng lên 1 tí cho dễ nhìn giống VS Code
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace",
+      fontLigatures: true, // Bật font ligatures (nối nét) cho code nhìn pro hơn
       lineNumbers: 'on',
       scrollBeyondLastLine: false,
       automaticLayout: true,
@@ -71,11 +72,33 @@ onMounted(async () => {
         horizontalScrollbarSize: 8,
       },
       padding: {
-        top: 12,
-        bottom: 12,
+        top: 16,
+        bottom: 16,
       },
+      
+      // BẮT ĐẦU BẬT TÍNH NĂNG GỢI Ý CODE (INTELLISENSE)
+      quickSuggestions: {
+        other: true,
+        comments: true,
+        strings: true
+      },
+      suggestOnTriggerCharacters: true, // Nhấn dấu chấm (.) hoặc chữ cái là nó xổ gợi ý
+      acceptSuggestionOnEnter: 'on', // Nhấn Enter để tự điền code
+      wordBasedSuggestions: 'allDocuments', // Gợi ý dựa trên các từ đã gõ trong toàn bộ file
+      snippetSuggestions: 'inline', // Cho phép gợi ý các snippet chuẩn của ngôn ngữ
+      parameterHints: { enabled: true }, // Gợi ý tham số khi gõ hàm (Ví dụ gõ substring() nó hiện tham số)
+      formatOnPaste: true, // Tự động format lề khi Ctrl+V
+      formatOnType: true, // Tự động format lề khi gõ
+      matchBrackets: 'always', // Bôi sáng ngoặc đóng/mở
+      autoClosingBrackets: 'always', // Tự động đóng ngoặc
+      autoClosingQuotes: 'always' // Tự động đóng nháy
     })
     
+    // Thêm phím tắt Ctrl + S để Format Code thay vì tải trang web xuống
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      editor.getAction('editor.action.formatDocument').run()
+    })
+
     // Listen to content changes
     editor.onDidChangeModelContent(() => {
       code.value = editor.getValue()
@@ -227,4 +250,4 @@ const handleLanguageChange = (newLang) => {
   font-size: 13px;
   font-weight: 500;
 }
-</style>
+</style> -->

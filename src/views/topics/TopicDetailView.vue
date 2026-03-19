@@ -896,6 +896,8 @@ watch(() => route.path, (newPath) => {
   border-radius: 8px !important;
   color: #eff2f6 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  width: 350px !important;
+  min-width: 310px !important;
 }
 
 .topic-detail-page .filter-popover.el-popper .el-popper__arrow::before {

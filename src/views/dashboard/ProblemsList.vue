@@ -324,7 +324,7 @@ onMounted(async () => {
 
       <el-popover
         placement="bottom-start"
-        :width="350"
+        :width="450"
         trigger="click"
         popper-class="filter-popover"
         :hide-after="0"
@@ -852,10 +852,12 @@ onMounted(async () => {
 .filter-popover.el-popper {
   background: #282828 !important;
   border: 1px solid #3e3e3e !important;
-  padding: 16px !important;
+  padding: 0 !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
   color: #eff2f6 !important;
+  width: 450px !important;
+  min-width: 310px !important;
 }
 .filter-popover.el-popper .el-popper__arrow::before {
   background: #282828 !important;
@@ -863,19 +865,21 @@ onMounted(async () => {
 }
 
 .filter-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #3e3e3e;
+  font-size: 14px;
+  font-weight: 600;
+  color: #eff2f6;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #eff2f6;
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 16px;
 }
 .filter-list {
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 0 !important;
 }
 .filter-row {
   display: flex;
@@ -885,8 +889,8 @@ onMounted(async () => {
 .filter-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 105px;
+  gap: 8px;
+  width: 110px;
   color: #8a8a8a;
   font-size: 13px;
   transition: color 0.2s;

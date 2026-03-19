@@ -5,26 +5,10 @@ import { useProblemStore } from '../../stores/problem'
 import { useAuthStore } from '../../stores/auth'
 import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn, User, Globe, Award } from 'lucide-vue-next'
 import { ElMessage, ElNotification } from 'element-plus'
-import * as monaco from 'monaco-editor'
+import CodeEditor from '@/components/common/CodeEditor.vue'
 import { useSubmissionStore } from '../../stores/submission'
 import StatisticsTab from '../../components/problems/StatisticsTab.vue'
 import SubmissionsTab from '../../components/problems/SubmissionsTab.vue'
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
-
-// Configure Monaco Workers
-self.MonacoEnvironment = {
-  getWorker(_, label) {
-    if (label === 'json') return new jsonWorker()
-    if (label === 'css' || label === 'scss' || label === 'less') return new cssWorker()
-    if (label === 'html' || label === 'handlebars' || label === 'razor') return new htmlWorker()
-    if (label === 'typescript' || label === 'javascript') return new tsWorker()
-    return new editorWorker()
-  }
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -37,7 +21,7 @@ const executionResult = ref(null)
 const problem = ref(null)
 const loading = ref(true)
 const selectedLanguage = ref('java')
-const editorContainer = ref(null)
+const sourceCode = ref('')
 const submissionsTabRef = ref(null)
 const isTopicsExpanded = ref(false)
 const isHintExpanded = ref(false)
@@ -72,7 +56,6 @@ const scrollToHint = () => {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
-let editorInstance = null
 
 // Testcase Logic
 const activeTestcaseIndex = ref(0)
@@ -122,62 +105,18 @@ const removeCustomTestcase = (index) => {
     }
 }
 
-// Fetch content if needed when active index changes
-watch(activeTestcaseIndex, async (newIndex) => {
-    if (!sampleTestcases.value[newIndex]) return
-    await loadTestcaseContent(sampleTestcases.value[newIndex])
-})
+// // Fetch content if needed when active index changes
+// watch(activeTestcaseIndex, async (newIndex) => {
+//     if (!sampleTestcases.value[newIndex]) return
+//     await loadTestcaseContent(sampleTestcases.value[newIndex])
+// })
 
-const loadTestcaseContent = async (tc) => {
-    return;
-    
-    // Initialize state
-    testcaseContent.value[tc.id] = { input: tc.inputData, output: tc.outputData, loading: false }
-    
-    // If data is already there, done.
-    if (tc.inputData && tc.outputData) return
-
-    testcaseContent.value[tc.id].loading = true
-    try {
-        // Fetch Input if missing
-        if (!tc.inputData && tc.inputUrl) {
-            // Note: user said inputUrl is raw key, need to use FileController
-            // Endpoint: /api/files/view?key={key}
-            // Use axios directly or store helper? Axios is fine here.
-            // We need to import axios instance.
-            // Assuming we can use fetch for now or import axios.
-            // Let's use the existing axios instance if available, or fetch.
-            // Since we don't have axios imported in <script setup>, let's import it.
-            // Actually, we can use fetch with authentication header if needed?
-            // FileController /view is public? Let's check... YES, no @PreAuthorize on viewFile.
-            
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/files/view?key=${encodeURIComponent(tc.inputUrl)}`)
-            if (res.ok) {
-                testcaseContent.value[tc.id].input = await res.text()
-            }
-        }
-        
-        // Fetch Output if missing
-        if (!tc.outputData && tc.outputUrl) {
-             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/files/view?key=${encodeURIComponent(tc.outputUrl)}`)
-            if (res.ok) {
-                testcaseContent.value[tc.id].output = await res.text()
-            }
-        }
-    } catch (e) {
-        console.error('Failed to load testcase content', e)
-        testcaseContent.value[tc.id].error = true
-    } finally {
-        testcaseContent.value[tc.id].loading = false
-    }
-}
-
-// Initial load for first case
-watch(sampleTestcases, (newVal) => {
-    if (newVal.length > 0) {
-        loadTestcaseContent(newVal[0])
-    }
-}, { immediate: true })
+// // Initial load for first case
+// watch(sampleTestcases, (newVal) => {
+//     if (newVal.length > 0) {
+//         loadTestcaseContent(newVal[0])
+//     }
+// }, { immediate: true })
 
 const languageOptions = ref([])
 
@@ -232,7 +171,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('mousemove', handleMouseMove)
   window.removeEventListener('mouseup', stopDrag)
-  if (editorInstance) editorInstance.dispose()
 })
 
 // Monaco & Template Logic
@@ -246,53 +184,6 @@ const getMonacoLang = (backendKey) => {
    return map[backendKey] || 'plaintext'
 }
 
-const initMonaco = () => {
-  if (!editorContainer.value) return
-
-  editorInstance = monaco.editor.create(editorContainer.value, {
-    value: getInitialCode(),
-    language: getMonacoLang(selectedLanguage.value),
-    theme: 'vs-dark',
-    automaticLayout: true,
-    minimap: { enabled: false },
-    fontSize: 14,
-    lineHeight: 24,
-    padding: { top: 16, bottom: 16 },
-    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-    fontLigatures: true,
-    bracketPairColorization: { enabled: true },
-    scrollBeyondLastLine: false,
-    scrollbar: {
-      vertical: 'visible',
-      horizontal: 'visible',
-      verticalScrollbarSize: 10,
-      horizontalScrollbarSize: 10
-    },
-    // Enhanced suggestions
-    suggestOnTriggerCharacters: true,
-    quickSuggestions: {
-      other: true,
-      comments: true,
-      strings: true
-    },
-    wordBasedSuggestions: 'allDocuments',
-    snippetSuggestions: 'top',
-    suggestSelection: 'first',
-    acceptSuggestionOnEnter: 'on',
-    tabCompletion: 'on',
-    formatOnType: true,
-    formatOnPaste: true,
-    suggest: {
-      showWords: true,
-      showSnippets: true,
-      showFunctions: true,
-      showVariables: true,
-      showConstants: true,
-      showClasses: true,
-    }
-  })
-}
-
 const getInitialCode = () => {
   if (problem.value?.templates?.length > 0) {
     const template = problem.value.templates.find(t => t.languageKey === selectedLanguage.value)
@@ -302,11 +193,7 @@ const getInitialCode = () => {
 }
 
 watch(selectedLanguage, (newLangKey) => {
-  if (editorInstance) {
-    const model = editorInstance.getModel()
-    monaco.editor.setModelLanguage(model, getMonacoLang(newLangKey))
-    editorInstance.setValue(getInitialCode())
-  }
+  sourceCode.value = getInitialCode()
 })
 
 const handleSubmit = async () => {
@@ -315,8 +202,7 @@ const handleSubmit = async () => {
     router.push('/login')
     return
   }
-  const code = editorInstance?.getValue()
-  if (!code) {
+  if (!sourceCode.value) {
       ElMessage.warning('Vui lòng nhập code trước khi nộp bài')
       return;
   }
@@ -325,7 +211,7 @@ const handleSubmit = async () => {
      const payload = {
         problemId: problem.value.id,
         languageKey: selectedLanguage.value,
-        sourceCode: code
+        sourceCode: sourceCode.value
      }
      
      ElMessage.info('Đang nộp bài...')
@@ -359,8 +245,7 @@ const handleRun = async () => {
     router.push('/login')
     return
   }
-  const code = editorInstance?.getValue()
-  if (!code) {
+  if (!sourceCode.value) {
       ElMessage.warning('Vui lòng nhập code trước khi chạy thử')
       return;
   }
@@ -369,7 +254,7 @@ const handleRun = async () => {
      const payload = {
         problemId: problem.value.id,
         languageKey: selectedLanguage.value,
-        sourceCode: code,
+        sourceCode: sourceCode.value,
         customInputs: sampleTestcases.value.map(tc => ({ rawInput: tc.rawInput }))
      }
      
@@ -401,19 +286,15 @@ const handleBack = () => {
 
 // Reset editor to the problem's default template for current language
 const handleResetCode = () => {
-  if (editorInstance) {
-    editorInstance.setValue(getInitialCode())
-    ElMessage.success('Code đã được reset về mặc định')
-  }
+  sourceCode.value = getInitialCode()
+  ElMessage.success('Code đã được reset về mặc định')
 }
 
 // TODO: Implement API call to retrieve last submitted code when BE is ready
 const handleRetrieveLastCode = async () => {
   try {
-    const sourceCode = await submissionStore.getLatestSubmissionSourceCode(problem.value.id, selectedLanguage.value)
-    if (editorInstance) {
-      editorInstance.setValue(sourceCode ? sourceCode : getInitialCode())
-    }
+    const code = await submissionStore.getLatestSubmissionSourceCode(problem.value.id, selectedLanguage.value)
+    sourceCode.value = code ? code : getInitialCode()
   } catch (e) {
     console.error(e)
     ElMessage.error('Lấy mã nguồn thất bại')
@@ -456,13 +337,7 @@ const initPage = async () => {
   } finally {
     loading.value = false
     nextTick(() => {
-      if (editorInstance) {
-        editorInstance.setValue(getInitialCode())
-        const model = editorInstance.getModel()
-        if (model) monaco.editor.setModelLanguage(model, getMonacoLang(selectedLanguage.value))
-      } else {
-        initMonaco()
-      }
+      sourceCode.value = getInitialCode()
     })
   }
 }
@@ -755,7 +630,11 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               </el-tooltip>
             </div>
           </div>
-          <div class="editor-container" ref="editorContainer"></div>
+          <CodeEditor 
+            v-model="sourceCode" 
+            :language="getMonacoLang(selectedLanguage)" 
+            height="100%"
+          />
         </div>
 
         <!-- Vertical Splitter -->

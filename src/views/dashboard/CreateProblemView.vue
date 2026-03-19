@@ -1,10 +1,10 @@
 <script setup>
-import { ref, onBeforeUnmount, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onBeforeUnmount, reactive, watch, onMounted } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { Plus, CheckCircle, ArrowLeft } from 'lucide-vue-next'
 import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import JSZip from 'jszip'
 
 // 🌟 Import hàm bóc tách link ảnh
@@ -45,6 +45,48 @@ const formData = ref({
 
 // Tab State
 const activeTab = ref('general')
+const isDirty = ref(false)
+const isSubmitting = ref(false)
+
+// Track changes
+watch(formData, () => {
+  if (!isSubmitting.value) isDirty.value = true
+}, { deep: true })
+
+onBeforeRouteLeave((to, from, next) => {
+  if (isDirty.value && !isSubmitting.value) {
+    ElMessageBox.confirm(
+      'Bạn có thay đổi chưa lưu. Bạn có muốn lưu bản nháp trước khi rời đi không?',
+      'Xác nhận rời khỏi trang',
+      {
+        confirmButtonText: 'Lưu bản nháp',
+        cancelButtonText: 'Rời đi không lưu',
+        distinguishCancelAndClose: true,
+        type: 'warning',
+      }
+    ).then(async () => {
+      await handleSubmit('DRAFT')
+      next()
+    }).catch((action) => {
+      if (action === 'cancel') next()
+      else next(false)
+    })
+  } else {
+    next()
+  }
+})
+
+// Browser close/refresh
+const handleBeforeUnload = (e) => {
+  if (isDirty.value && !isSubmitting.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
 
 // Validation Rules
 const rules = reactive({
@@ -107,6 +149,7 @@ const handleSubmit = async (status = 'ACTIVE') => {
       }
 
       try {
+        isSubmitting.value = true
         const { testcaseFile, ...problemPayload } = formData.value
         
         const allowedLanguages = problemPayload.templates.map(t => t.languageKey)
@@ -138,6 +181,7 @@ const handleSubmit = async (status = 'ACTIVE') => {
         router.push('/dashboard')
       } catch (error) {
         console.error('Failed to create problem:', error)
+        isSubmitting.value = false
       }
     } else {
       ElMessage.error('Please check all required fields')
@@ -152,6 +196,7 @@ const handleCancel = () => {
 
 onBeforeUnmount(() => {
   problemStore.clearUploadedImages()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
 const handleBack = () => {

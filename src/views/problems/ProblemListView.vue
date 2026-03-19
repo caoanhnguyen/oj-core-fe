@@ -35,6 +35,8 @@ const pagination = ref({
   size: 20
 })
 
+const isTopicsExtraExpanded = ref(false)
+
 const hasActiveFilters = computed(() => {
   return Object.values(filters.value).some(f => {
     if (!f.active) return false
@@ -225,6 +227,28 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Quick Topic Filters Row -->
+      <div v-if="topics.length > 0" class="topics-row-outer">
+        <div class="topics-row-container" :class="{ expanded: isTopicsExtraExpanded }">
+          <button
+            v-for="topic in topics"
+            :key="topic.id || topic.slug"
+            class="topic-pill-btn"
+            @click="router.push(`/topics/${topic.slug}`)"
+          >
+            {{ topic.name }}
+          </button>
+        </div>
+        <button 
+          v-if="topics.length > 8" 
+          class="topics-expand-btn" 
+          @click="isTopicsExtraExpanded = !isTopicsExtraExpanded"
+        >
+          {{ isTopicsExtraExpanded ? 'Show Less' : 'Show More' }}
+          <ChevronDown :size="14" :style="{ transform: isTopicsExtraExpanded ? 'rotate(180deg)' : 'none' }" />
+        </button>
+      </div>
+
       <div class="table-controls">
         <div class="search-wrap">
           <Search class="search-icon" :size="16" />
@@ -323,7 +347,12 @@ onMounted(async () => {
                    <template #reference>
                      <div class="topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop>
                        <span v-if="filters.topics.value.length === 0">Select</span>
-                       <span v-else class="selected-topics-text">{{ filters.topics.value.length }} selected</span>
+                       <div v-else class="selected-topics-text">
+                          {{ filters.topics.value[0] }}
+                          <span v-if="filters.topics.value.length > 1" class="more-count">
+                            +{{ filters.topics.value.length - 1 }}
+                          </span>
+                       </div>
                        <ChevronDown :size="14" class="topic-trigger-icon" />
                      </div>
                    </template>
@@ -365,18 +394,29 @@ onMounted(async () => {
         
         <div class="spacer"></div>
         <div class="solved-count-container" v-if="authStore.isAuthenticated">
-          <div class="progress-ring">
-            <svg viewBox="0 0 36 36" class="circular-chart">
-              <path class="circle-bg"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path class="circle"
-                :stroke-dasharray="`${progressPercent}, 100`"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-          </div>
-          <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
+          <!-- Normal state: No filters -> Show progress ring -->
+          <template v-if="!hasActiveFilters && !searchQuery">
+            <div class="progress-ring">
+              <svg viewBox="0 0 36 36" class="circular-chart">
+                <path class="circle-bg"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path class="circle"
+                  :stroke-dasharray="`${progressPercent}, 100`"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+            </div>
+            <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
+          </template>
+
+          <!-- Filter state: Show total results -->
+          <template v-else>
+            <div class="results-badge">
+              <Search :size="14" class="search-indicator" />
+              <span class="results-count">Found: {{ problemStore.pagination.totalElements }} results</span>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -726,6 +766,8 @@ onMounted(async () => {
   border-radius: 8px !important;
   color: #eff2f6 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  width: 350px !important; /* Sweet spot width */
+  min-width: 310px !important;
 }
 .filter-popover.el-popper .el-popper__arrow::before {
   background: #282828 !important;
@@ -750,13 +792,14 @@ onMounted(async () => {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 16px; /* Back to original comfortable gap */
+  margin-bottom: 0 !important;
 }
 
 .filter-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 12px; /* Standard gap */
 }
 
 .dark-checkbox {
@@ -855,22 +898,20 @@ onMounted(async () => {
 
 /* Custom Topic Selector UI */
 .topic-trigger {
-  width: 110px;
   flex: 1;
+  min-width: 0; /* Let flex handle it */
+  height: 24px;
   background-color: #333;
   box-shadow: 0 0 0 1px #3e3e3e inset;
   border-radius: 6px;
-  height: 24px; /* match el-select small size */
   display: flex;
   align-items: center;
-  padding: 0 8px; /* Slightly reduced padding */
+  padding: 0 8px;
   color: #eff2f6;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .topic-trigger .topic-trigger-icon {
   margin-left: auto;
@@ -891,15 +932,28 @@ onMounted(async () => {
   color: var(--accent-primary);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 105px;
+}
+.more-count {
+  font-size: 11px;
+  background: rgba(255, 161, 22, 0.2);
+  padding: 0 4px;
+  border-radius: 4px;
+  color: var(--accent-primary);
 }
 
 .topic-popover {
-  padding: 12px !important;
+  padding: 0 !important; /* Managed by topic-selector-content */
 }
 .topic-selector-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px; /* Consistency with other filters */
 }
 .popover-search {
   position: relative;
@@ -975,5 +1029,85 @@ onMounted(async () => {
   justify-content: flex-end;
   border-top: 1px solid #3e3e3e;
   padding-top: 8px;
+}
+
+/* Topics Row Above Table */
+.topics-row-outer {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.topics-row-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  height: 34px; /* Default one row */
+  overflow: hidden;
+  transition: height 0.3s ease-in-out;
+}
+
+.topics-row-container.expanded {
+  height: auto;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.topic-pill-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0a0a0;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.topic-pill-btn:hover {
+  background: rgba(255, 161, 22, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(255, 161, 22, 0.3);
+}
+
+.topics-expand-btn {
+  background: transparent;
+  border: none;
+  color: #8a8a8a;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  width: fit-content;
+}
+
+.topics-expand-btn:hover {
+  color: #fff;
+}
+
+.results-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 161, 22, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 161, 22, 0.2);
+}
+.search-indicator {
+  color: var(--accent-primary);
+}
+.results-count {
+  color: #eff2f6;
+  font-size: 13px;
+  font-weight: 500;
 }
 </style>

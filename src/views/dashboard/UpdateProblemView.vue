@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, reactive, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { cloneDeep, isEqual } from 'lodash'
 
 // 🌟 Import hàm bóc tách link ảnh
@@ -54,6 +54,58 @@ const rules = reactive({
   difficulty: [{ required: true, message: 'Difficulty is required', trigger: 'change' }],
   description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
   constraints: [{ required: true, message: 'Constraints are required', trigger: 'blur' }]
+})
+
+const isDirty = ref(false)
+
+// Track changes
+watch(formData, () => {
+    if (!isSaving.value && originalData) {
+        // Compare current with initial to determine if dirty
+        const { testcaseFile, ...currentPayload } = formData.value
+        // Simple dirty check: if anything changed from originalData
+        // We can just use a flag too if deep comparison is expensive
+        isDirty.value = true
+    }
+}, { deep: true })
+
+onBeforeRouteLeave((to, from, next) => {
+    if (isDirty.value && !isSaving.value) {
+        ElMessageBox.confirm(
+            'Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại trước khi rời đi không?',
+            'Xác nhận rời khỏi trang',
+            {
+                confirmButtonText: 'Lưu thay đổi',
+                cancelButtonText: 'Rời đi không lưu',
+                distinguishCancelAndClose: true,
+                type: 'warning',
+            }
+        ).then(async () => {
+            await handleUpdate()
+            next()
+        }).catch((action) => {
+            if (action === 'cancel') next()
+            else next(false)
+        })
+    } else {
+        next()
+    }
+})
+
+// Browser close/refresh
+const handleBeforeUnload = (e) => {
+    if (isDirty.value && !isSaving.value) {
+        e.preventDefault()
+        e.returnValue = ''
+    }
+}
+
+onMounted(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
 const formRef = ref(null)
@@ -123,7 +175,7 @@ onMounted(async () => {
     }
 })
 
-// 🌟 HÀM QUÉT TOÀN BỘ ẢNH TRONG FORM
+// HÀM QUÉT TOÀN BỘ ẢNH TRONG FORM
 const gatherAllImageKeys = (data) => {
     let keys = []
     
@@ -135,7 +187,7 @@ const gatherAllImageKeys = (data) => {
         data.outputFormat
     ]
 
-    // 🌟 Regex quét trực tiếp chọc thẳng vào chuỗi, không qua hàm import nào cả
+    // Regex quét trực tiếp chọc thẳng vào chuỗi, không qua hàm import nào cả
     const regex = /(?:editor|temp|problems)\/[a-zA-Z0-9-]+\.(?:png|jpg|jpeg|gif|webp)/gi
 
     // Quét các trường thông tin chung
@@ -202,7 +254,7 @@ const handleUpdate = async () => {
             Object.assign(partialPayload, currentPayload)
         }
         
-        // 🌟 LUÔN LUÔN GỬI DANH SÁCH ẢNH XUỐNG ĐỂ BE ĐỒNG BỘ (Xóa rác nếu có)
+        // LUÔN LUÔN GỬI DANH SÁCH ẢNH XUỐNG ĐỂ BE ĐỒNG BỘ (Xóa rác nếu có)
         partialPayload.temporaryImageKeys = gatherAllImageKeys(formData.value)
 
         console.log("Nội dung HTML thực tế trước khi quét:", formData.value.description)
