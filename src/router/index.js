@@ -29,6 +29,12 @@ const router = createRouter({
       component: () => import('../views/problems/ProblemDetailView.vue')
     },
     {
+      path: '/rankings/:type',
+      name: 'rankings',
+      component: () => import('../views/rankings/RankingView.vue'),
+      props: true
+    },
+    {
       path: '/submissions',
       name: 'submissions',
       component: () => import('../views/submissions/SubmissionsList.vue'),

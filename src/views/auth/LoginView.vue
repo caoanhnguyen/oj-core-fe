@@ -1,16 +1,47 @@
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 
-// ...existing code...
-
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const formRef = ref(null)
 const loading = ref(false)
+
+onMounted(() => {
+  // Check common error parameters from Backend (Query params & raw URL fallback)
+  const searchParams = new URLSearchParams(window.location.search)
+  const error = searchParams.get('error') || route.query.error
+  const message = searchParams.get('message') || route.query.message || searchParams.get('error_code')
+  
+  if (error || message) {
+    console.warn('Authentication error in login query:', { error, message })
+    
+    // Choose the best message: detailed message > error code > generic
+    let displayMessage = (message && String(message) !== 'null') ? String(message) : ''
+    if (!displayMessage && error) {
+      if (error === 'invalid_provider' || error === 'access_denied') {
+        displayMessage = 'Email đã được dùng để đăng ký tài khoản khác. Vui lòng đăng nhập bằng mật khẩu!'
+      } else {
+        displayMessage = String(error)
+      }
+    }
+
+    if (displayMessage) {
+      ElMessage.error({
+        message: displayMessage,
+        duration: 10000, 
+        showClose: true
+      })
+    }
+    
+    // Clear query so it doesn't show again on refresh
+    router.replace({ path: '/login', query: {} })
+  }
+})
 
 const form = reactive({
   username: '',

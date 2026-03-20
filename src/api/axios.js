@@ -46,8 +46,8 @@ axiosInstance.interceptors.response.use(
     // 🌟 CHỈ XỬ LÝ KHI GẶP LỖI 401 UNAUTHORIZED
     if (status === 401 && !originalRequest._retry) {
 
-      // 🚨 CHỐT CHẶN 0: Đang ở trang login thì cấm tuyệt đối mọi hành vi redirect hay refresh
-      if (window.location.pathname.includes('/login')) {
+      // 🚨 CHỐT CHẶN 0: Đang ở trang login hoặc oauth callback thì cấm tuyệt đối mọi hành vi redirect hay refresh tự động
+      if (window.location.pathname.includes('/login') || window.location.pathname.includes('/oauth/callback')) {
         return Promise.reject(error)
       }
 
@@ -59,8 +59,9 @@ axiosInstance.interceptors.response.use(
       
       if (isAuthRequest) {
         authStore.user = null // Dọn sạch Pinia Store
-        // Chỉ redirect nếu không phải đang ở sẵn login rồi
-        if (!window.location.pathname.includes('/login')) {
+        // Chỉ redirect nếu không phải đang ở sẵn login / oauth callback
+        const isOnAuthPage = window.location.pathname.includes('/login') || window.location.pathname.includes('/oauth/callback')
+        if (!isOnAuthPage) {
           window.location.href = '/login'
         }
         return Promise.reject(error)
@@ -93,11 +94,12 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false
         processQueue(refreshError, null)
 
-        // 🌟 Dọn dẹp Store sạch sẽ để Router không bị nhầm lẫn
+        // 🌟 Dọn dẹp Store sạch sẽ
         authStore.user = null
 
-        // Đá văng về trang Login
-        if (!window.location.pathname.includes('/login')) {
+        // Chỉ điều hướng về Login nếu không phải đang ở các trang Auth (tránh làm mất query param lỗi)
+        const isOnAuthPage = window.location.pathname.includes('/login') || window.location.pathname.includes('/oauth/callback')
+        if (!isOnAuthPage) {
           window.location.href = '/login'
         }
         return Promise.reject(refreshError)

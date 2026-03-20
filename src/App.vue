@@ -16,9 +16,9 @@ const showVerificationBanner = computed(() => {
   return authStore.isAuthenticated && !authStore.isEmailVerified && !GUEST_PATHS.includes(route.path)
 })
 
-// Không hiển thị footer khi đang ở trang chi tiết bài tập
+// Không hiển thị footer khi đang ở trang chi tiết bài tập hoặc Dashboard admin
 const showFooter = computed(() => {
-  return route.name !== 'problem-detail'
+  return route.name !== 'problem-detail' && !route.path.startsWith('/dashboard')
 })
 
 onMounted(async () => {

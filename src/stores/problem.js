@@ -35,7 +35,8 @@ export const useProblemStore = defineStore('problem', {
                     status: params.status,
                     problemStatus: params.problemStatus,
                     topicSlugs: params.topicSlugs,
-                    sort: params.sort
+                    sort: params.sort,
+                    ruleType: params.ruleType
                 })
 
                 if (append) {

@@ -53,24 +53,40 @@ watch(formData, () => {
   if (!isSubmitting.value) isDirty.value = true
 }, { deep: true })
 
-onBeforeRouteLeave((to, from, next) => {
+const allowLeaving = ref(false)
+
+onBeforeRouteLeave(async (to, from, next) => {
+  if (allowLeaving.value) {
+    next()
+    return
+  }
+
   if (isDirty.value && !isSubmitting.value) {
-    ElMessageBox.confirm(
-      'Bạn có thay đổi chưa lưu. Bạn có muốn lưu bản nháp trước khi rời đi không?',
-      'Xác nhận rời khỏi trang',
-      {
-        confirmButtonText: 'Lưu bản nháp',
-        cancelButtonText: 'Rời đi không lưu',
-        distinguishCancelAndClose: true,
-        type: 'warning',
+    try {
+      const action = await ElMessageBox.confirm(
+        'Bạn có thay đổi chưa lưu. Bạn có muốn lưu bản nháp trước khi rời đi không?',
+        'Xác nhận rời khỏi trang',
+        {
+          confirmButtonText: 'Lưu bản nháp',
+          cancelButtonText: 'Rời đi không lưu',
+          distinguishCancelAndClose: true,
+          type: 'warning',
+        }
+      )
+
+      if (action === 'confirm') {
+        allowLeaving.value = true
+        await handleSubmit('DRAFT')
+        next()
       }
-    ).then(async () => {
-      await handleSubmit('DRAFT')
-      next()
-    }).catch((action) => {
-      if (action === 'cancel') next()
-      else next(false)
-    })
+    } catch (action) {
+      if (action === 'cancel') {
+        allowLeaving.value = true
+        next()
+      } else {
+        next(false)
+      }
+    }
   } else {
     next()
   }
@@ -178,6 +194,8 @@ const handleSubmit = async (status = 'ACTIVE') => {
             await problemStore.uploadTestcasesZip(newProblem.id, testcasesFD)
         }
 
+        isDirty.value = false // SUCCESS! No longer dirty
+        allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
         console.error('Failed to create problem:', error)

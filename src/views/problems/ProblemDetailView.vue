@@ -222,9 +222,13 @@ const handleSubmit = async () => {
      
      submissionStore.startPollingSubmission(submissionId,
        (res) => {
+          let displayMsg = `Kết quả: ${res.verdict}`
+          if (res.verdict === 'SE') {
+            displayMsg = `Kết quả: SE - Hệ thống đang gặp lỗi, vui lòng thử lại sau!`
+          }
           ElNotification({
             title: 'Chấm bài hoàn tất',
-            message: `Kết quả: ${res.verdict}`,
+            message: displayMsg,
             type: res.verdict === 'AC' ? 'success' : 'warning'
           })
           // Reload the submissions tab to show updated result
@@ -255,7 +259,10 @@ const handleRun = async () => {
         problemId: problem.value.id,
         languageKey: selectedLanguage.value,
         sourceCode: sourceCode.value,
-        customInputs: sampleTestcases.value.map(tc => ({ rawInput: tc.rawInput }))
+        customInputs: sampleTestcases.value.map(tc => ({ 
+          rawInput: tc.rawInput,
+          expectedOutput: tc.rawOutput
+        }))
      }
      
      const token = await submissionStore.runCode(payload)
@@ -708,7 +715,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                         </div>
                         <template v-else>
                             <div v-for="(res, idx) in executionResult.results" :key="idx" class="result-block" style="margin-bottom: 16px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
-                               <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px" :style="{ color: res.verdict === 'SUCCESS' ? '#2cbb5d' : '#ef4743' }">
+                               <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px" :style="{ color: (res.verdict === 'SUCCESS' || res.verdict === 'AC') ? '#2cbb5d' : '#ef4743' }">
                                    Testcase {{ idx + 1 }}: {{ res.verdict || res.status }}
                                </div>
                                <div style="display: flex; gap: 16px; font-size: 12px; color: #a0a0a0; margin-bottom: 8px;">

@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, useRouter, useRoute } from 'vue-router'
-import { Code2, User, LogOut } from 'lucide-vue-next'
+import { Code2, User, LogOut, Trophy, ChevronDown, Home, LayoutDashboard, BookOpen, Send, Swords, MessageSquare } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { computed } from 'vue'
@@ -34,25 +34,54 @@ const handleLogout = async () => {
       <div class="nav-links">
 
         <RouterLink to="/" class="nav-link" :class="{ 'is-active': route.path === '/' }">
+          <Home :size="16" style="margin-right: 6px;" />
           <span>Home</span>
         </RouterLink>
 
         <RouterLink v-if="authStore.isAdmin" to="/dashboard" class="nav-link" :class="{ 'is-active': route.path.startsWith('/dashboard') }">
+          <LayoutDashboard :size="16" style="margin-right: 6px;" />
           <span>Dashboard</span>
         </RouterLink>
 
         <RouterLink to="/problems" class="nav-link" :class="{ 'is-active': isProblemsActive }">
+          <BookOpen :size="16" style="margin-right: 6px;" />
           <span>Problems</span>
         </RouterLink>
 
         <RouterLink to="/submissions" class="nav-link" :class="{ 'is-active': route.path.startsWith('/submissions') }">
+          <Send :size="16" style="margin-right: 6px;" />
           <span>Submissions</span>
         </RouterLink>
 
+        <!-- Rank Dropdown -->
+        <el-dropdown trigger="hover" placement="bottom" :show-timeout="120" :hide-timeout="120">
+          <div class="nav-link rank-link" :class="{ 'is-active': route.path.startsWith('/rankings') }">
+            <Trophy :size="16" style="margin-right: 6px;" />
+            <span>Rank</span>
+            <ChevronDown :size="14" style="margin-left: 4px;" />
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu class="user-dropdown">
+              <el-dropdown-item>
+                <RouterLink to="/rankings/acm" class="dropdown-link">
+                  <span>ACM Rank</span>
+                </RouterLink>
+              </el-dropdown-item>
+              <el-dropdown-item>
+                <RouterLink to="/rankings/oi" class="dropdown-link">
+                  <span>OI Rank</span>
+                </RouterLink>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
         <a href="#" class="nav-link" @click.prevent>
+          <Swords :size="16" style="margin-right: 6px;" />
           <span>Contest</span>
         </a>
         <a href="#" class="nav-link" @click.prevent>
+          <MessageSquare :size="16" style="margin-right: 6px;" />
           <span>Discuss</span>
         </a>
       </div>

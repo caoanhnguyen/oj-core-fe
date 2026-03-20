@@ -10,22 +10,42 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 onMounted(async () => {
-  const error = route.query.error
-
-  if (error) {
-    ElMessage.error(String(error))
+  // 1. Kiểm tra tham số lỗi (ưu tiên URLSearchParams để bắt các param chưa được VueRouter parse kịp)
+  const searchParams = new URLSearchParams(window.location.search)
+  const error = searchParams.get('error') || route.query.error
+  const message = searchParams.get('message') || route.query.message || searchParams.get('error_code')
+  
+  if (error || message) {
+    console.warn('OAuth failure detected:', { error, message })
+    
+    const displayMessage = (message && String(message) !== 'null') ? String(message) : String(error)
+    
+    ElMessage.error({
+      message: displayMessage || 'Đăng nhập OAuth không thành công. Vui lòng thử lại!',
+      duration: 10000, 
+      showClose: true
+    })
+    
+    // Chuyển hướng về login và xóa các param rác (đã hiển thị message rồi nên không cần pass nữa)
     router.replace('/login')
     return
   }
 
+  // 2. Nếu không có lỗi (thành công) -> Gọi API lấy thông tin profile
   try {
     await authStore.getCurrentUser()
     ElMessage.success('Đăng nhập thành công!')
+    
+    // (Tùy chọn) Có thể check thêm redirect URL trong localStorage nếu trước đó user đang xem dở bài tập
     router.replace('/')
   } catch (e) {
-    // Nếu OAuth fail hoặc cookie không hợp lệ -> về login, tránh redirect loop
-    const message = e.response?.data?.message || 'Không thể lấy thông tin người dùng'
-    ElMessage.error(message)
+    // Nếu quá trình lấy profile thất bại (cookie lỗi, v.v...)
+    const msg = e.response?.data?.message || 'Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại!'
+    ElMessage.error({
+        message: msg,
+        duration: 5000,
+        showClose: true
+    })
     router.replace('/login')
   }
 })
@@ -48,7 +68,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-primary);
+  background: #0f0f0f;
+  color: #e0e0e0;
 }
 
 .loading {
@@ -56,13 +77,15 @@ onMounted(async () => {
 }
 
 .loading p {
-  margin-top: var(--spacing-lg);
-  color: var(--text-secondary);
-  font-size: 14px;
+  margin-top: 16px;
+  color: #a0a0a0;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .is-loading {
   animation: rotating 2s linear infinite;
+  color: #ffa116;
 }
 
 @keyframes rotating {

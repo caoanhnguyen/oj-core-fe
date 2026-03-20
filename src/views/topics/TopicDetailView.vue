@@ -16,7 +16,8 @@ import {
   Info,
   Play,
   Share2,
-  Star
+  Star,
+  LayoutGrid
 } from 'lucide-vue-next'
 import { useTopicStore } from '@/stores/topic'
 import { useProblemStore } from '@/stores/problem'
@@ -42,7 +43,8 @@ const searchQuery = ref('')
 const currentSortField = ref('')
 const currentSortDirection = ref('DESC')
 const filters = ref({
-  difficulty: { active: false, operator: 'is', value: '' }
+  difficulty: { active: false, operator: 'is', value: '' },
+  ruleType: { active: false, operator: 'is', value: '' }
 })
 const pagination = ref({
   page: 1,
@@ -85,6 +87,10 @@ const fetchProblemsData = async () => {
     queryParams.difficulty = filters.value.difficulty.value
   }
 
+  if (filters.value.ruleType.active && filters.value.ruleType.value) {
+    queryParams.ruleType = filters.value.ruleType.value
+  }
+
   await problemStore.fetchProblems(queryParams, false, false)
 }
 
@@ -107,6 +113,7 @@ const resetSort = () => {
 const resetFilters = () => {
   searchQuery.value = ''
   filters.value.difficulty = { active: false, operator: 'is', value: '' }
+  filters.value.ruleType = { active: false, operator: 'is', value: '' }
 }
 
 const handlePageChange = (val) => {
@@ -360,6 +367,20 @@ watch(() => route.path, (newPath) => {
                       <el-option label="Easy" value="EASY" />
                       <el-option label="Medium" value="MEDIUM" />
                       <el-option label="Hard" value="HARD" />
+                   </el-select>
+                 </div>
+
+                 <div class="filter-row">
+                   <el-checkbox v-model="filters.ruleType.active" class="dark-checkbox" />
+                   <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
+                     <LayoutGrid :size="14" /> Rule Type
+                   </span>
+                   <el-select v-model="filters.ruleType.operator" size="small" class="dark-select math-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
+                     <el-option label="is" value="is" />
+                   </el-select>
+                   <el-select v-model="filters.ruleType.value" size="small" class="dark-select value-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
+                      <el-option label="ACM" value="ACM" />
+                      <el-option label="OI" value="OI" />
                    </el-select>
                  </div>
               </div>

@@ -28,6 +28,7 @@ const filters = ref({
   status: { active: false, operator: 'is', value: '' },
   problemStatus: { active: false, operator: 'is', value: '' },
   difficulty: { active: false, operator: 'is', value: '' },
+  ruleType: { active: false, operator: 'is', value: '' },
   topics: { active: false, operator: 'is', value: [] }
 })
 
@@ -51,6 +52,7 @@ const resetFilters = () => {
     status: { active: false, operator: 'is', value: '' },
     problemStatus: { active: false, operator: 'is', value: '' },
     difficulty: { active: false, operator: 'is', value: '' },
+    ruleType: { active: false, operator: 'is', value: '' },
     topics: { active: false, operator: 'is', value: [] }
   }
 }
@@ -97,6 +99,10 @@ const fetchProblemsData = async () => {
   
   if (filters.value.difficulty.active && filters.value.difficulty.value) {
     queryParams.difficulty = filters.value.difficulty.value
+  }
+  
+  if (filters.value.ruleType.active && filters.value.ruleType.value) {
+    queryParams.ruleType = filters.value.ruleType.value
   }
 
   if (filters.value.topics.active && filters.value.topics.value.length > 0) {
@@ -385,6 +391,20 @@ onMounted(async () => {
                   <el-option label="Easy" value="EASY" />
                   <el-option label="Medium" value="MEDIUM" />
                   <el-option label="Hard" value="HARD" />
+               </el-select>
+             </div>
+
+             <div class="filter-row">
+               <el-checkbox v-model="filters.ruleType.active" class="dark-checkbox" />
+               <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
+                 <LayoutGrid :size="14" /> Rule Type
+               </span>
+               <el-select v-model="filters.ruleType.operator" size="small" class="dark-select math-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
+                 <el-option label="is" value="is" />
+               </el-select>
+               <el-select v-model="filters.ruleType.value" size="small" class="dark-select value-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
+                  <el-option label="ACM" value="ACM" />
+                  <el-option label="OI" value="OI" />
                </el-select>
              </div>
              

@@ -61,32 +61,44 @@ const isDirty = ref(false)
 // Track changes
 watch(formData, () => {
     if (!isSaving.value && originalData) {
-        // Compare current with initial to determine if dirty
-        const { testcaseFile, ...currentPayload } = formData.value
-        // Simple dirty check: if anything changed from originalData
-        // We can just use a flag too if deep comparison is expensive
         isDirty.value = true
     }
 }, { deep: true })
 
-onBeforeRouteLeave((to, from, next) => {
+const allowLeaving = ref(false)
+
+onBeforeRouteLeave(async (to, from, next) => {
+    if (allowLeaving.value) {
+        next()
+        return
+    }
+
     if (isDirty.value && !isSaving.value) {
-        ElMessageBox.confirm(
-            'Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại trước khi rời đi không?',
-            'Xác nhận rời khỏi trang',
-            {
-                confirmButtonText: 'Lưu thay đổi',
-                cancelButtonText: 'Rời đi không lưu',
-                distinguishCancelAndClose: true,
-                type: 'warning',
+        try {
+            const action = await ElMessageBox.confirm(
+                'Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại trước khi rời đi không?',
+                'Xác nhận rời khỏi trang',
+                {
+                    confirmButtonText: 'Lưu thay đổi',
+                    cancelButtonText: 'Rời đi không lưu',
+                    distinguishCancelAndClose: true,
+                    type: 'warning',
+                }
+            )
+
+            if (action === 'confirm') {
+                allowLeaving.value = true
+                await handleUpdate()
+                next()
             }
-        ).then(async () => {
-            await handleUpdate()
-            next()
-        }).catch((action) => {
-            if (action === 'cancel') next()
-            else next(false)
-        })
+        } catch (action) {
+            if (action === 'cancel') {
+                allowLeaving.value = true
+                next()
+            } else {
+                next(false)
+            }
+        }
     } else {
         next()
     }
@@ -271,6 +283,8 @@ const handleUpdate = async () => {
             await problemStore.uploadTestcasesZip(id, testcasesFD)
         }
         
+        isDirty.value = false // SUCCESS! No longer dirty
+        allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
         console.error('Failed to update problem:', error)
