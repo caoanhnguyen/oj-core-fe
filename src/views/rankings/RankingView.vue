@@ -102,9 +102,9 @@ const chartOption = computed(() => {
   }
 })
 
-const getRating = (row) => {
+const getAcceptanceRating = (row) => {
   if (!row.submissionCount || row.submissionCount === 0) return '0.00%'
-  return ((row.solvedCount / row.submissionCount) * 100).toFixed(2) + '%'
+  return ((row.acCount / row.submissionCount) * 100).toFixed(2) + '%'
 }
 
 const fetchAll = async () => {
@@ -201,9 +201,15 @@ onMounted(fetchAll)
         </template>
       </el-table-column>
 
-      <el-table-column label="Solved" width="130" align="center">
+      <el-table-column label="Solved" width="100" align="center">
          <template #default="{ row }">
            <span class="stat-solved">{{ row.solvedCount }}</span>
+         </template>
+      </el-table-column>
+
+      <el-table-column label="AC" width="100" align="center">
+         <template #default="{ row }">
+           <span class="stat-ac">{{ row.acCount }}</span>
          </template>
       </el-table-column>
 
@@ -219,9 +225,9 @@ onMounted(fetchAll)
          </template>
       </el-table-column>
 
-      <el-table-column label="Rating" width="130" align="center">
+      <el-table-column label="Acceptance Rating" width="180" align="center">
          <template #default="{ row }">
-           <span class="stat-rating">{{ getRating(row) }}</span>
+           <span class="stat-rating">{{ getAcceptanceRating(row) }}</span>
          </template>
       </el-table-column>
     </el-table>
@@ -445,7 +451,8 @@ onMounted(fetchAll)
 .rank-badge.top-3 { background: rgba(173, 138, 86, 0.2); color: #ad8a56; }
 
 .stat-solved { color: #ffa116; font-weight: 700; }
-.stat-score { color: #2cbb5d; font-weight: 700; }
+.stat-ac { color: #2cbb5d; font-weight: 700; }
+.stat-score { color: #409eff; font-weight: 700; }
 .stat-submissions { color: #8a8a8a; }
 .stat-rating { font-variant-numeric: tabular-nums; }
 
