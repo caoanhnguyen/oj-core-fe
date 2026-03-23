@@ -80,6 +80,9 @@ const stats = ref([
       </div>
     </div>
 
+    <!-- Users Tab -->
+    <UsersList v-if="activeTab === 'users'" />
+
     <!-- Problems Tab -->
     <ProblemsList v-if="activeTab === 'problems'" />
 
@@ -92,8 +95,6 @@ const stats = ref([
     <!-- Discussions Tab -->
     <DiscussionsList v-if="activeTab === 'discussions'" />
 
-    <!-- Users Tab -->
-    <UsersList v-if="activeTab === 'users'" />
   </div>
 </template>
 

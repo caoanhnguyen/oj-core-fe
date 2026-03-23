@@ -194,7 +194,7 @@ onMounted(fetchAll)
                  <User :size="14" />
                </div>
              </div>
-             <RouterLink :to="`/profile/${row.id}`" class="cell-link username" @click.stop>
+             <RouterLink :to="`/profile/${row.username}`" class="cell-link username" @click.stop>
                {{ row.username }}
              </RouterLink>
           </div>

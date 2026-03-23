@@ -80,9 +80,15 @@ const router = createRouter({
       component: () => import('../views/auth/VerifyEmailView.vue'),
     },
     {
-      path: '/profile',
+      path: '/profile/:idOrUsername?',
       name: 'profile',
       component: () => import('../views/profile/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/edit',
+      name: 'edit-profile',
+      component: () => import('../views/profile/EditProfileView.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -104,6 +110,11 @@ const router = createRouter({
           path: 'update-problem/:id',
           name: 'update-problem',
           component: () => import('../views/dashboard/UpdateProblemView.vue')
+        },
+        {
+          path: 'users',
+          name: 'user-management',
+          component: () => import('../views/dashboard/UsersList.vue')
         }
       ]
     },

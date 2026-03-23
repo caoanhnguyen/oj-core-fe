@@ -219,7 +219,9 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="Created By" width="200" align="center">
         <template #default="{ row }">
-          <span class="cell-date">{{ row.createdBy }}</span>
+          <router-link :to="`/profile/${row.createdBy}`" class="cell-link" @click.stop>
+            {{ row.createdBy }}
+          </router-link>
         </template>
       </el-table-column>
       <el-table-column label="Updated Date" width="200" align="center">

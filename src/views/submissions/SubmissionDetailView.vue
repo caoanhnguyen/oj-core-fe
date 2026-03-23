@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="problem-link">
-                    Người nộp: <RouterLink :to="`/users/${submission.userId}`" class="link-text">{{ submission.username }}</RouterLink>
+                    Người nộp: <RouterLink :to="`/profile/${submission.username}`" class="link-text">{{ submission.username }}</RouterLink>
                 </div>
             </div>
 

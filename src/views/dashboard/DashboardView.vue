@@ -9,11 +9,11 @@ const isCollapsed = ref(false)
 
 const menuItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'users', label: 'Users', icon: Users },
   { id: 'problems', label: 'Problems', icon: FileText },
   { id: 'topics', label: 'Topics', icon: Tag },
   { id: 'contests', label: 'Contests', icon: Trophy },
   { id: 'discussions', label: 'Discussions', icon: MessageSquare },
-  { id: 'users', label: 'Users', icon: Users },
 ]
 
 const activeTab = ref(route.query.tab || 'overview')

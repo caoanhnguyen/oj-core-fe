@@ -440,7 +440,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                   <div class="meta-item-wrap">
                     <User :size="14" class="meta-icon author-icon" />
                     <span class="meta-label">Author:</span>
-                    <router-link :to="`/users/${problem.author?.userId}`" class="meta-link author-name">
+                    <router-link :to="`/profile/${problem.author?.authorName}`" class="meta-link author-name">
                       {{ problem.author?.authorName }}
                     </router-link>
                   </div>

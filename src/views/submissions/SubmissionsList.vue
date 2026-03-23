@@ -341,7 +341,7 @@ onMounted(() => {
 
       <el-table-column label="Người nộp" min-width="130">
         <template #default="{ row }">
-          <RouterLink class="cell-link" :to="`/users/${row.userId}`" @click.stop>
+          <RouterLink class="cell-link" :to="`/profile/${row.username}`" @click.stop>
             {{ row.username }}
           </RouterLink>
         </template>

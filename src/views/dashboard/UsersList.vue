@@ -1,209 +1,830 @@
 <script setup>
-import { ref } from 'vue'
-import { Users, Edit, Ban } from 'lucide-vue-next'
+import { ref, onMounted, reactive, watch, computed } from 'vue'
+import usersApi from '@/api/users'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import DarkPagination from '@/components/common/DarkPagination.vue'
+import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import RoleDialog from '@/components/admin/RoleDialog.vue'
+import { useRouter } from 'vue-router'
+import { 
+  Search, Info, Shield, Lock, Unlock, 
+  Users, CheckSquare, RotateCcw, Filter, ShieldCheck,
+  ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide
+} from 'lucide-vue-next'
 
-const users = ref([
-  { id: 1, username: 'john_doe', email: 'john@example.com', role: 'USER', problemsSolved: 234, joinedAt: '2023-06-15', status: 'active' },
-  { id: 2, username: 'jane_smith', email: 'jane@example.com', role: 'USER', problemsSolved: 189, joinedAt: '2023-07-20', status: 'active' },
-])
+const router = useRouter()
+const loading = ref(false)
+const users = ref([])
+const totalElements = ref(0)
+const selectedUsers = ref([])
 
-const getRoleClass = (role) => {
-  const classes = {
-    'ADMIN': 'role-admin',
-    'MODERATOR': 'role-moderator',
-    'USER': 'role-user'
+const currentSortField = ref('')
+const currentSortDirection = ref('ASC')
+
+const handleSort = (field) => {
+  if (currentSortField.value === field) {
+    if (currentSortDirection.value === 'ASC') {
+      currentSortDirection.value = 'DESC'
+    } else {
+      currentSortField.value = ''
+      currentSortDirection.value = 'ASC'
+    }
+  } else {
+    currentSortField.value = field
+    currentSortDirection.value = 'ASC'
   }
-  return classes[role] || ''
 }
 
-const handleEdit = (row) => {
-  console.log('Edit user:', row)
+const resetSort = () => {
+  currentSortField.value = ''
+  currentSortDirection.value = 'ASC'
 }
 
-const handleBan = (row) => {
-  console.log('Ban user:', row)
+watch([currentSortField, currentSortDirection], () => {
+  filter.page = 0
+  fetchUsers()
+})
+
+const filter = reactive({
+  keyword: '',
+  isLocked: { active: false, value: null },
+  role: { active: false, value: null },
+  page: 0,
+  size: 20
+})
+
+const hasActiveFilters = ref(false)
+
+watch(() => [filter.isLocked.active, filter.isLocked.value, filter.role.active, filter.role.value], () => {
+    hasActiveFilters.value = (filter.isLocked.active && filter.isLocked.value !== null) || 
+                             (filter.role.active && filter.role.value !== null)
+    handleSearch()
+}, { deep: true })
+
+const roleDialog = reactive({
+  visible: false,
+  userId: null,
+  username: '',
+  roles: []
+})
+
+const fetchUsers = async () => {
+  try {
+    loading.value = true
+    const params = {
+      keyword: filter.keyword || undefined,
+      isLocked: (filter.isLocked.active && filter.isLocked.value !== null) ? filter.isLocked.value : undefined,
+      role: (filter.role.active && filter.role.value) ? filter.role.value : undefined,
+      page: filter.page,
+      size: filter.size
+    }
+    
+    if (currentSortField.value) {
+      params.sort = `${currentSortField.value},${currentSortDirection.value}`
+    }
+    
+    const response = await usersApi.adminGetUsers(params)
+    users.value = response.data.data.content
+    totalElements.value = response.data.data.totalElements
+  } catch (error) {
+    ElMessage.error('Không thể tải danh sách người dùng')
+  } finally {
+    loading.value = false
+  }
 }
 
+const handleSearch = () => {
+  filter.page = 0
+  fetchUsers()
+}
+
+const handlePageChange = (p) => {
+  filter.page = p - 1
+  fetchUsers()
+}
+
+const handleSizeChange = (s) => {
+  filter.size = s
+  filter.page = 0
+  fetchUsers()
+}
+
+const handleSelectionChange = (val) => {
+  selectedUsers.value = val
+}
+
+const canLockSelected = computed(() => {
+  // Can lock if at least one selected user is currently active
+  return selectedUsers.value.some(u => u.accountNonLocked !== false)
+})
+
+const canUnlockSelected = computed(() => {
+  // Can unlock if at least one selected user is currently locked
+  return selectedUsers.value.some(u => u.accountNonLocked === false)
+})
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+const handleToggleLock = async (user) => {
+  const isLocked = user.accountNonLocked === false;
+  const actionName = isLocked ? 'mở khóa' : 'khóa';
+  const newLockStatus = isLocked ? true : false;
+  
+  try {
+    await ElMessageBox.confirm(
+      `Bạn có chắc chắn muốn ${actionName} người dùng ${user.username}?`,
+      'Xác nhận',
+      { type: 'warning', confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' }
+    )
+    
+    await usersApi.adminBulkToggleLock({
+      userIds: [user.id],
+      accountNonLocked: newLockStatus
+    })
+    
+    ElMessage.success(`${user.username} đã được ${actionName} thành công!`)
+    fetchUsers()
+  } catch (e) { /* ignore cancel */ }
+}
+
+const handleBulkLock = async (isToLock) => {
+  if (selectedUsers.value.length === 0) return
+  const actionName = isToLock ? 'khóa' : 'mở khóa'
+  const newLockStatus = isToLock ? false : true;
+  
+  try {
+    await ElMessageBox.confirm(
+      `Bạn có chắc chắn muốn ${actionName} ${selectedUsers.value.length} người dùng đã chọn?`,
+      'Xác nhận hàng loạt',
+      { type: 'warning', confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' }
+    )
+    
+    await usersApi.adminBulkToggleLock({
+      userIds: selectedUsers.value.map(u => u.id),
+      accountNonLocked: newLockStatus
+    })
+    
+    ElMessage.success(`Đã ${actionName} ${selectedUsers.value.length} người dùng!`)
+    fetchUsers()
+  } catch (e) { /* ignore cancel */ }
+}
+
+const showRoleDialog = (user) => {
+  roleDialog.userId = user.id
+  roleDialog.username = user.username
+  roleDialog.roles = [...user.roles]
+  roleDialog.visible = true
+}
+
+const resetFilter = () => {
+  filter.isLocked.active = false
+  filter.isLocked.value = null
+  filter.role.active = false
+  filter.role.value = null
+  filter.page = 0
+  fetchUsers()
+}
+
+onMounted(fetchUsers)
 </script>
 
 <template>
   <div class="content-section">
     <div class="section-header">
-      <div>
-        <h1 class="section-title">Manage Users</h1>
-        <p class="section-subtitle">View and manage user accounts</p>
-      </div>
-      <el-button type="primary" class="add-button">
-        <Users :size="16" style="margin-right: 8px;" />
-        Add User
-      </el-button>
+       <div class="title-group">
+         <h1 class="section-title">Quản lý người dùng</h1>
+         <p class="section-subtitle">Xem và quản trị danh sách người dùng, phân quyền hệ thống</p>
+       </div>
     </div>
 
-    <el-table :data="users" class="dashboard-table">
-      <el-table-column prop="id" label="ID" width="80" align="center" />
-      <el-table-column prop="username" label="Username" width="150" />
-      <el-table-column prop="email" label="Email" min-width="200" />
-      <el-table-column prop="role" label="Role" width="120" align="center">
-        <template #default="{ row }">
-          <span class="badge" :class="getRoleClass(row.role)">{{ row.role }}</span>
+    <!-- Table Controls -->
+    <div class="table-controls">
+      <div class="search-wrap">
+        <Search class="search-icon" :size="16" />
+        <input 
+          type="text" 
+          v-model="filter.keyword" 
+          placeholder="Tìm kiếm người dùng..." 
+          class="search-input" 
+          @keyup.enter="handleSearch"
+        />
+      </div>
+
+      <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
+        <span class="el-dropdown-link">
+          <button class="control-btn sort-btn" :class="{ active: currentSortField, 'has-text': currentSortField }">
+            <ArrowUpDown v-if="!currentSortField" :size="16" />
+            <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" />
+            <ArrowUpDown v-else :size="16" />
+            <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'username' ? 'Username' : 'Họ tên' }}</span>
+          </button>
+        </span>
+        <template #dropdown>
+          <el-dropdown-menu class="dark-dropdown custom-sort-menu">
+            <el-dropdown-item command="username" :class="{ 'is-active': currentSortField === 'username' }">
+              <div class="sort-menu-content">
+                <span>Username</span>
+                <ArrowDownWideNarrow v-if="currentSortField === 'username' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
+                <ArrowUpNarrowWide v-if="currentSortField === 'username' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
+              </div>
+            </el-dropdown-item>
+            <el-dropdown-item command="fullName" :class="{ 'is-active': currentSortField === 'fullName' }">
+              <div class="sort-menu-content">
+                <span>Họ tên</span>
+                <ArrowDownWideNarrow v-if="currentSortField === 'fullName' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
+                <ArrowUpNarrowWide v-if="currentSortField === 'fullName' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
+              </div>
+            </el-dropdown-item>
+            <div class="filter-footer sort-footer">
+              <el-button link class="reset-filters" @click="resetSort">
+                <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
+              </el-button>
+            </div>
+          </el-dropdown-menu>
         </template>
-      </el-table-column>
-      <el-table-column label="Actions" width="120" align="center">
-        <template #default="{ row }">
-          <div class="action-buttons">
-            <el-tooltip content="Edit User" placement="top" effect="dark">
-              <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
-            </el-tooltip>
-            <el-tooltip content="Ban User" placement="top" effect="dark">
-              <el-button link :icon="Ban" @click="handleBan(row)" class="action-btn action-danger" />
-            </el-tooltip>
+      </el-dropdown>
+      
+      <el-popover
+        placement="bottom-start"
+        :width="350"
+        trigger="click"
+        popper-class="filter-popover dark-popper"
+      >
+        <template #reference>
+          <button class="control-btn" :class="{ active: hasActiveFilters }">
+            <Filter :size="16" />
+          </button>
+        </template>
+        
+        <div class="filter-content">
+          <div class="filter-header">Bộ lọc người dùng</div>
+          <div class="filter-list">
+            <div class="filter-row">
+              <el-checkbox v-model="filter.isLocked.active" class="dark-checkbox" />
+              <span class="filter-label" :class="{ 'is-active': filter.isLocked.active }">Trạng thái</span>
+              <el-select v-model="filter.isLocked.value" size="small" class="dark-styled-select" :disabled="!filter.isLocked.active" popper-class="dark-popper-dropdown">
+                 <el-option label="Hoạt động" :value="true" />
+                 <el-option label="Bị khóa" :value="false" />
+              </el-select>
+            </div>
+
+            <div class="filter-row">
+              <el-checkbox v-model="filter.role.active" class="dark-checkbox" />
+              <span class="filter-label" :class="{ 'is-active': filter.role.active }">Vai trò</span>
+              <el-select v-model="filter.role.value" size="small" class="dark-styled-select" :disabled="!filter.role.active" popper-class="dark-popper-dropdown">
+                 <el-option label="ADMIN" value="ROLE_ADMIN" />
+                 <el-option label="MODERATOR" value="ROLE_MODERATOR" />
+                 <el-option label="USER" value="ROLE_USER" />
+              </el-select>
+            </div>
           </div>
-        </template>
-      </el-table-column>
-    </el-table>
+          <div class="filter-footer">
+            <el-button link class="reset-filters" @click="resetFilter">
+              <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
+            </el-button>
+          </div>
+        </div>
+      </el-popover>
+
+      <div class="bulk-actions" v-if="selectedUsers.length > 0">
+        <button 
+          class="bulk-btn bulk-btn-lock" 
+          @click="handleBulkLock(true)"
+          :disabled="!canLockSelected"
+          :class="{ 'is-disabled': !canLockSelected }"
+        >
+          <Lock :size="13" style="margin-right: 5px" /> Khóa
+        </button>
+        <button 
+          class="bulk-btn bulk-btn-unlock" 
+          @click="handleBulkLock(false)"
+          :disabled="!canUnlockSelected"
+          :class="{ 'is-disabled': !canUnlockSelected }"
+        >
+          <Unlock :size="13" style="margin-right: 5px" /> Mở khóa
+        </button>
+      </div>
+      
+      <div class="spacer"></div>
+      <div class="count-display">
+         <div class="circle-indicator"></div>
+         <span>{{ totalElements || 0 }} Người dùng</span>
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-container">
+      <TableSkeleton v-if="loading && users.length === 0" :columns="8" :rows="10" />
+      
+      <el-table 
+        v-else 
+        :data="users" 
+        class="dashboard-table leetcode-table sticky-table" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+        border
+        style="width: 100%"
+      >
+        <el-table-column type="selection" width="55" align="center" fixed="left" />
+        
+        <el-table-column label="#" width="60" align="center">
+          <template #default="{ $index }">
+            <span class="cell-index">{{ filter.page * filter.size + $index + 1 }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="ID" min-width="300" align="center">
+          <template #default="{ row }">
+            <span class="cell-text">{{ row.id || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Người dùng" min-width="220" align="center">
+          <template #default="{ row }">
+            <div class="user-cell">
+               <router-link :to="`/profile/${row.username}`" class="cell-username">{{ row.username }}</router-link>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="fullName" label="Họ tên" min-width="220" align="center">
+            <template #default="{ row }">
+              <span class="cell-text">{{ row.fullName || '-' }}</span>
+            </template>
+        </el-table-column>
+
+        <el-table-column prop="email" label="Email" min-width="320" align="center">
+            <template #default="{ row }">
+              <span class="cell-email">{{ row.email }}</span>
+            </template>
+        </el-table-column>
+
+        <el-table-column label="Vai trò" min-width="200" align="center">
+          <template #default="{ row }">
+            <div class="role-tags">
+              <span 
+                v-for="role in row.roles" 
+                :key="role" 
+                :class="['role-pill', `role-${role.toLowerCase()}`]"
+              >
+                {{ role }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Trạng thái" width="140" align="center">
+          <template #default="{ row }">
+            <span v-if="row.accountNonLocked === false" class="status-badge status-locked">BỊ KHÓA</span>
+            <span v-else class="status-badge status-active">HOẠT ĐỘNG</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Ngày gia nhập" width="160" align="center">
+          <template #default="{ row }">
+            <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Ngày cập nhật" width="160" align="center">
+          <template #default="{ row }">
+            <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="Hành động" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="action-btns">
+               <el-tooltip content="Chi tiết" placement="top">
+                 <button class="action-btn" @click="router.push(`/profile/${row.username}`)">
+                   <Info :size="16" />
+                 </button>
+               </el-tooltip>
+               <el-tooltip content="Quản lý vai trò" placement="top">
+                 <button class="action-btn" @click="showRoleDialog(row)">
+                   <Shield :size="16" />
+                 </button>
+               </el-tooltip>
+               <el-tooltip :content="row.accountNonLocked === false ? 'Mở khóa' : 'Khóa'" placement="top" :hide-after="0">
+                 <button 
+                   :class="['action-btn', row.accountNonLocked === false ? 'action-btn-unlock' : 'action-btn-lock']"
+                   @click="handleToggleLock(row)"
+                 >
+                   <component :is="row.accountNonLocked === false ? Unlock : Lock" :size="16" />
+                 </button>
+               </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-footer">
+        <DarkPagination
+          :current-page="filter.page + 1"
+          :page-size="filter.size"
+          :total="totalElements"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </div>
+
+    <!-- Role Management Dialog -->
+    <RoleDialog 
+      v-model:visible="roleDialog.visible"
+      :user-id="roleDialog.userId"
+      :username="roleDialog.username"
+      :initial-roles="roleDialog.roles"
+      @updated="fetchUsers"
+    />
   </div>
 </template>
 
 <style scoped>
 .content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 30px;
 }
 
 .section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
+  margin-bottom: 30px;
 }
 
 .section-title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
+  color: #eff2f6;
+  margin: 0 0 4px 0;
 }
 
 .section-subtitle {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #8a8a8a;
   margin: 0;
 }
 
-/* Add Button - Orange theme */
-.add-button {
-  background: var(--accent-primary) !important;
-  border-color: var(--accent-primary) !important;
-  color: #000 !important;
-  font-weight: 600;
+/* Table Controls */
+.table-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
-.add-button:hover {
-  background: #ff8800 !important;
-  border-color: #ff8800 !important;
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-/* Element Plus Table */
-:deep(.dashboard-table) {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: #8a8a8a;
+  z-index: 2;
 }
 
-:deep(.dashboard-table .el-table__header-wrapper) {
-  background: var(--bg-tertiary);
+.search-input {
+  background-color: #282828;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  padding: 8px 16px 8px 40px;
+  color: #eff2f6;
+  font-size: 13px;
+  width: 300px;
+  outline: none;
+  transition: all 0.2s;
 }
 
-:deep(.dashboard-table .el-table__header th) {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border-primary);
+.search-input:focus {
+  border-color: #5c5c5c;
+  background-color: #333;
 }
 
-:deep(.dashboard-table .el-table__body tr) {
-  background: var(--bg-secondary);
-  transition: background 0.15s ease;
+.control-btn {
+  background-color: #282828;
+  border: 1px solid transparent;
+  color: #8a8a8a;
+  border-radius: 20px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-:deep(.dashboard-table .el-table__body tr:hover > td) {
-  background: var(--bg-tertiary) !important;
+.control-btn:hover {
+  background-color: #333;
+  color: #eff2f6;
 }
 
-:deep(.dashboard-table .el-table__body td) {
-  border-bottom: 1px solid var(--border-secondary);
-  color: var(--text-primary);
+.control-btn.active {
+  background-color: rgba(255, 161, 22, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(255, 161, 22, 0.3);
 }
 
-:deep(.dashboard-table .el-table__body tr:last-child td) {
-  border-bottom: none;
+.bulk-actions {
+  display: flex;
+  gap: 0;
 }
 
-/* Badges */
-.badge {
+.bulk-btn {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  border-radius: 12px;
+  height: 32px;
+  padding: 0 14px;
   font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-  white-space: nowrap;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
 }
 
-.role-admin {
-  background: rgba(239, 71, 67, 0.15);
-  color: var(--error);
+.bulk-btn-lock {
+  background-color: rgba(239, 71, 67, 0.08);
+  color: #ef4743;
+  border-color: rgba(239, 71, 67, 0.25);
+  border-radius: 6px 0 0 6px;
 }
 
-.role-moderator {
-  background: rgba(255, 192, 30, 0.15);
-  color: var(--warning);
+.bulk-btn-lock:hover:not(:disabled) {
+  background-color: rgba(239, 71, 67, 0.18);
 }
 
-.role-user {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary);
+.bulk-btn-unlock {
+  background-color: rgba(44, 187, 93, 0.08);
+  color: #2cbb5d;
+  border-color: rgba(44, 187, 93, 0.25);
+  border-radius: 0 6px 6px 0;
+  margin-left: -1px;
 }
 
-/* Action Buttons */
-.action-buttons {
+.bulk-btn-unlock:hover:not(:disabled) {
+  background-color: rgba(44, 187, 93, 0.18);
+}
+
+.bulk-btn:disabled, .bulk-btn.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.spacer { flex: 1; }
+
+.count-display {
   display: flex;
-  gap: var(--spacing-xs);
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-:deep(.action-btn) {
-  padding: 6px;
+.circle-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #3e3e3e;
+  border-top-color: var(--accent-primary);
+  transform: rotate(-45deg);
+}
+
+/* LeetCode Table Style */
+:deep(.leetcode-table) {
+  background: var(--bg-primary) !important;
+  --el-table-border-color: #2a2a2a !important; /* Subtle dark color for cell borders */
+}
+
+:deep(.leetcode-table.el-table--border) {
+  border-left: 1px solid #2a2a2a !important;
+  border-top: 1px solid #2a2a2a !important;
+}
+
+/* Fix Element Plus wrappers */
+:deep(.leetcode-table .el-table__inner-wrapper::after),
+:deep(.leetcode-table .el-table__inner-wrapper::before) {
+  background-color: #2a2a2a !important;
+}
+
+:deep(.leetcode-table th.el-table__cell) {
+  background: var(--bg-primary) !important; /* Opaque header */
+  border-bottom: 1px solid #2a2a2a !important;
+  border-right: 1px solid #2a2a2a !important;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 12px 0;
+  text-transform: uppercase;
 }
 
-:deep(.action-btn:hover) {
+:deep(.leetcode-table td.el-table__cell) {
+  border-bottom: 1px solid #2a2a2a !important;
+  border-right: 1px solid #2a2a2a !important;
+  padding: 12px 0;
+  background-color: var(--bg-primary) !important; /* Opaque even rows */
+}
+
+:deep(.leetcode-table tr) {
+  background-color: var(--bg-primary) !important;
+}
+
+:deep(.leetcode-table tr:nth-child(odd) td.el-table__cell) {
+  background-color: #111111 !important; /* Opaque odd rows */
+}
+
+:deep(.leetcode-table tr:hover td.el-table__cell) {
+  background-color: #1e1e1e !important; /* Opaque hover */
+}
+
+/* Checkbox Style - accent color handled by global style.css */
+:deep(.el-checkbox__inner) {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--border-primary) !important;
+}
+
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+    background-color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+}
+
+/* SELECT BOXES FIX */
+:deep(.dark-styled-select .el-select__wrapper) {
+  background-color: #1a1a1a !important;
+  box-shadow: 0 0 0 1px #333 inset !important;
+  border: none !important;
+}
+
+:deep(.dark-styled-select .el-select__placeholder) {
+  color: #eff2f6 !important;
+}
+
+:deep(.dark-popper-dropdown) {
+  background-color: #1a1a1a !important;
+  border: 1px solid #333 !important;
+}
+
+:deep(.dark-popper-dropdown .el-select-dropdown__item) {
+  color: #8a8a8a !important;
+}
+
+:deep(.dark-popper-dropdown .el-select-dropdown__item.hover),
+:deep(.dark-popper-dropdown .el-select-dropdown__item:hover) {
+  background-color: #282828 !important;
+}
+
+/* Cell Styles */
+.user-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cell-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: #eff2f6;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.cell-username:hover {
   color: var(--accent-primary);
-  background: rgba(255, 161, 22, 0.1);
 }
 
-:deep(.action-btn.action-danger:hover) {
-  color: var(--error);
+.status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.status-locked {
+  color: #ef4743;
   background: rgba(239, 71, 67, 0.1);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .content-section {
-    padding: var(--spacing-lg);
-  }
+.status-active {
+  color: #2cbb5d;
+  background: rgba(44, 187, 93, 0.1);
+}
 
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.cell-text, .cell-email, .cell-date, .cell-index {
+  color: #8a8a8a;
+  font-size: 13px;
+}
+
+.role-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.role-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.role-admin { background: rgba(239, 71, 67, 0.1); color: #ef4743; }
+.role-user { background: rgba(255, 255, 255, 0.05); color: #8a8a8a; }
+.role-developer { background: rgba(64, 158, 255, 0.1); color: #409eff; }
+
+.action-btns {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  color: #8a8a8a;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.action-btn:hover {
+  color: #eff2f6;
+  background: rgba(255,255,255,0.06);
+}
+
+.action-btn-lock:hover {
+  color: #ef4743;
+  background: rgba(239, 71, 67, 0.1);
+}
+
+.action-btn-unlock:hover {
+  color: #2cbb5d;
+  background: rgba(44, 187, 93, 0.1);
+}
+
+.pagination-footer {
+  margin-top: 24px;
+  padding: 0 10px;
+}
+
+/* Wide tables needs overflow */
+.table-container {
+    overflow: hidden;
+    background: transparent;
+}
+
+/* User Sort UI styles */
+.sort-dropdown {
+  margin-left: 8px;
+}
+.sort-btn.has-text {
+  width: auto;
+  padding: 0 16px;
+  gap: 8px;
+  border-radius: 20px;
+}
+.sort-text {
+  font-size: 13px;
+  font-weight: 500;
+}
+.up-arrow {
+  transform: rotate(180deg);
+}
+
+.custom-sort-menu .el-dropdown-menu__item {
+  padding: 0 12px;
+}
+
+.sort-menu-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 140px;
+  width: 100%;
+}
+.sort-indicator {
+  color: var(--accent-primary);
+  margin-left: 12px;
+}
+.sort-footer {
+  padding: 8px 12px 4px 12px;
+  border-top: 1px solid #3e3e3e;
+  margin-top: 4px;
 }
 </style>
