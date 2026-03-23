@@ -84,9 +84,6 @@ onMounted(loadProfile)
             <div class="user-meta">
               <div class="name-row">
                 <h1 class="full-name">{{ userProfile.fullName || userProfile.username }}</h1>
-                <el-button v-if="isMyProfile" type="primary" plain round size="small" @click="router.push('/profile/edit')">
-                  <Edit3 :size="14" style="margin-right: 4px;" /> Sửa hồ sơ
-                </el-button>
               </div>
               <p class="username">@{{ userProfile.username }}</p>
               <div class="badges">
@@ -260,14 +257,29 @@ onMounted(loadProfile)
   right: 8px;
   background: var(--accent-primary);
   color: #000;
-  width: 28px;
-  height: 28px;
+  width: 32px; /* Increased slightly for better fit */
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   border: 2px solid var(--bg-secondary);
+  transition: all 0.2s;
+}
+
+.avatar-edit-hint:hover {
+  background: #ff8800;
+  transform: scale(1.1);
+}
+
+.avatar-edit-hint a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  width: 100%;
+  height: 100%;
 }
 
 .user-meta {
@@ -290,7 +302,7 @@ onMounted(loadProfile)
 .username {
   font-size: 18px;
   color: #8a8a8a;
-  margin: 4px 0 12px;
+  padding: 10px 0 10px;
 }
 
 .badges {
@@ -309,6 +321,9 @@ onMounted(loadProfile)
   display: flex;
   align-items: center;
   gap: 4px;
+  background: rgba(44, 187, 93, 0.1) !important;
+  border: 1px solid rgba(44, 187, 93, 0.3) !important;
+  color: #2cbb5d !important;
 }
 
 .bio {
