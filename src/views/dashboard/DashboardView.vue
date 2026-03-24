@@ -1,13 +1,15 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight, Tag } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const isCollapsed = ref(false)
 
-const menuItems = [
+const allMenuItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'problems', label: 'Problems', icon: FileText },
@@ -16,7 +18,22 @@ const menuItems = [
   { id: 'discussions', label: 'Discussions', icon: MessageSquare },
 ]
 
-const activeTab = ref(route.query.tab || 'overview')
+const menuItems = computed(() => {
+  // If user is MOD but NOT ADMIN, only show Problems and Topics
+  if (authStore.isModerator && !authStore.isAdmin) {
+    return allMenuItems.filter(item => ['problems', 'topics'].includes(item.id))
+  }
+  return allMenuItems
+})
+
+const activeTab = ref(route.query.tab || (menuItems.value[0]?.id || 'overview'))
+
+// Adjust activeTab if current tab is not in menuItems (e.g. MOD trying to access Overview via URL)
+watch(menuItems, (newItems) => {
+  if (!newItems.find(item => item.id === activeTab.value)) {
+    activeTab.value = newItems[0]?.id || ''
+  }
+}, { immediate: true })
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
@@ -33,7 +50,14 @@ watch(
   () => [route.path, route.query.tab],
   ([newPath, newTab]) => {
     if (newPath === '/dashboard') {
-      activeTab.value = newTab || 'overview'
+      const tab = newTab || menuItems.value[0]?.id || 'overview'
+      // Security check: if tab is not in menuItems, redirect to first valid tab
+      if (!menuItems.value.find(item => item.id === tab)) {
+        activeTab.value = menuItems.value[0]?.id
+        router.replace({ path: '/dashboard', query: { tab: activeTab.value } })
+      } else {
+        activeTab.value = tab
+      }
     }
   }
 )

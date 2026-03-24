@@ -109,11 +109,11 @@ const submitForm = async (data) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to delete topic "${row.name}"?`,
-      'Confirm Delete',
+      `Bạn có chắc chắn muốn xóa chủ đề "${row.name}"?`,
+      'Xác nhận xóa',
       {
-        confirmButtonText: 'Delete',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy',
         type: 'warning',
         customClass: 'dark-message-box',
         confirmButtonClass: 'el-button--danger'
@@ -131,11 +131,11 @@ const handleDelete = async (row) => {
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to restore topic "${row.name}"?`,
-      'Confirm Restore',
+      `Bạn có chắc chắn muốn khôi phục chủ đề "${row.name}"?`,
+      'Xác nhận khôi phục',
       {
-        confirmButtonText: 'Restore',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Khôi phục',
+        cancelButtonText: 'Hủy',
         customClass: 'dark-message-box',
         type: 'info'
       }
@@ -164,12 +164,12 @@ onMounted(() => {
   <div class="content-section">
     <div class="section-header">
       <div>
-        <h1 class="section-title">Manage Topics</h1>
-        <p class="section-subtitle">Create and manage problem categories</p>
+        <h1 class="section-title">Quản lý chủ đề</h1>
+        <p class="section-subtitle">Tạo và quản lý các danh mục bài tập</p>
       </div>
       <el-button type="primary" @click="openCreateDialog" class="add-button">
         <Plus :size="16" style="margin-right: 8px;" />
-        Add Topic
+        Thêm chủ đề
       </el-button>
     </div>
 
@@ -180,7 +180,7 @@ onMounted(() => {
           type="text" 
           v-model="searchQuery" 
           @keyup.enter="handleSearch"
-          placeholder="Search topics by name" 
+          placeholder="Tìm kiếm chủ đề theo tên..." 
           class="search-input" 
         />
       </div>
@@ -197,7 +197,7 @@ onMounted(() => {
       @row-click="handleRowClick"
     >
       <template #empty>
-        <el-empty description="No topics found" />
+        <el-empty description="Không tìm thấy chủ đề nào" />
       </template>
 
       <el-table-column width="60" align="center">
@@ -205,50 +205,50 @@ onMounted(() => {
           <span class="cell-index">{{ pagination.page * pagination.size + $index + 1 }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Name" min-width="100">
+      <el-table-column label="Tên" min-width="100">
         <template #default="{ row }">
           <router-link :to="`/topics/${row.slug}`" class="cell-title topic-link" @click.stop>
             {{ row.name }}
           </router-link>
         </template>
       </el-table-column>
-      <el-table-column label="Slug" min-width="100">
+      <el-table-column label="Đường dẫn" min-width="100">
         <template #default="{ row }">
           <span class="cell-text">{{ row.slug }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Created By" width="200" align="center">
+      <el-table-column label="Người tạo" width="200" align="center">
         <template #default="{ row }">
           <router-link :to="`/profile/${row.createdBy}`" class="cell-link" @click.stop>
             {{ row.createdBy }}
           </router-link>
         </template>
       </el-table-column>
-      <el-table-column label="Updated Date" width="200" align="center">
+      <el-table-column label="Ngày cập nhật" width="200" align="center">
         <template #default="{ row }">
           <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Status" width="100" align="center">
+      <el-table-column label="Trạng thái" width="100" align="center">
         <template #default="{ row }">
            <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
              {{ row.status }}
            </span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="120" align="center" fixed="right">
+      <el-table-column label="Hành động" width="120" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-buttons">
-            <el-tooltip v-if="row.status === 'ACTIVE'" content="Edit Topic" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Edit" @click="openEditDialog(row)" class="action-btn" />
+            <el-tooltip v-if="row.status === 'ACTIVE'" content="Sửa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-button link :icon="Edit" @click.stop="openEditDialog(row)" class="action-btn" />
             </el-tooltip>
             
-            <el-tooltip v-if="row.status === 'ACTIVE'" content="Delete Topic" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
+            <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-button link :icon="Trash2" @click.stop="handleDelete(row)" class="action-btn action-danger" />
             </el-tooltip>
             
-            <el-tooltip v-else content="Restore Topic" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-success" />
+            <el-tooltip v-else content="Khôi phục chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-button link :icon="RotateCcw" @click.stop="handleRestore(row)" class="action-btn action-success" />
             </el-tooltip>
           </div>
         </template>
@@ -437,6 +437,16 @@ onMounted(() => {
 :deep(.leetcode-table .cell-date) {
   font-size: 13px;
   color: #8a8a8a;
+}
+.cell-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.cell-link:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
 }
 .status-badge {
   padding: 4px 8px;

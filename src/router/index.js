@@ -94,7 +94,7 @@ const router = createRouter({
     {
       path: '/dashboard',
       component: () => import('../views/dashboard/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      meta: { requiresAuth: true, requiresAdminOrMod: true },
       children: [
         {
           path: '',
@@ -144,18 +144,19 @@ router.beforeEach(async (to, from, next) => {
     // 🌟 Rút biến ra để tránh việc chọc vào getter nhiều lần có thể gây lỗi
     const isAuthenticated = !!authStore.isAuthenticated
     const isAdmin = !!authStore.isAdmin
+    const isAdminOrMod = !!authStore.isAdminOrMod
 
 
     // Removed admin auto-redirect to dashboard from home page so admins can view the landing page
 
 
     if (to.meta.requiresGuest && isAuthenticated) {
-      // Redirect admin to dashboard, others to home
-      return next(isAdmin ? '/dashboard' : '/')
+      // Redirect admin or mod to dashboard, others to home
+      return next(isAdminOrMod ? '/dashboard' : '/')
     } else if (to.meta.requiresAuth && !isAuthenticated) {
       return next('/login')
-    } else if (to.meta.requiresAdmin && !isAdmin) {
-      // Nếu route cần admin mà user không phải admin, redirect về home
+    } else if (to.meta.requiresAdminOrMod && !isAdminOrMod) {
+      // Nếu route cần quyền quản trị mà user không có, redirect về home
       return next('/')
     }
 

@@ -27,12 +27,14 @@ const loadProfile = async () => {
   try {
     loading.value = true
     let response
-    if (!idOrUsername.value) {
-      // Load current user
+    const isViewingOwnProfile = !idOrUsername.value || 
+                              (authStore.user && (idOrUsername.value === authStore.user.id || idOrUsername.value === authStore.user.username))
+
+    if (isViewingOwnProfile) {
+      // Load current user with full private info
       response = await usersApi.getCurrentUser()
     } else {
-      // Try by ID first, then by username if needed (API handles it if we have separate endpoints)
-      // Actually, if it's a UUID, call getUserProfileById, else ByUsername
+      // Try by ID first, then by username
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUsername.value)
       if (isUuid) {
         response = await usersApi.getUserProfileById(idOrUsername.value)
@@ -94,7 +96,7 @@ onMounted(loadProfile)
                   <CheckCircle :size="12" /> Đã xác thực
                 </el-tag>
               </div>
-              <p class="bio" v-if="userProfile.bio">{{ userProfile.bio }}</p>
+              <div class="bio" v-if="userProfile.bio" v-html="userProfile.bio"></div>
             </div>
           </div>
           
@@ -235,10 +237,10 @@ onMounted(loadProfile)
 
 .header-content {
   display: flex;
-  padding: 0 40px 30px;
+  padding: 0 40px;
   margin-top: -60px;
   gap: 30px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .avatar-wrapper {
@@ -284,6 +286,11 @@ onMounted(loadProfile)
 
 .user-meta {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: 75px; /* Ensure name starts below cover edge (120px - 60px neg margin + buffer) */
+  padding-bottom: 30px;
+  min-height: 160px;
 }
 
 .name-row {
@@ -297,18 +304,21 @@ onMounted(loadProfile)
   font-weight: 800;
   color: #fff;
   margin: 0;
+  line-height: 1.2;
 }
 
 .username {
   font-size: 18px;
   color: #8a8a8a;
-  padding: 10px 0 10px;
+  padding: 6px 0 10px;
+  margin: 0;
 }
 
 .badges {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+  margin: 5px 0 12px;
 }
 
 .role-badge {
@@ -329,15 +339,19 @@ onMounted(loadProfile)
 .bio {
   color: #eff2f6;
   font-size: 14px;
-  line-height: 1.5;
-  max-width: 600px;
+  line-height: 1.6;
+  max-width: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Stats Row */
 .stats-overview {
   display: flex;
   border-top: 1px solid var(--border-primary);
-  background: rgba(255,255,255,0.02);
+  background: rgba(255,255,255,0.01);
+  margin-top: 10px;
 }
 
 .stat-item {
@@ -480,10 +494,12 @@ onMounted(loadProfile)
 /* Responsive */
 @media (max-width: 900px) {
   .profile-grid { grid-template-columns: 1fr; }
-  .header-content { flex-direction: column; align-items: center; text-align: center; }
-  .name-row { flex-direction: column; gap: 10px; }
+  .header-content { flex-direction: column; align-items: center; text-align: center; padding: 0 20px 40px; }
+  .user-meta { padding-top: 10px; min-height: auto; }
+  .name-row { flex-direction: column; gap: 10px; justify-content: center; }
+  .badges { justify-content: center; }
   .stats-overview { flex-wrap: wrap; }
-  .stat-item { border-bottom: 1px solid var(--border-primary); border-right: none; }
+  .stat-item { border-bottom: 1px solid var(--border-primary); border-right: none; padding: 20px; }
 }
 
 @media (max-width: 600px) {

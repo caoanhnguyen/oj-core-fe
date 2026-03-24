@@ -32,9 +32,9 @@ const formData = ref({ ...props.initialData })
 const formRef = ref(null)
 
 const rules = {
-  name: [{ required: true, message: 'Please input topic name', trigger: 'blur' }],
-  slug: [{ required: true, message: 'Please input topic slug', trigger: 'blur' }],
-  description: [{ required: true, message: 'Please input topic description', trigger: 'blur' }]
+  name: [{ required: true, message: 'Vui lòng nhập tên chủ đề', trigger: 'blur' }],
+  slug: [{ required: true, message: 'Vui lòng nhập đường dẫn (slug)', trigger: 'blur' }],
+  description: [{ required: true, message: 'Vui lòng nhập mô tả chủ đề', trigger: 'blur' }]
 }
 
 // Sync visibility prop
@@ -81,7 +81,7 @@ const handleSubmit = async () => {
 <template>
   <el-dialog
     v-model="dialogVisible"
-    :title="dialogType === 'create' ? 'Create New Topic' : 'Edit Topic'"
+    :title="dialogType === 'create' ? 'Tạo chủ đề mới' : 'Chỉnh sửa chủ đề'"
     width="500px"
     class="dark-dialog custom-message-box-theme"
     :close-on-click-modal="false"
@@ -93,33 +93,33 @@ const handleSubmit = async () => {
       label-position="top"
       class="dark-form"
     >
-      <el-form-item label="Topic Name" prop="name">
+      <el-form-item label="Tên chủ đề" prop="name">
         <el-input 
           v-model="formData.name" 
-          placeholder="e.g. Dynamic Programming" 
+          placeholder="vd: Quy hoạch động, Đồ thị..." 
           @blur="generateSlug"
         />
       </el-form-item>
-      <el-form-item label="Slug" prop="slug">
+      <el-form-item label="Đường dẫn (Slug)" prop="slug">
         <el-input 
           v-model="formData.slug" 
-          placeholder="e.g. dynamic-programming" 
+          placeholder="vd: quy-hoach-dong" 
         />
       </el-form-item>
-      <el-form-item label="Description" prop="description">
+      <el-form-item label="Mô tả" prop="description">
         <el-input 
           v-model="formData.description" 
           type="textarea"
           :rows="4"
-          placeholder="Describe this topic..." 
+          placeholder="Nhập mô tả cho chủ đề này..." 
         />
       </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="handleClose" class="dark-btn-cancel">Cancel</el-button>
+        <el-button @click="handleClose" class="dark-btn-cancel">Hủy</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="loading" class="dark-btn-submit">
-          {{ dialogType === 'create' ? 'Create' : 'Save Changes' }}
+          {{ dialogType === 'create' ? 'Tạo mới' : 'Lưu thay đổi' }}
         </el-button>
       </span>
     </template>

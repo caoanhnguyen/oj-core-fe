@@ -233,7 +233,7 @@ watch(() => route.path, (newPath) => {
           
           <div class="topic-creator">
             <User :size="16" />
-            <span>Created by: <span class="creator-name">{{ topicData.createdBy }}</span></span>
+            <span>Created by: <router-link :to="`/profile/${topicData.createdBy}`" class="creator-name">{{ topicData.createdBy }}</router-link></span>
           </div>
         </div>
 

@@ -56,7 +56,9 @@ const handleUpdateProfile = async () => {
     await usersApi.updateProfile(form.value)
     ElMessage.success('Cập nhật thông tin thành công!')
     // Update auth store as well
-    authStore.getCurrentUser()
+    await authStore.getCurrentUser()
+    // Redirect back to profile
+    router.push('/profile')
   } catch (error) {
     const msg = error.response?.data?.message || 'Cập nhật thất bại'
     ElMessage.error(msg)
@@ -69,8 +71,8 @@ const beforeAvatarUpload = (rawFile) => {
   if (rawFile.type !== 'image/jpeg' && rawFile.type !== 'image/png') {
     ElMessage.error('Avatar must be JPG or PNG format!')
     return false
-  } else if (rawFile.size / 1024 / 1024 > 2) {
-    ElMessage.error('Avatar size can not exceed 2MB!')
+  } else if (rawFile.size / 1024 / 1024 > 5) {
+    ElMessage.error('Dung lượng ảnh đại diện không được vượt quá 5MB!')
     return false
   }
   return true
@@ -160,12 +162,15 @@ onMounted(loadProfile)
                 <el-input v-model="form.phoneNumber" placeholder="Nhập số điện thoại..." />
               </el-form-item>
               <el-form-item label="Giới thiệu bản thân">
-                <el-input 
-                  type="textarea" 
-                  v-model="form.bio" 
-                  :rows="4" 
-                  placeholder="Hãy giới thiệu một chút về bạn..."
-                />
+                <div class="bio-editor-container">
+                  <QuillEditor 
+                    v-model:content="form.bio" 
+                    contentType="html"
+                    theme="snow"
+                    placeholder="Hãy giới thiệu một chút về bạn..."
+                    class="dark-quill-editor"
+                  />
+                </div>
               </el-form-item>
             </div>
 
@@ -204,9 +209,11 @@ onMounted(loadProfile)
             </div>
 
             <div class="form-actions">
-              <el-button type="primary" :loading="saving" @click="handleUpdateProfile" class="save-btn">
-                <Save :size="18" style="margin-right: 8px;" /> Lưu thay đổi
-              </el-button>
+              <button class="save-btn" :disabled="saving" @click="handleUpdateProfile">
+                <Save v-if="!saving" :size="18" style="margin-right: 8px;" />
+                <span v-if="saving">Đang lưu...</span>
+                <span v-else>Lưu thay đổi</span>
+              </button>
             </div>
           </el-form>
         </div>
@@ -365,8 +372,29 @@ onMounted(loadProfile)
 }
 
 .save-btn {
-  padding: 12px 24px;
-  font-weight: 600;
+  background: var(--accent-primary);
+  border: none;
+  color: #000;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 40px;
+}
+
+.save-btn:hover {
+  background: #ff8800;
+  transform: translateY(-1px);
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Dark Form Styles Overrides */
@@ -398,5 +426,53 @@ onMounted(loadProfile)
 @media (max-width: 850px) {
   .edit-grid { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
+}
+
+.bio-editor-container {
+  background: #141414;
+  border-radius: 8px;
+  border: 1px solid #333;
+  overflow: hidden;
+  width: 100%;
+}
+
+:deep(.dark-quill-editor) {
+  width: 100%;
+}
+
+:deep(.dark-quill-editor .ql-toolbar) {
+  background: #1a1a1a;
+  border-color: #333;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+:deep(.dark-quill-editor .ql-container) {
+  border: none;
+  min-height: 200px; /* Increased height */
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.dark-quill-editor .ql-editor) {
+  color: #eff2f6;
+  font-size: 14px;
+  flex: 1;
+  padding: 15px 20px; /* Improved padding */
+  min-height: 200px;
+}
+
+:deep(.dark-quill-editor .ql-stroke) {
+  stroke: #8a8a8a;
+}
+
+:deep(.dark-quill-editor .ql-fill) {
+  fill: #8a8a8a;
+}
+
+:deep(.dark-quill-editor .ql-picker) {
+  color: #8a8a8a;
 }
 </style>

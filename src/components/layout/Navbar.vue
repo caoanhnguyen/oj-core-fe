@@ -38,7 +38,7 @@ const handleLogout = async () => {
           <span>Home</span>
         </RouterLink>
 
-        <RouterLink v-if="authStore.isAdmin" to="/dashboard" class="nav-link" :class="{ 'is-active': route.path.startsWith('/dashboard') }">
+        <RouterLink v-if="authStore.isAdminOrMod" to="/dashboard" class="nav-link" :class="{ 'is-active': route.path.startsWith('/dashboard') }">
           <LayoutDashboard :size="16" style="margin-right: 6px;" />
           <span>Dashboard</span>
         </RouterLink>

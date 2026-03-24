@@ -332,6 +332,9 @@ onMounted(fetchUsers)
         border
         style="width: 100%"
       >
+        <template #empty>
+          <el-empty description="Không tìm thấy người dùng nào" />
+        </template>
         <el-table-column type="selection" width="55" align="center" fixed="left" />
         
         <el-table-column label="#" width="60" align="center">
@@ -372,9 +375,9 @@ onMounted(fetchUsers)
               <span 
                 v-for="role in row.roles" 
                 :key="role" 
-                :class="['role-pill', `role-${role.toLowerCase()}`]"
+                :class="['role-pill', `role-${role.replace('ROLE_', '').toLowerCase()}`]"
               >
-                {{ role }}
+                {{ role.replace('ROLE_', '') }}
               </span>
             </div>
           </template>
@@ -403,12 +406,12 @@ onMounted(fetchUsers)
           <template #default="{ row }">
             <div class="action-btns">
                <el-tooltip content="Chi tiết" placement="top">
-                 <button class="action-btn" @click="router.push(`/profile/${row.username}`)">
+                 <button class="action-btn action-btn-info" @click="router.push(`/profile/${row.username}`)">
                    <Info :size="16" />
                  </button>
                </el-tooltip>
                <el-tooltip content="Quản lý vai trò" placement="top">
-                 <button class="action-btn" @click="showRoleDialog(row)">
+                 <button class="action-btn action-btn-shield" @click="showRoleDialog(row)">
                    <Shield :size="16" />
                  </button>
                </el-tooltip>
@@ -738,9 +741,10 @@ onMounted(fetchUsers)
   border-radius: 10px;
 }
 
-.role-admin { background: rgba(239, 71, 67, 0.1); color: #ef4743; }
-.role-user { background: rgba(255, 255, 255, 0.05); color: #8a8a8a; }
-.role-developer { background: rgba(64, 158, 255, 0.1); color: #409eff; }
+.role-admin { background: rgba(239, 71, 67, 0.15); color: #ef4743; border: 1px solid rgba(239, 71, 67, 0.2); }
+.role-moderator { background: rgba(163, 85, 245, 0.15); color: #a355f5; border: 1px solid rgba(163, 85, 245, 0.2); }
+.role-user { background: rgba(44, 187, 93, 0.15); color: #2cbb5d; border: 1px solid rgba(44, 187, 93, 0.2); }
+.role-developer { background: rgba(64, 158, 255, 0.15); color: #409eff; border: 1px solid rgba(64, 158, 255, 0.2); }
 
 .action-btns {
   display: flex;
@@ -764,8 +768,17 @@ onMounted(fetchUsers)
 }
 
 .action-btn:hover {
-  color: #eff2f6;
   background: rgba(255,255,255,0.06);
+}
+
+.action-btn-info:hover {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.1) !important;
+}
+
+.action-btn-shield:hover {
+  color: #a355f5;
+  background: rgba(163, 85, 245, 0.1) !important;
 }
 
 .action-btn-lock:hover {
