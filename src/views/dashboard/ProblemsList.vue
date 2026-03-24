@@ -194,11 +194,11 @@ const handleView = (row) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to delete "${row.title}"? This action cannot be undone.`,
-      'Confirm Delete',
+      `Bạn có chắc chắn muốn xóa "${row.title}"? Hành động này không thể hoàn tác.`,
+      'Xác nhận xóa',
       {
-        confirmButtonText: 'Delete',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy',
         type: 'warning',
         confirmButtonClass: 'el-button--danger'
       }
@@ -215,11 +215,11 @@ const handleDelete = async (row) => {
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to restore "${row.title}"?`,
-      'Confirm Restore',
+      `Bạn có chắc chắn muốn khôi phục "${row.title}"?`,
+      'Xác nhận khôi phục',
       {
-        confirmButtonText: 'Restore',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Khôi phục',
+        cancelButtonText: 'Hủy',
         type: 'info',
         confirmButtonClass: 'el-button--primary'
       }
@@ -235,11 +235,11 @@ const handleRestore = async (row) => {
 const handlePublish = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to publish "${row.title}"?`,
-      'Confirm Publish',
+      `Bạn có chắc chắn muốn công khai bài tập "${row.title}"?`,
+      'Xác nhận công khai',
       {
-        confirmButtonText: 'Publish',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Công khai',
+        cancelButtonText: 'Hủy',
         type: 'info',
         confirmButtonClass: 'el-button--primary'
       }
@@ -279,19 +279,19 @@ onMounted(async () => {
   <div class="content-section">
     <div class="section-header">
       <div>
-        <h1 class="section-title">Manage Problems</h1>
-        <p class="section-subtitle">Create, edit, and manage coding problems</p>
+        <h1 class="section-title">Quản lý bài tập</h1>
+        <p class="section-subtitle">Tạo, chỉnh sửa và quản trị các bài tập lập trình</p>
       </div>
       <el-button type="primary" @click="handleAddProblem" class="add-button">
         <FileText :size="16" style="margin-right: 8px;" />
-        Add Problem
+        Thêm bài tập
       </el-button>
     </div>
 
     <div class="table-controls">
       <div class="search-wrap">
         <Search class="search-icon" :size="16" />
-        <input type="text" v-model="searchQuery" placeholder="Search questions" class="search-input" />
+        <input type="text" v-model="searchQuery" placeholder="Tìm kiếm bài tập..." class="search-input" />
       </div>
       
         <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
@@ -300,28 +300,28 @@ onMounted(async () => {
               <ArrowUpDown v-if="!currentSortField" :size="16" />
               <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" />
               <ArrowUpDown v-else :size="16" />
-              <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'difficulty' ? 'Difficulty' : 'Created Date' }}</span>
+              <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'difficulty' ? 'Độ khó' : 'Ngày tạo' }}</span>
             </button>
           </span>
           <template #dropdown>
             <el-dropdown-menu class="dark-dropdown custom-sort-menu">
               <el-dropdown-item command="difficulty" :class="{ 'is-active': currentSortField === 'difficulty' }">
                 <div class="sort-menu-content">
-                  <span>Difficulty</span>
+                  <span>Độ khó</span>
                   <ArrowDownWideNarrow v-if="currentSortField === 'difficulty' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
                   <ArrowUpNarrowWide v-if="currentSortField === 'difficulty' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
                 </div>
               </el-dropdown-item>
               <el-dropdown-item command="createdDate" :class="{ 'is-active': currentSortField === 'createdDate' }">
                 <div class="sort-menu-content">
-                  <span>Created Date</span>
+                  <span>Ngày tạo</span>
                   <ArrowDownWideNarrow v-if="currentSortField === 'createdDate' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
                   <ArrowUpNarrowWide v-if="currentSortField === 'createdDate' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
                 </div>
               </el-dropdown-item>
               <div class="filter-footer sort-footer">
                 <el-button link class="reset-filters" @click="resetSort">
-                  <RotateCcw :size="14" style="margin-right: 6px;" /> Reset Sort
+                  <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại sắp xếp
                 </el-button>
               </div>
             </el-dropdown-menu>
@@ -338,7 +338,7 @@ onMounted(async () => {
       >
         <template #reference>
           <div style="display: inline-block;">
-            <el-tooltip content="Filter problems" placement="top" effect="dark" :hide-after="0">
+            <el-tooltip content="Lọc bài tập" placement="top" effect="dark" :hide-after="0">
               <button class="control-btn" :class="{ active: hasActiveFilters }">
                 <Filter :size="16" />
               </button>
@@ -347,60 +347,60 @@ onMounted(async () => {
         </template>
         <div class="filter-content">
           <div class="filter-header">
-            <span>Filter Problems</span>
+            <span>Bộ lọc bài tập</span>
           </div>
           
           <div class="filter-list">
              <div class="filter-row">
                <el-checkbox v-model="filters.status.active" class="dark-checkbox" />
                <span class="filter-label" :class="{ 'is-active': filters.status.active }">
-                 <CheckCircle :size="14" /> Status
+                 <CheckCircle :size="14" /> Trạng thái
                </span>
                <el-select v-model="filters.status.operator" size="small" class="dark-select math-select" :disabled="!filters.status.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
+                 <el-option label="là" value="is" />
                </el-select>
                <el-select v-model="filters.status.value" size="small" class="dark-select value-select" :disabled="!filters.status.active" popper-class="dark-select-dropdown">
-                  <el-option label="Active" value="ACTIVE" />
-                  <el-option label="Deleted" value="DELETED" />
+                  <el-option label="Hoạt động" value="ACTIVE" />
+                  <el-option label="Đã xóa" value="DELETED" />
                </el-select>
              </div>
 
              <div class="filter-row">
                <el-checkbox v-model="filters.problemStatus.active" class="dark-checkbox" />
                <span class="filter-label" :class="{ 'is-active': filters.problemStatus.active }">
-                 <CheckCircle :size="14" /> Visibility
+                 <CheckCircle :size="14" /> Hiển thị
                </span>
                <el-select v-model="filters.problemStatus.operator" size="small" class="dark-select math-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
+                 <el-option label="là" value="is" />
                </el-select>
                <el-select v-model="filters.problemStatus.value" size="small" class="dark-select value-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
-                  <el-option label="Published" value="PUBLISHED" />
-                  <el-option label="Draft" value="DRAFT" />
+                  <el-option label="Công khai" value="PUBLISHED" />
+                  <el-option label="Bản nháp" value="DRAFT" />
                </el-select>
              </div>
              
              <div class="filter-row">
                <el-checkbox v-model="filters.difficulty.active" class="dark-checkbox" />
                <span class="filter-label" :class="{ 'is-active': filters.difficulty.active }">
-                 <Gauge :size="14" /> Difficulty
+                 <Gauge :size="14" /> Độ khó
                </span>
                <el-select v-model="filters.difficulty.operator" size="small" class="dark-select math-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
+                 <el-option label="là" value="is" />
                </el-select>
                <el-select v-model="filters.difficulty.value" size="small" class="dark-select value-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                  <el-option label="Easy" value="EASY" />
-                  <el-option label="Medium" value="MEDIUM" />
-                  <el-option label="Hard" value="HARD" />
+                  <el-option label="Dễ" value="EASY" />
+                  <el-option label="Trung bình" value="MEDIUM" />
+                  <el-option label="Khó" value="HARD" />
                </el-select>
              </div>
 
              <div class="filter-row">
                <el-checkbox v-model="filters.ruleType.active" class="dark-checkbox" />
                <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
-                 <LayoutGrid :size="14" /> Rule Type
+                 <LayoutGrid :size="14" /> Quy tắc
                </span>
                <el-select v-model="filters.ruleType.operator" size="small" class="dark-select math-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
-                 <el-option label="is" value="is" />
+                 <el-option label="là" value="is" />
                </el-select>
                <el-select v-model="filters.ruleType.value" size="small" class="dark-select value-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
                   <el-option label="ACM" value="ACM" />
@@ -411,10 +411,10 @@ onMounted(async () => {
              <div class="filter-row">
                <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
                <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
-                 <Tag :size="14" /> Topics
+                 <Tag :size="14" /> Chủ đề
                </span>
                <el-select v-model="filters.topics.operator" size="small" class="dark-select math-select" :disabled="!filters.topics.active" popper-class="dark-select-dropdown">
-                 <el-option label="in" value="in" />
+                 <el-option label="trong" value="in" />
                </el-select>
                <el-popover
                  placement="right-start"
@@ -427,7 +427,7 @@ onMounted(async () => {
                >
                  <template #reference>
                    <div class="topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop>
-                     <span v-if="filters.topics.value.length === 0">Select</span>
+                     <span v-if="filters.topics.value.length === 0">Chọn</span>
                      <span v-else class="selected-topics-text">{{ filters.topics.value.join(', ') }}</span>
                      <ChevronDown :size="14" class="topic-trigger-icon" />
                    </div>
@@ -435,7 +435,7 @@ onMounted(async () => {
                  <div class="topic-selector-content" @click.stop>
                    <div class="popover-search">
                      <Search class="search-icon" :size="14" />
-                     <input type="text" v-model="topicSearchQuery" placeholder="search" class="search-input" />
+                     <input type="text" v-model="topicSearchQuery" placeholder="tìm kiếm..." class="search-input" />
                    </div>
                    <div class="topic-pills-container">
                      <button
@@ -447,11 +447,11 @@ onMounted(async () => {
                      >
                        {{ topic.name }}
                      </button>
-                     <div v-if="filteredTopicsList.length === 0" class="no-topics">No topics found</div>
+                     <div v-if="filteredTopicsList.length === 0" class="no-topics">Không tìm thấy chủ đề nào</div>
                    </div>
                    <div class="topic-selector-footer">
                      <el-button link class="reset-filters" @click="resetTopicFilter">
-                       <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
+                       <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
                      </el-button>
                    </div>
                  </div>
@@ -462,7 +462,7 @@ onMounted(async () => {
           <div class="filter-footer">
             <div class="spacer"></div>
             <el-button link class="reset-filters" @click="resetFilters">
-              <RotateCcw :size="14" style="margin-right: 6px;" /> Reset All
+              <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại tất cả
             </el-button>
           </div>
         </div>
@@ -485,7 +485,7 @@ onMounted(async () => {
       :show-header="true"
     >
       <template #empty>
-        <el-empty description="No problems found" />
+        <el-empty description="Không tìm thấy bài tập nào" />
       </template>
 
       <el-table-column label="#" width="60" align="center">
@@ -498,53 +498,53 @@ onMounted(async () => {
           <span class="cell-id">{{ row.id }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Title" min-width="300">
+      <el-table-column label="Tiêu đề" min-width="300">
         <template #default="{ row }">
           <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Created Date" width="120" align="center">
+      <el-table-column label="Ngày tạo" width="120" align="center">
         <template #default="{ row }">
           <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Difficulty" width="100" align="center">
+      <el-table-column label="Độ khó" width="100" align="center">
         <template #default="{ row }">
            <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Status" width="100" align="center">
+      <el-table-column label="Trạng thái" width="100" align="center">
         <template #default="{ row }">
           <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
             {{ row.status }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="Visibility" width="150" align="center">
+      <el-table-column label="Hiển thị" width="150" align="center">
         <template #default="{ row }">
           <span :class="['status-badge', row.problemStatus === 'PUBLISHED' ? 'status-active' : 'status-draft']">
             {{ row.problemStatus }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" width="140" align="center" fixed="right">
+      <el-table-column label="Hành động" width="140" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-buttons" v-if="row.status === 'DELETED'">
-            <el-tooltip content="Restore Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip content="Khôi phục bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
             </el-tooltip>
           </div>
           <div class="action-buttons" v-else>
-            <el-tooltip content="View Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip content="Xem chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Eye" @click="handleView(row)" class="action-btn action-view" />
             </el-tooltip>
-            <el-tooltip content="Edit Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip content="Sửa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
             </el-tooltip>
-            <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Publish Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Công khai bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Send" @click="handlePublish(row)" class="action-btn action-publish" />
             </el-tooltip>
-            <el-tooltip v-else content="Delete Problem" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-tooltip v-else content="Xóa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
               <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
             </el-tooltip>
           </div>

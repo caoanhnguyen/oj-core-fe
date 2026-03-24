@@ -3,7 +3,7 @@ import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import { useAuthStore } from '../../stores/auth'
-import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn, User, Globe, Award } from 'lucide-vue-next'
+import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, ChevronDown, Tag, Copy, Check, Plus, X, Lightbulb, LogIn, User, Globe, Award, Clock, Database, Zap } from 'lucide-vue-next'
 import { ElMessage, ElNotification } from 'element-plus'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { useSubmissionStore } from '../../stores/submission'
@@ -432,14 +432,16 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
           <!-- Description Tab -->
           <div v-if="activeTab === 'description'" class="description-wrapper">
             <div class="problem-title-section">
-              <h1 class="problem-title">{{ problem.title }}</h1>
+              <div class="title-with-type">
+                <h1 class="problem-title">{{ problem.title }}</h1>
+                <span v-if="problem.ruleType" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
+              </div>
               
               <div class="problem-meta-new">
                 <!-- Row 1: Information (Author, Source, Score) -->
                 <div class="meta-row info-row">
                   <div class="meta-item-wrap">
                     <User :size="14" class="meta-icon author-icon" />
-                    <span class="meta-label">Author:</span>
                     <router-link :to="`/profile/${problem.author?.authorName}`" class="meta-link author-name">
                       {{ problem.author?.authorName }}
                     </router-link>
@@ -447,14 +449,22 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 
                   <div class="meta-item-wrap" v-if="problem.source">
                     <Globe :size="14" class="meta-icon source-icon" />
-                    <span class="meta-label">Source:</span>
                     <span class="meta-text">{{ problem.source }}</span>
                   </div>
 
                   <div class="meta-item-wrap" v-if="problem.totalScore">
                     <Award :size="14" class="meta-icon score-icon" />
-                    <span class="meta-label">Score:</span>
-                    <span class="meta-text">{{ problem.totalScore }} Points</span>
+                    <span class="meta-text">{{ problem.totalScore }} pts</span>
+                  </div>
+
+                  <div class="meta-item-wrap" v-if="problem.timeLimitMs">
+                    <Clock :size="14" class="meta-icon time-icon" />
+                    <span class="meta-text">{{ (problem.timeLimitMs / 1000).toFixed(1) }}s</span>
+                  </div>
+
+                  <div class="meta-item-wrap" v-if="problem.memoryLimitMb">
+                    <Database :size="14" class="meta-icon memory-icon" />
+                    <span class="meta-text">{{ problem.memoryLimitMb }} MB</span>
                   </div>
                 </div>
 
@@ -891,7 +901,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
 }
 
 .info-row {
@@ -1098,6 +1108,76 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 .collapsible-content {
   margin-top: 8px;
   margin-left: 24px;
+}
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.meta-item-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #d0d0d0; /* Brightened text */
+}
+
+.problem-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0; /* Fixed alignment */
+}
+
+.title-with-type {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.rule-badge-main {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 2px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rule-badge-main.acm {
+  background: rgba(255, 161, 22, 0.15);
+  color: #ffa116; /* ACM is Yellow */
+  border: 1px solid rgba(255, 161, 22, 0.3);
+}
+
+.rule-badge-main.oi {
+  background: rgba(44, 187, 93, 0.15);
+  color: #2cbb5d; /* OI is Green */
+  border: 1px solid rgba(44, 187, 93, 0.3);
+}
+
+.author-icon { color: #00b5ad; }
+.source-icon { color: #409eff; }
+.score-icon { color: #ffa116; }
+.time-icon { color: #8a8a8a; }
+.memory-icon { color: #2cbb5d; }
+.type-icon { color: #ffa116; }
+
+.meta-text {
+  color: #d0d0d0;
+}
+
+.rule-type-simple {
+  font-weight: 700;
+  color: var(--accent-primary) !important;
+}
+
+.limit-icon {
+  color: #8a8a8a;
 }
 .topic-tags {
   display: flex;

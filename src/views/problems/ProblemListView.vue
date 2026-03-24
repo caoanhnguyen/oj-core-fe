@@ -754,8 +754,8 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-:deep(.leetcode-table .rule-type-oi) { background: transparent !important; color: #f81a1a !important; padding: 0; }
-:deep(.leetcode-table .rule-type-acm) { background: transparent !important; color: #ffc01e !important; padding: 0; }
+:deep(.leetcode-table .rule-type-oi) { background: transparent !important; color: #2cbb5d !important; padding: 0; }
+:deep(.leetcode-table .rule-type-acm) { background: transparent !important; color: #ffa116 !important; padding: 0; }
 
 .solved-icon {
   color: #2cbb5d;
