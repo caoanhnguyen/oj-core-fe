@@ -133,11 +133,16 @@ router.beforeEach(async (to, from, next) => {
 
     if (!window.__authInitialized) {
       window.__authInitialized = true
-      try {
-        await authStore.getCurrentUser()
-      } catch (err) {
-        // Nuốt lỗi an toàn
-        console.warn("Chưa đăng nhập hoặc phiên hết hạn")
+      const hasToken = !!localStorage.getItem('token')
+      if (hasToken) {
+        try {
+          await authStore.getCurrentUser()
+        } catch (err) {
+          // Nuốt lỗi an toàn
+          console.warn("Chưa đăng nhập hoặc phiên hết hạn")
+          // Clear token if getCurrentUser fails with 401/expired
+          localStorage.removeItem('token')
+        }
       }
     }
 

@@ -36,6 +36,7 @@ const pagination = ref({
   size: 20
 })
 
+const topicSearchInput = ref(null)
 const isTopicsExtraExpanded = ref(false)
 
 const hasActiveFilters = computed(() => {
@@ -179,14 +180,24 @@ const filteredTopicsList = computed(() => {
 })
 
 const handleTopicToggle = (topicName) => {
-  const index = filters.value.topics.value.indexOf(topicName)
+  const current = [...filters.value.topics.value]
+  const index = current.indexOf(topicName)
   if (index > -1) {
-    filters.value.topics.value.splice(index, 1)
+    current.splice(index, 1)
   } else {
-    filters.value.topics.value.push(topicName)
+    current.push(topicName)
   }
+  filters.value.topics.value = current // Trigger reactivity explicitly
   filters.value.topics.active = true // Auto activate filter if they select a topic
 }
+
+const onTopicPopoverShow = () => {
+  // Use timeout to ensure DOM is ready
+  setTimeout(() => {
+    topicSearchInput.value?.focus()
+  }, 50)
+}
+
 
 const resetTopicFilter = () => {
   filters.value.topics.value = []
@@ -941,12 +952,11 @@ onMounted(async () => {
 .topic-trigger:not(.is-disabled):hover {
   box-shadow: 0 0 0 1px #5c5c5c inset;
 }
-.topic-trigger.is-disabled {
+.topic-trigger.is-inactive {
   background-color: #282828;
   box-shadow: 0 0 0 1px #333 inset;
   color: #5c5c5c;
-  cursor: not-allowed;
-  pointer-events: none;
+  cursor: pointer; /* Cho phép click để mở popover kể cả khi filter chưa active */
 }
 .selected-topics-text {
   color: var(--accent-primary);

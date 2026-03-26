@@ -9,6 +9,24 @@ const axiosInstance = axios.create({
   }
 })
 
+// Request Interceptor to add JWT token if exists
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // Skip adding token for specific public auth endpoints to avoid "Token expired" errors in Spring Security filter
+    const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
+    const isAuthRoute = authRoutes.some(route => config.url.includes(route))
+
+    if (!isAuthRoute) {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
 
 // Create a separate instance for refresh to avoid interceptor loops
 const refreshInstance = axios.create({
@@ -56,7 +74,7 @@ axiosInstance.interceptors.response.use(
       // 🚨 CHỐT CHẶN 1: Nếu chính API refresh hoặc login bị lỗi 401 -> Dọn dẹp và văng ra Login
       // Kiểm tra kỹ hơn URL
       const isAuthRequest = originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')
-      
+
       if (isAuthRequest) {
         authStore.user = null // Dọn sạch Pinia Store
         // Chỉ redirect nếu không phải đang ở sẵn login / oauth callback
@@ -94,8 +112,9 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false
         processQueue(refreshError, null)
 
-        // 🌟 Dọn dẹp Store sạch sẽ
+        // 🌟 Dọn dẹp Store và Token sạch sẽ
         authStore.user = null
+        localStorage.removeItem('token')
 
         // Chỉ điều hướng về Login nếu không phải đang ở các trang Auth (tránh làm mất query param lỗi)
         const isOnAuthPage = window.location.pathname.includes('/login') || window.location.pathname.includes('/oauth/callback')
@@ -106,7 +125,13 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    // Các lỗi khác (400, 403, 404, 500) trả về như bình thường để Component tự xử lý
+    // 🌟 XỬ LÝ LỖI 403 FORBIDDEN (Thiếu quyền truy cập)
+    if (status === 403) {
+      console.warn("Truy cập bị từ chối: Bạn không có quyền thực hiện hành động này.")
+      // Có thể emit một event hoặc gọi một toast nào đó ở đây nếu cần
+    }
+
+    // Các lỗi khác (400, 404, 500) trả về như bình thường để Component tự xử lý
     return Promise.reject(error)
   }
 )

@@ -27,7 +27,7 @@ const form = ref({
   school: '',
   major: '',
   githubUrl: '',
-  linkedinUrl: '',
+  linkedInUrl: '',
   website: ''
 })
 
@@ -201,7 +201,7 @@ onMounted(loadProfile)
                 <el-input v-model="form.githubUrl" placeholder="https://github.com/..." />
               </el-form-item>
               <el-form-item label="LinkedIn URL">
-                <el-input v-model="form.linkedinUrl" placeholder="https://linkedin.com/in/..." />
+                <el-input v-model="form.linkedInUrl" placeholder="https://linkedin.com/in/..." />
               </el-form-item>
               <el-form-item label="Website cá nhân">
                 <el-input v-model="form.website" placeholder="https://..." />

@@ -45,6 +45,10 @@ const usersApi = {
 
   adminUpdateRoles: (id, request) => {
     return axios.patch(`/admin/users/${id}/roles`, request)
+  },
+
+  getContributionHeatMap: (id) => {
+    return axios.get(`/users/${id}/heatmap`)
   }
 }
 
