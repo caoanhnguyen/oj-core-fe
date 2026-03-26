@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 
 const props = defineProps({
   problemId: {
@@ -63,8 +64,7 @@ const loadSubmissions = async () => {
         totalElements.value = response.totalElements || 0
 
     } catch (error) {
-        console.error(error)
-        ElMessage.error('Lỗi khi tải lịch sử bài nộp')
+        handleApiError(error, 'Lỗi khi tải lịch sử bài nộp')
     } finally {
         loading.value = false
     }

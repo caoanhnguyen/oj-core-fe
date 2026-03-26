@@ -18,7 +18,7 @@ const handleLogout = async () => {
     ElMessage.success('Đăng xuất thành công!')
     router.push('/login')
   } catch (error) {
-    console.error('Logout error:', error)
+    handleApiError(error, 'Đăng xuất thất bại')
   }
 }
 </script>

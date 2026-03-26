@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { rankingsAPI } from '@/api/rankings'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 
 export const useRankingStore = defineStore('ranking', {
   state: () => ({
@@ -36,8 +37,7 @@ export const useRankingStore = defineStore('ranking', {
 
         return data
       } catch (error) {
-        console.error('Failed to fetch rankings:', error)
-        ElMessage.error('Không tải được danh sách xếp hạng')
+        handleApiError(error, 'Không tải được danh sách xếp hạng')
         throw error
       } finally {
         this.loading = false

@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authAPI } from '../../api/auth'
+import { handleApiError } from '../../utils/errorHandler'
 
 // ...existing code...
 
@@ -36,8 +37,7 @@ const handleSubmit = async (formEl) => {
           query: { email: form.email }
         })
       } catch (error) {
-        const message = error.response?.data?.message || 'Gửi OTP thất bại'
-        ElMessage.error(message)
+        handleApiError(error, 'Gửi OTP thất bại')
       } finally {
         loading.value = false
       }

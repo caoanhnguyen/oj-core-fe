@@ -9,6 +9,7 @@ import CodeEditor from '@/components/common/CodeEditor.vue'
 import { useSubmissionStore } from '../../stores/submission'
 import StatisticsTab from '../../components/problems/StatisticsTab.vue'
 import SubmissionsTab from '../../components/problems/SubmissionsTab.vue'
+import { handleApiError } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
@@ -235,11 +236,11 @@ const handleSubmit = async () => {
           submissionsTabRef.value?.loadSubmissions()
        },
        (err) => {
-          ElMessage.error('Chấm bài thất bại hoặc quá thời gian chờ.')
+          handleApiError(err, 'Chấm bài thất bại hoặc quá thời gian chờ')
        }
      )
   } catch (e) {
-      console.error(e)
+      handleApiError(e, 'Nộp bài thất bại')
   }
 }
 
@@ -279,11 +280,11 @@ const handleRun = async () => {
        },
        (err) => {
           executionLoading.value = false
-          ElMessage.error(err.message || 'Chạy code thất bại hoặc quá thời gian chờ.')
+          handleApiError(err, 'Chạy code thất bại hoặc quá thời gian chờ')
        }
      )
   } catch (e) {
-      console.error(e)
+      handleApiError(e, 'Yêu cầu chạy thử thất bại')
   }
 }
 
@@ -303,8 +304,7 @@ const handleRetrieveLastCode = async () => {
     const code = await submissionStore.getLatestSubmissionSourceCode(problem.value.id, selectedLanguage.value)
     sourceCode.value = code ? code : getInitialCode()
   } catch (e) {
-    console.error(e)
-    ElMessage.error('Lấy mã nguồn thất bại')
+    handleApiError(e, 'Lấy mã nguồn thất bại')
   }
 }
 
@@ -340,7 +340,7 @@ const initPage = async () => {
         }
     }
   } catch (error) {
-    console.error('Failed to load problem:', error)
+    handleApiError(error, 'Không thể tải thông tin bài tập')
   } finally {
     loading.value = false
     nextTick(() => {

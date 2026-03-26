@@ -11,6 +11,7 @@ import {
   Users, CheckSquare, RotateCcw, Filter, ShieldCheck,
   ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide
 } from 'lucide-vue-next'
+import { handleApiError } from '@/utils/errorHandler'
 
 const router = useRouter()
 const loading = ref(false)
@@ -87,7 +88,7 @@ const fetchUsers = async () => {
     users.value = response.data.data.content
     totalElements.value = response.data.data.totalElements
   } catch (error) {
-    ElMessage.error('Không thể tải danh sách người dùng')
+    handleApiError(error, 'Không thể tải danh sách người dùng')
   } finally {
     loading.value = false
   }
@@ -151,7 +152,11 @@ const handleToggleLock = async (user) => {
     
     ElMessage.success(`${user.username} đã được ${actionName} thành công!`)
     fetchUsers()
-  } catch (e) { /* ignore cancel */ }
+  } catch (error) { 
+    if (error !== 'cancel') {
+        handleApiError(error, `Thực hiện ${actionName} thất bại`)
+    }
+  }
 }
 
 const handleBulkLock = async (isToLock) => {
@@ -173,7 +178,11 @@ const handleBulkLock = async (isToLock) => {
     
     ElMessage.success(`Đã ${actionName} ${selectedUsers.value.length} người dùng!`)
     fetchUsers()
-  } catch (e) { /* ignore cancel */ }
+  } catch (error) { 
+    if (error !== 'cancel') {
+        handleApiError(error, `Thực hiện ${actionName} hàng loạt thất bại`)
+    }
+  }
 }
 
 const showRoleDialog = (user) => {

@@ -26,6 +26,7 @@ import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
@@ -63,8 +64,7 @@ const fetchTopicDetail = async () => {
     loadingDetail.value = true
     topicData.value = await topicStore.getTopicDetails(slug.value)
   } catch (error) {
-    console.error('Failed to fetch topic detail:', error)
-    ElMessage.error('Không tải được thông tin topic')
+    handleApiError(error, 'Không tải được thông tin topic')
   } finally {
     loadingDetail.value = false
   }
@@ -184,7 +184,7 @@ const initPage = async () => {
       fetchProblemsData()
     ])
   } catch (err) {
-    console.error('Error initializing topic page:', err)
+    handleApiError(err, 'Không thể tải thông tin chủ đề')
   } finally {
     loadingDetail.value = false
   }

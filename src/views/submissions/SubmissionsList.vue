@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, RotateCcw, ChevronDown, CheckCircle, Eye } from 'lucide-vue-next'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
@@ -114,8 +114,7 @@ const loadSubmissions = async () => {
     // Bỏ qua lỗi 401/403 - chỉ log các lỗi thực sự
     const status = error.response?.status
     if (status !== 401 && status !== 403) {
-      console.error(error)
-      ElMessage.error('Lỗi khi tải danh sách submissions')
+      handleApiError(error, 'Lỗi khi tải danh sách bài nộp')
     }
   } finally {
     loading.value = false

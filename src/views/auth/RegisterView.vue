@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { authAPI } from '../../api/auth'
+import { handleApiError } from '../../utils/errorHandler'
 
 // ...existing code...
 
@@ -145,8 +146,7 @@ const handleRegister = async (formEl) => {
         // Redirect về login thay vì home (vì không auto-login nữa)
         router.push('/login')
       } catch (error) {
-        const message = error.response?.data?.message || 'Đăng ký thất bại'
-        ElMessage.error(message)
+        handleApiError(error, 'Đăng ký thất bại')
       } finally {
         loading.value = false
       }

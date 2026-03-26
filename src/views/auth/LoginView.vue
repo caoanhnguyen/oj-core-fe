@@ -3,6 +3,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
+import { handleApiError } from '../../utils/errorHandler'
+import { getErrorMessage } from '../../utils/errorCodes'
 
 const router = useRouter()
 const route = useRoute()
@@ -41,13 +43,18 @@ onMounted(async () => {
   if (error || message) {
     console.warn('Authentication error in login query:', { error, message })
     
-    // Choose the best message: detailed message > error code > generic
-    let displayMessage = (message && String(message) !== 'null') ? String(message) : ''
+    // Ưu tiên: error_code (từ BE) > message (từ BE) > error (mặc định)
+    let displayMessage = ''
+    if (message && String(message) !== 'null') {
+      // Thử xem message có phải là errorCode không
+      displayMessage = getErrorMessage(message, String(message))
+    }
+    
     if (!displayMessage && error) {
       if (error === 'invalid_provider' || error === 'access_denied') {
         displayMessage = 'Email đã được dùng để đăng ký tài khoản khác. Vui lòng đăng nhập bằng mật khẩu!'
       } else {
-        displayMessage = String(error)
+        displayMessage = getErrorMessage(error, String(error))
       }
     }
 
@@ -128,8 +135,7 @@ const handleLogin = async (formEl) => {
         ElMessage.success('Đăng nhập thành công!')
         router.push('/')
       } catch (error) {
-        const message = error.response?.data?.message || 'Đăng nhập thất bại'
-        ElMessage.error(message)
+        handleApiError(error, 'Đăng nhập thất bại')
       } finally {
         loading.value = false
       }

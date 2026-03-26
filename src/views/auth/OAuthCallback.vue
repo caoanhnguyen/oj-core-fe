@@ -4,6 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
+import { handleApiError } from '../../utils/errorHandler'
+import { getErrorMessage } from '../../utils/errorCodes'
 
 const router = useRouter()
 const route = useRoute()
@@ -15,21 +17,32 @@ onMounted(async () => {
   const error = searchParams.get('error') || route.query.error
   const message = searchParams.get('message') || route.query.message || searchParams.get('error_code')
   
-  if (error || message) {
-    console.warn('OAuth failure detected:', { error, message })
-    
-    const displayMessage = (message && String(message) !== 'null') ? String(message) : String(error)
-    
-    ElMessage.error({
-      message: displayMessage || 'Đăng nhập OAuth không thành công. Vui lòng thử lại!',
-      duration: 10000, 
-      showClose: true
-    })
-    
-    // Chuyển hướng về login và xóa các param rác (đã hiển thị message rồi nên không cần pass nữa)
-    router.replace('/login')
-    return
-  }
+    if (error || message) {
+      console.warn('OAuth failure detected:', { error, message })
+      
+      let displayMessage = ''
+      if (message && String(message) !== 'null') {
+        displayMessage = getErrorMessage(message, String(message))
+      }
+      
+      if (!displayMessage && error) {
+        if (error === 'invalid_provider' || error === 'access_denied') {
+          displayMessage = 'Email đã được dùng để đăng ký tài khoản khác. Vui lòng đăng nhập bằng mật khẩu!'
+        } else {
+          displayMessage = getErrorMessage(error, String(error))
+        }
+      }
+      
+      ElMessage.error({
+        message: displayMessage || 'Đăng nhập OAuth không thành công. Vui lòng thử lại!',
+        duration: 10000, 
+        showClose: true
+      })
+      
+      // Chuyển hướng về login và xóa các param rác (đã hiển thị message rồi nên không cần pass nữa)
+      router.replace('/login')
+      return
+    }
 
   // 2. Nếu không có lỗi (thành công) -> Gọi API lấy thông tin profile
   try {
@@ -40,12 +53,7 @@ onMounted(async () => {
     router.replace('/')
   } catch (e) {
     // Nếu quá trình lấy profile thất bại (cookie lỗi, v.v...)
-    const msg = e.response?.data?.message || 'Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại!'
-    ElMessage.error({
-        message: msg,
-        duration: 5000,
-        showClose: true
-    })
+    handleApiError(e, 'Không thể lấy thông tin người dùng. Vui lòng đăng nhập lại!')
     router.replace('/login')
   }
 })

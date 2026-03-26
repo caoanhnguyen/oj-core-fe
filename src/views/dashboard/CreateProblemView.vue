@@ -6,6 +6,7 @@ import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import JSZip from 'jszip'
+import { handleApiError } from '@/utils/errorHandler'
 
 // 🌟 Import hàm bóc tách link ảnh
 import { extractImageKeysFromHtml } from '@/utils/quillImageUpload'
@@ -198,7 +199,7 @@ const handleSubmit = async (status = 'ACTIVE') => {
         allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
-        console.error('Failed to create problem:', error)
+        handleApiError(error, 'Tạo bài tập thất bại')
         isSubmitting.value = false
       }
     } else {

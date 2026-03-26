@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
+import { handleApiError } from '../../utils/errorHandler'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -31,9 +32,7 @@ onMounted(async () => {
     }, 3000)
   } catch (error) {
     success.value = false
-    const message = error.response?.data?.message || 'Xác thực email thất bại'
-    errorMessage.value = message
-    ElMessage.error(message)
+    errorMessage.value = handleApiError(error, 'Xác thực email thất bại')
   } finally {
     verifying.value = false
   }

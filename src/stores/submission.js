@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { submissionAPI } from '@/api/submissions'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 
 export const useSubmissionStore = defineStore('submission', () => {
 
@@ -20,7 +21,7 @@ export const useSubmissionStore = defineStore('submission', () => {
             activeSubmissionId.value = submissionId
             return submissionId
         } catch (error) {
-            ElMessage.error(error.response?.data?.message || 'Failed to submit code')
+            handleApiError(error, 'Nộp bài thất bại')
             throw error
         } finally {
             isLoading.value = false
@@ -34,7 +35,7 @@ export const useSubmissionStore = defineStore('submission', () => {
             activeRunToken.value = token
             return token
         } catch (error) {
-            ElMessage.error(error.response?.data?.message || 'Failed to request code execution')
+            handleApiError(error, 'Yêu cầu chạy code thất bại')
             throw error
         } finally {
             isLoading.value = false

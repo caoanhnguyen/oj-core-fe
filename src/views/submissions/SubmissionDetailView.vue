@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Clock, Cpu, Code2, Calendar, Trophy, Copy } from 'lucide-vue-next'
 import * as monaco from 'monaco-editor'
 
@@ -123,8 +124,7 @@ onMounted(async () => {
             initMonaco()
         })
     } catch (error) {
-        ElMessage.error('Không thể tải dữ liệu chi tiết bài nộp')
-        console.error(error)
+        handleApiError(error, 'Không thể tải dữ liệu chi tiết bài nộp')
         loading.value = false
     }
 })

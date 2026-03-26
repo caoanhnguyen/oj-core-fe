@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { Mail, AlertCircle, CheckCircle } from 'lucide-vue-next'
+import { handleApiError } from '../../utils/errorHandler'
 
 const authStore = useAuthStore()
 const resending = ref(false)
@@ -21,16 +22,11 @@ const handleResendEmail = async () => {
     emailSent.value = true
     ElMessage.success('Email xác thực đã được gửi lại!')
     
-    // Reset trạng thái sau 5 giây
     setTimeout(() => {
       emailSent.value = false
     }, 5000)
   } catch (error) {
-    console.error('❌ Resend email error:', error)
-    console.error('Response:', error.response)
-    
-    const message = error.response?.data?.message || 'Gửi email thất bại'
-    ElMessage.error(`${message} (Status: ${error.response?.status})`)
+    handleApiError(error, 'Gửi email xác thực thất bại')
   } finally {
     resending.value = false
   }

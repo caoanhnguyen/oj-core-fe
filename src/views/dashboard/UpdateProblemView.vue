@@ -5,6 +5,7 @@ import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { cloneDeep, isEqual } from 'lodash'
+import { handleApiError } from '@/utils/errorHandler'
 
 // 🌟 Import hàm bóc tách link ảnh
 import { extractImageKeysFromHtml } from '@/utils/quillImageUpload'
@@ -126,7 +127,7 @@ const formRef = ref(null)
 onMounted(async () => {
     const id = route.params.id
     if (!id) {
-        ElMessage.error('Invalid Problem ID')
+        handleApiError(null, 'ID bài tập không hợp lệ')
         router.push('/dashboard')
         return
     }
@@ -181,7 +182,7 @@ onMounted(async () => {
             originalData = cloneDeep(formData.value)
         }
     } catch (e) {
-        console.error('Failed to load problem', e)
+        handleApiError(e, 'Không thể tải thông tin bài tập')
     } finally {
         loading.value = false
     }
@@ -287,7 +288,7 @@ const handleUpdate = async () => {
         allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
-        console.error('Failed to update problem:', error)
+        handleApiError(error, 'Cập nhật bài tập thất bại')
       } finally {
         isSaving.value = false
       }

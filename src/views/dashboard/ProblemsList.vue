@@ -8,6 +8,7 @@ import { ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
+import { handleApiError } from '@/utils/errorHandler'
 
 const router = useRouter()
 const problemStore = useProblemStore()
@@ -205,9 +206,9 @@ const handleDelete = async (row) => {
     )
     
     await problemStore.deleteProblem(row.id)
-  } catch (error) {
+    } catch (error) {
     if (error !== 'cancel') {
-      console.error('Delete failed:', error)
+      handleApiError(error, 'Xóa bài tập thất bại')
     }
   }
 }
@@ -227,7 +228,7 @@ const handleRestore = async (row) => {
     await problemStore.restoreProblem(row.id)
   } catch(error) {
     if (error !== 'cancel') {
-      console.error('Restore failed:', error)
+      handleApiError(error, 'Khôi phục bài tập thất bại')
     }
   }
 }
@@ -247,7 +248,7 @@ const handlePublish = async (row) => {
     await problemStore.publishProblem(row.id)
   } catch(error) {
     if (error !== 'cancel') {
-      console.error('Publish failed:', error)
+      handleApiError(error, 'Công khai bài tập thất bại')
     }
   }
 }

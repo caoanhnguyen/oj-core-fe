@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { problemsAPI } from '../api/problems'
 import { imagesAPI } from '../api/images'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '../utils/errorHandler'
 
 export const useProblemStore = defineStore('problem', {
     state: () => ({
@@ -53,8 +54,7 @@ export const useProblemStore = defineStore('problem', {
 
                 return data
             } catch (error) {
-                console.error('Failed to fetch problems:', error)
-                ElMessage.error('Failed to load problems')
+                handleApiError(error, 'Không thể tải danh sách bài tập')
                 throw error
             } finally {
                 this.loading = false
@@ -68,8 +68,7 @@ export const useProblemStore = defineStore('problem', {
                 this.currentProblem = data
                 return data
             } catch (error) {
-                console.error('Failed to fetch problem:', error)
-                ElMessage.error('Failed to load problem details')
+                handleApiError(error, 'Không thể tải thông tin bài tập')
                 throw error
             } finally {
                 this.loading = false
@@ -83,8 +82,7 @@ export const useProblemStore = defineStore('problem', {
                 this.currentProblem = data
                 return data
             } catch (error) {
-                console.error('Failed to fetch problem:', error)
-                ElMessage.error('Failed to load problem details')
+                handleApiError(error, 'Không thể tải thông tin bài tập')
                 throw error
             } finally {
                 this.loading = false
@@ -104,8 +102,7 @@ export const useProblemStore = defineStore('problem', {
 
                 return result
             } catch (error) {
-                console.error('Failed to create problem:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to create problem')
+                handleApiError(error, 'Tạo bài tập thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -125,8 +122,7 @@ export const useProblemStore = defineStore('problem', {
 
                 return result
             } catch (error) {
-                console.error('Failed to update problem:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to update problem')
+                handleApiError(error, 'Cập nhật bài tập thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -142,8 +138,7 @@ export const useProblemStore = defineStore('problem', {
 
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
-                console.error('Failed to delete problem:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to delete problem')
+                handleApiError(error, 'Xóa bài tập thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -159,8 +154,7 @@ export const useProblemStore = defineStore('problem', {
 
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
-                console.error('Failed to restore problem:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to restore problem')
+                handleApiError(error, 'Khôi phục bài tập thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -176,8 +170,7 @@ export const useProblemStore = defineStore('problem', {
 
                 await this.fetchProblems({ page: this.pagination.page, size: this.pagination.size }, false, true)
             } catch (error) {
-                console.error('Failed to publish problem:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to publish problem')
+                handleApiError(error, 'Công khai bài tập thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -190,8 +183,7 @@ export const useProblemStore = defineStore('problem', {
                 const data = await problemsAPI.getSolvedCount()
                 return data
             } catch (error) {
-                console.error('Failed to get solved count:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to get solved count')
+                handleApiError(error, 'Lấy số lượng bài đã giải thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -202,8 +194,7 @@ export const useProblemStore = defineStore('problem', {
             try {
                 return await problemsAPI.uploadTestcases(problemId, formData)
             } catch (error) {
-                console.error('Failed to upload testcases:', error)
-                ElMessage.warning('Problem created but testcases failed to upload')
+                handleApiError(error, 'Bài tập đã được tạo nhưng tải tệp testcase thất bại')
             }
         },
 

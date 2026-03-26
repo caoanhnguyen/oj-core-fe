@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 import { 
   User, Mail, Phone, MapPin, School, BookOpen, 
   Github, Linkedin, Globe, Camera, Save, ArrowLeft
@@ -43,7 +44,7 @@ const loadProfile = async () => {
       }
     })
   } catch (error) {
-    ElMessage.error('Không thể tải thông tin cá nhân')
+    handleApiError(error, 'Không thể tải thông tin cá nhân')
     router.push('/profile')
   } finally {
     loading.value = false
@@ -60,8 +61,7 @@ const handleUpdateProfile = async () => {
     // Redirect back to profile
     router.push('/profile')
   } catch (error) {
-    const msg = error.response?.data?.message || 'Cập nhật thất bại'
-    ElMessage.error(msg)
+    handleApiError(error, 'Cập nhật thất bại')
   } finally {
     saving.value = false
   }
@@ -86,7 +86,7 @@ const handleAvatarUpload = async (file) => {
     authStore.getCurrentUser()
     loadProfile()
   } catch (error) {
-    ElMessage.error('Không thể tải ảnh đại diện')
+    handleApiError(error, 'Không thể tải ảnh đại diện')
   } finally {
     loading.value = false
   }

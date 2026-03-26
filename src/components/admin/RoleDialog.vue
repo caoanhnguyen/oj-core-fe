@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
 import { Shield } from 'lucide-vue-next'
+import { handleApiError } from '@/utils/errorHandler'
 
 const props = defineProps({
   visible: Boolean,
@@ -47,7 +48,7 @@ const handleUpdateRoles = async () => {
     emit('updated')
     handleClose()
   } catch (error) {
-    ElMessage.error('Không thể cập nhật phân quyền')
+    handleApiError(error, 'Không thể cập nhật phân quyền')
   } finally {
     loading.value = false
   }

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { topicsAPI } from '../api/topics'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '../utils/errorHandler'
 
 export const useTopicStore = defineStore('topic', {
     state: () => ({
@@ -68,12 +69,11 @@ export const useTopicStore = defineStore('topic', {
                     totalPages: data.totalPages || 0
                 }
 
-                return data
-            } catch (error) {
-                console.error('Failed to fetch admin topics:', error)
-                ElMessage.error('Failed to load topics')
-                throw error
-            } finally {
+        return data
+      } catch (error) {
+        handleApiError(error, 'Không tải được danh sách chủ đề')
+        throw error
+      } finally {
                 this.loading = false
             }
         },
@@ -84,13 +84,12 @@ export const useTopicStore = defineStore('topic', {
         async getAdminTopicById(id) {
             try {
                 this.loading = true
-                const data = await topicsAPI.getAdminTopicById(id)
-                return data
-            } catch (error) {
-                console.error('Failed to fetch topic details:', error)
-                ElMessage.error('Failed to load topic details')
-                throw error
-            } finally {
+        const data = await topicsAPI.getAdminTopicById(id)
+        return data
+      } catch (error) {
+        handleApiError(error, 'Không tải được thông tin chủ đề')
+        throw error
+      } finally {
                 this.loading = false
             }
         },
@@ -105,8 +104,7 @@ export const useTopicStore = defineStore('topic', {
                 ElMessage.success('Topic created successfully!')
                 return result
             } catch (error) {
-                console.error('Failed to create topic:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to create topic')
+                handleApiError(error, 'Tạo chủ đề thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -123,8 +121,7 @@ export const useTopicStore = defineStore('topic', {
                 ElMessage.success('Topic updated successfully!')
                 return result
             } catch (error) {
-                console.error('Failed to update topic:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to update topic')
+                handleApiError(error, 'Cập nhật chủ đề thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -140,8 +137,7 @@ export const useTopicStore = defineStore('topic', {
                 await topicsAPI.softDeleteTopic(id)
                 ElMessage.success('Topic deleted successfully!')
             } catch (error) {
-                console.error('Failed to delete topic:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to delete topic')
+                handleApiError(error, 'Xóa chủ đề thất bại')
                 throw error
             } finally {
                 this.loading = false
@@ -157,8 +153,7 @@ export const useTopicStore = defineStore('topic', {
                 await topicsAPI.restoreTopic(id)
                 ElMessage.success('Topic restored successfully!')
             } catch (error) {
-                console.error('Failed to restore topic:', error)
-                ElMessage.error(error.response?.data?.message || 'Failed to restore topic')
+                handleApiError(error, 'Khôi phục chủ đề thất bại')
                 throw error
             } finally {
                 this.loading = false

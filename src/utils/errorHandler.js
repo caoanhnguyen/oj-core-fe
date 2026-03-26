@@ -1,4 +1,5 @@
 import { ElMessage } from 'element-plus'
+import { getErrorMessage } from './errorCodes'
 
 /**
  * Xử lý và hiển thị error message từ API response
@@ -8,18 +9,32 @@ import { ElMessage } from 'element-plus'
 export const handleApiError = (error, defaultMessage = 'Có lỗi xảy ra') => {
   console.error('API Error:', error)
 
-  // Lấy message từ ApiResponse của backend
-  const apiResponse = error.response?.data
-  const message = apiResponse?.message || defaultMessage
+  // Lấy dữ liệu lỗi từ response của backend
+  const apiErrorResponse = error.response?.data
+  let message = defaultMessage
 
-  // Hiển thị message
-  ElMessage.error(message)
+  if (apiErrorResponse) {
+    // Ưu tiên dùng errorCode để hiển thị message tiếng Việt phù hợp
+    if (apiErrorResponse.errorCode) {
+      message = getErrorMessage(apiErrorResponse.errorCode, apiErrorResponse.message || defaultMessage)
+    } else if (apiErrorResponse.message) {
+      // Nếu không có errorCode, dùng message từ backend
+      message = apiErrorResponse.message
+    }
+  }
+
+  // Hiển thị message bằng ElMessage
+  ElMessage.error({
+    message: message,
+    duration: 5000,
+    showClose: true
+  })
 
   return message
 }
 
 /**
- * Xử lý success message từ API response
+ * Xử lý success message từ API response (không dùng errorCode cho success)
  * @param {Object} response - Response object từ axios
  */
 export const handleApiSuccess = (response) => {
@@ -32,4 +47,5 @@ export const handleApiSuccess = (response) => {
 
   return apiResponse
 }
+
 

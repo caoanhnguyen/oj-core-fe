@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Search, Plus, Edit, Trash2, RotateCcw } from 'lucide-vue-next'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 import TopicFormDialog from '@/components/topics/TopicFormDialog.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
@@ -79,7 +80,7 @@ const openEditDialog = async (row) => {
     }
     dialogVisible.value = true
   } catch (error) {
-    console.error('Failed to load topic details for edit', error)
+    handleApiError(error, 'Không thể tải thông tin chi tiết chủ đề')
   }
 }
 
@@ -124,7 +125,9 @@ const handleDelete = async (row) => {
     await topicStore.deleteTopic(idToDelete)
     loadTopics()
   } catch (error) {
-    if (error !== 'cancel') console.error(error)
+    if (error !== 'cancel') {
+        handleApiError(error, 'Xóa chủ đề thất bại')
+    }
   }
 }
 
@@ -145,7 +148,9 @@ const handleRestore = async (row) => {
     await topicStore.restoreTopic(idToRestore)
     loadTopics()
   } catch (error) {
-    if (error !== 'cancel') console.error(error)
+    if (error !== 'cancel') {
+        handleApiError(error, 'Khôi phục chủ đề thất bại')
+    }
   }
 }
 

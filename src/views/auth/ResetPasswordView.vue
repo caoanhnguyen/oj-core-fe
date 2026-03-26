@@ -3,6 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authAPI } from '../../api/auth'
+import { handleApiError } from '../../utils/errorHandler'
 
 // ...existing code...
 
@@ -84,8 +85,7 @@ const handleSubmit = async (formEl) => {
         }
         router.push('/login')
       } catch (error) {
-        const message = error.response?.data?.message || 'Đặt lại mật khẩu thất bại'
-        ElMessage.error(message)
+        handleApiError(error, 'Đặt lại mật khẩu thất bại')
       } finally {
         loading.value = false
       }
@@ -116,8 +116,7 @@ const resendOTP = async () => {
     }
     startCountdown()
   } catch (error) {
-    const message = error.response?.data?.message || 'Gửi lại OTP thất bại'
-    ElMessage.error(message)
+    handleApiError(error, 'Gửi lại OTP thất bại')
   } finally {
     loading.value = false
   }

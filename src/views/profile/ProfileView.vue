@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
+import { handleApiError } from '@/utils/errorHandler'
 import { 
   User, Mail, Phone, MapPin, School, BookOpen, 
   Github, Linkedin, Globe, Calendar, CheckCircle,
@@ -90,8 +91,7 @@ const loadProfile = async () => {
       fetchAdditionalData(userProfile.value.id)
     }
   } catch (error) {
-    console.error(error)
-    ElMessage.error('Không thể tải thông tin người dùng')
+    handleApiError(error, 'Không thể tải thông tin người dùng')
     if (!idOrUsername.value) router.push('/login')
   } finally {
     loading.value = false
