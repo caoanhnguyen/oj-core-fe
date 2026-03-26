@@ -35,8 +35,8 @@ const usersApi = {
     return axios.get('/admin/users', { params })
   },
 
-  adminGetUserById: (id) => {
-    return axios.get(`/admin/users/${id}`)
+  adminGetUserByUsername: (username) => {
+    return axios.get(`/admin/users/${username}`)
   },
 
   adminBulkToggleLock: (request) => {

@@ -198,7 +198,6 @@ const onTopicPopoverShow = () => {
   }, 50)
 }
 
-
 const resetTopicFilter = () => {
   filters.value.topics.value = []
   topicSearchQuery.value = ''
@@ -374,9 +373,10 @@ onMounted(async () => {
                    :hide-after="0"
                    :persistent="true"
                    :teleported="false"
+                   @show="onTopicPopoverShow"
                  >
                    <template #reference>
-                     <div class="topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop>
+                     <div class="topic-trigger" :class="{ 'is-inactive': !filters.topics.active }" @click.stop>
                        <span v-if="filters.topics.value.length === 0">Select</span>
                        <div v-else class="selected-topics-text">
                           {{ filters.topics.value[0] }}
@@ -390,7 +390,13 @@ onMounted(async () => {
                    <div class="topic-selector-content" @click.stop>
                      <div class="popover-search">
                        <Search class="search-icon" :size="14" />
-                       <input type="text" v-model="topicSearchQuery" placeholder="search" class="search-input" />
+                       <input 
+                         ref="topicSearchInput"
+                         type="text" 
+                         v-model="topicSearchQuery" 
+                         placeholder="search" 
+                         class="search-input" 
+                       />
                      </div>
                      <div class="topic-pills-container">
                        <button
@@ -875,6 +881,7 @@ onMounted(async () => {
 .dark-select.is-disabled .el-input__wrapper {
   background-color: #282828 !important;
   box-shadow: 0 0 0 1px #333 inset !important;
+  border-radius: 6px;
 }
 .dark-select.is-disabled .el-input__inner {
   color: #5c5c5c !important;

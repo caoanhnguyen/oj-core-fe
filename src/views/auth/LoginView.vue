@@ -11,7 +11,28 @@ const authStore = useAuthStore()
 const formRef = ref(null)
 const loading = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
+  // Kiểm tra nếu đã đăng nhập thì tự redirect ra ngoài
+  if (authStore.isAuthenticated) {
+    router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
+    return
+  }
+
+  // Nếu có token nhưng store chưa có user (trường hợp F5), thử load lại
+  const token = localStorage.getItem('token')
+  if (token && !authStore.isAuthenticated) {
+    try {
+      await authStore.getCurrentUser()
+      // Nếu load xong vẫn đang ở đây → đã authenticated → redirect
+      if (authStore.isAuthenticated) {
+        router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
+        return
+      }
+    } catch {
+      // Token đã hết hạn, toàn bộ cleanup đã được axios interceptor xử lý
+    }
+  }
+
   // Check common error parameters from Backend (Query params & raw URL fallback)
   const searchParams = new URLSearchParams(window.location.search)
   const error = searchParams.get('error') || route.query.error

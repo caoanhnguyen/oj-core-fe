@@ -72,6 +72,9 @@ const loadProfile = async () => {
     if (isViewingOwnProfile) {
       // Load current user with full private info
       response = await usersApi.getCurrentUser()
+    } else if (authStore.isAdmin) {
+      // Admin can view anyone directly (idOrUsername in URL is usually the username)
+      response = await usersApi.adminGetUserByUsername(idOrUsername.value)
     } else {
       // Try by ID first, then by username
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUsername.value)
@@ -265,11 +268,25 @@ onMounted(loadProfile)
             <div class="info-card">
               <h3 class="card-title">Thông tin chi tiết</h3>
               <div class="info-list">
-                <div class="info-entry" v-if="userProfile.email && isMyProfile">
+                <div class="info-entry" v-if="userProfile.gender">
+                  <User :size="16" class="entry-icon" />
+                  <div class="entry-content">
+                    <label>Giới tính</label>
+                    <span>{{ userProfile.gender === 'MALE' ? 'Nam' : userProfile.gender === 'FEMALE' ? 'Nữ' : 'Khác' }}</span>
+                  </div>
+                </div>
+                <div class="info-entry" v-if="userProfile.email">
                   <Mail :size="16" class="entry-icon" />
                   <div class="entry-content">
                     <label>Email</label>
                     <span>{{ userProfile.email }}</span>
+                  </div>
+                </div>
+                <div class="info-entry" v-if="userProfile.phoneNumber">
+                  <Phone :size="16" class="entry-icon" />
+                  <div class="entry-content">
+                    <label>Số điện thoại</label>
+                    <span>{{ userProfile.phoneNumber }}</span>
                   </div>
                 </div>
                 <div class="info-entry" v-if="userProfile.school">

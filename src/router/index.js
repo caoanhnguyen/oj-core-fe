@@ -146,25 +146,30 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 🌟 Rút biến ra để tránh việc chọc vào getter nhiều lần có thể gây lỗi
-    const isAuthenticated = !!authStore.isAuthenticated
-    const isAdmin = !!authStore.isAdmin
-    const isAdminOrMod = !!authStore.isAdminOrMod
+    // 🌟 Rút biến ra để đảm bảo lấy trạng thái mới nhất sau khi await
+    const user = authStore.user
+    const isAuthenticated = !!user
+    const isAdminOrMod = user?.roles?.some(role => ['ROLE_ADMIN', 'ROLE_MODERATOR'].includes(role))
 
-
-    // Removed admin auto-redirect to dashboard from home page so admins can view the landing page
-
-
-    if (to.meta.requiresGuest && isAuthenticated) {
-      // Redirect admin or mod to dashboard, others to home
+    // 1. Chặn người dùng đã đăng nhập vào các trang auth (Login/Register/...)
+    if (to.matched.some(record => record.meta.requiresGuest) && isAuthenticated) {
+      // console.log('Already logged in, redirecting away from auth page...')
       return next(isAdminOrMod ? '/dashboard' : '/')
-    } else if (to.meta.requiresAuth && !isAuthenticated) {
+    }
+
+    // 2. Chặn người dùng chưa đăng nhập vào các trang bảo mật
+    if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
+      // console.log('Not logged in, redirecting to login...')
       return next('/login')
-    } else if (to.meta.requiresAdminOrMod && !isAdminOrMod) {
-      // Nếu route cần quyền quản trị mà user không có, redirect về home
+    }
+
+    // 3. Chặn người dùng không có quyền quản trị/moderator vào dashboard
+    if (to.matched.some(record => record.meta.requiresAdminOrMod) && !isAdminOrMod) {
+      // console.log('Unauthorized access to admin/mod page...')
       return next('/')
     }
 
+    // Nếu mọi thứ ổn, cho phép tiếp tục
     next()
   } catch (error) {
     console.error("Lỗi nghiêm trọng tại Router Guard:", error)
