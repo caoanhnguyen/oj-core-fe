@@ -76,43 +76,13 @@ const form = reactive({
   password: ''
 })
 
-// Validator cho password mạnh
-const validateStrongPassword = (rule, value, callback) => {
-  if (!value) {
-    callback(new Error('Vui lòng nhập mật khẩu'))
-    return
-  }
-  
-  if (value.length < 10) {
-    callback(new Error('Mật khẩu phải có ít nhất 10 ký tự'))
-    return
-  }
-  
-  if (!/[A-Z]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 chữ in hoa'))
-    return
-  }
-  
-  if (!/[0-9]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 chữ số'))
-    return
-  }
-  
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 ký tự đặc biệt'))
-    return
-  }
-  
-  callback()
-}
-
 const rules = {
   username: [
     { required: true, message: 'Vui lòng nhập username', trigger: 'blur' },
     { min: 3, max: 50, message: 'Username phải từ 3-50 ký tự', trigger: 'blur' }
   ],
   password: [
-    { required: true, validator: validateStrongPassword, trigger: 'blur' }
+    { required: true, message: 'Vui lòng nhập mật khẩu', trigger: 'blur' }
   ]
 }
 

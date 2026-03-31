@@ -7,6 +7,8 @@ import { ArrowLeft, Play, Send, MoreVertical, RotateCcw, History, ChevronUp, Che
 import { ElMessage, ElNotification } from 'element-plus'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { useSubmissionStore } from '../../stores/submission'
+import { useContestSessionStore } from '../../stores/contestSession'
+import { useSyncedTimer } from '../../composables/useSyncedTimer'
 import StatisticsTab from '../../components/problems/StatisticsTab.vue'
 import SubmissionsTab from '../../components/problems/SubmissionsTab.vue'
 import { handleApiError } from '@/utils/errorHandler'
@@ -15,6 +17,14 @@ const route = useRoute()
 const router = useRouter()
 const problemStore = useProblemStore()
 const submissionStore = useSubmissionStore()
+const sessionStore = useContestSessionStore()
+
+// Contest timer inside problem view
+const targetTime = computed(() => sessionStore.activeSession?.endTime)
+const { formattedTime: contestRemainingTime } = useSyncedTimer(targetTime)
+
+// Contest context
+const contestId = computed(() => route.query.contestId)
 
 const executionLoading = ref(false)
 const executionResult = ref(null)
@@ -136,6 +146,9 @@ const isDraggingHorizontal = ref(false)
 const rightTopHeight = ref(60) // Percentage of right panel
 const isDraggingVertical = ref(false)
 
+// Cần cộng thêm chiều cao của Exam Bar (40px) nếu đang thi
+const headerHeight = computed(() => sessionStore.isExamMode ? 96 : 56)
+
 const startHorizontalDrag = () => { isDraggingHorizontal.value = true }
 const startVerticalDrag = () => { isDraggingVertical.value = true }
 const stopDrag = () => {
@@ -154,8 +167,8 @@ const handleMouseMove = (e) => {
   }
   if (isDraggingVertical.value) {
     // Relative to right panel height (approx window height - header)
-    const containerHeight = window.innerHeight - 50
-    const relativeY = e.clientY - 50 // Header offset
+    const containerHeight = window.innerHeight - headerHeight.value
+    const relativeY = e.clientY - headerHeight.value // Header offset
     const newHeight = (relativeY / containerHeight) * 100
     if (newHeight > 20 && newHeight < 90) {
       rightTopHeight.value = newHeight
@@ -213,6 +226,14 @@ const handleSubmit = async () => {
         problemId: problem.value.id,
         languageKey: selectedLanguage.value,
         sourceCode: sourceCode.value
+     }
+     
+     // Thêm contestId nếu đang làm bài trong contest
+     // Ưu tiên lấy từ session store nếu đang trong Exam Mode để đảm bảo không bị sót
+     const effectiveContestId = sessionStore.isExamMode ? sessionStore.activeSession?.contestId : (contestId.value || null)
+     
+     if (effectiveContestId) {
+        payload.contestId = effectiveContestId
      }
      
      ElMessage.info('Đang nộp bài...')
@@ -289,7 +310,11 @@ const handleRun = async () => {
 }
 
 const handleBack = () => {
-  router.push('/problems')
+  if (contestId.value) {
+    router.push(`/contests/${contestId.value}`)
+  } else {
+    router.push('/problems')
+  }
 }
 
 // Reset editor to the problem's default template for current language
@@ -435,6 +460,12 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               <div class="title-with-type">
                 <h1 class="problem-title">{{ problem.title }}</h1>
                 <span v-if="problem.ruleType" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
+                
+                <!-- Contest Indicator -->
+                <div v-if="sessionStore.isExamMode" class="contest-indicator-inline">
+                  <Clock :size="14" />
+                  <span>{{ contestRemainingTime }}</span>
+                </div>
               </div>
               
               <div class="problem-meta-new">
@@ -588,7 +619,11 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 
           <!-- Submissions Tab -->
           <div v-if="activeTab === 'submissions'" class="submissions-wrapper">
-             <SubmissionsTab ref="submissionsTabRef" :problem-id="problem.id" />
+             <SubmissionsTab 
+               ref="submissionsTabRef" 
+               :problem-id="problem.id" 
+               :contest-id="sessionStore.isExamMode ? sessionStore.activeSession?.contestId : (contestId || null)"
+             />
           </div>
           
           <!-- Statistics Tab -->
@@ -1302,5 +1337,20 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 .plus-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
+/* Contest Indicator inline */
+.contest-indicator-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 71, 67, 0.15);
+  border: 1px solid rgba(239, 71, 67, 0.4);
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: #ff6b6b;
+  font-weight: 700;
+  font-size: 14px;
+  margin-left: 12px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 </style>

@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
+import { contestsAPI } from '@/api/contests'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 
@@ -10,6 +11,10 @@ const props = defineProps({
   problemId: {
     type: String,
     required: true
+  },
+  contestId: {
+    type: String,
+    default: null
   }
 })
 
@@ -46,8 +51,14 @@ const loadSubmissions = async () => {
 
         let response
         if (authStore.isAdminOrMod) {
-            // Admin/Mod: gọi endpoint admin để lấy tất cả submissions (kể cả PENDING, SE)
-            response = await submissionStore.getAllSubmissions(params)
+            // Admin/Mod
+            if (props.contestId) {
+                // Nếu đang soi contest, dùng API contest
+                params.contestId = props.contestId
+                response = await contestsAPI.adminGetSubmissions(props.contestId, params)
+            } else {
+                response = await submissionStore.getAllSubmissions(params)
+            }
         } else {
             // User thường: chỉ lấy submissions của chính mình
             if (!authStore.isAuthenticated) {
@@ -57,7 +68,13 @@ const loadSubmissions = async () => {
                 return
             }
             params.userId = authStore.user?.id
-            response = await submissionStore.getSubmissions(params)
+            
+            if (props.contestId) {
+                // Nếu đang trong contest, lấy bài nộp của ME trong contest
+                response = await contestsAPI.getMySubmissions(props.contestId, params)
+            } else {
+                response = await submissionStore.getSubmissions(params)
+            }
         }
 
         submissions.value = response.content || []

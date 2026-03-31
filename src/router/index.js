@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useContestSessionStore } from '../stores/contestSession'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -35,6 +36,16 @@ const router = createRouter({
       props: true
     },
     {
+      path: '/contests',
+      name: 'contests',
+      component: () => import('../views/contests/ContestsListView.vue')
+    },
+    {
+      path: '/contests/:id',
+      name: 'contest-detail',
+      component: () => import('../views/contests/ContestDetailView.vue')
+    },
+    {
       path: '/submissions',
       name: 'submissions',
       component: () => import('../views/submissions/SubmissionsList.vue'),
@@ -42,7 +53,7 @@ const router = createRouter({
     {
       path: '/submissions/:id',
       name: 'submission-detail',
-      component: () => import('../views/submissions/SubmissionDetailView.vue'), // To be created
+      component: () => import('../views/submissions/SubmissionDetailView.vue'),
       meta: { requiresAuth: true }
     },
     {
@@ -115,6 +126,11 @@ const router = createRouter({
           path: 'users',
           name: 'user-management',
           component: () => import('../views/dashboard/UsersList.vue')
+        },
+        {
+          path: 'contests',
+          name: 'admin-contests',
+          component: () => import('../views/dashboard/ContestsList.vue')
         }
       ]
     },
@@ -130,6 +146,27 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   try {
     const authStore = useAuthStore()
+    const sessionStore = useContestSessionStore()
+
+    // 🏆 SESSION GUARD & EXAM MODE LOGIC
+    if (sessionStore.isExamMode) {
+      const contestId = sessionStore.activeSession.contestId
+      const isGoingToContest = to.path.includes(`/contests/${contestId}`)
+
+      if (to.path === '/problems') {
+        return next({ name: 'contest-detail', params: { id: contestId } })
+      }
+      if (to.path === '/submissions') {
+        return next({ name: 'contest-detail', params: { id: contestId }, query: { tab: 'submissions' } })
+      }
+
+      const isProblemInContest = to.path.startsWith('/problems/') && to.query.contestId === contestId
+      
+      if (!isGoingToContest && !isProblemInContest && to.name !== 'login' && to.name !== 'not-found') {
+        const confirmExit = window.confirm('Bạn đang trong một phiên thi đấu. Thời gian vẫn sẽ tiếp tục trôi. Bạn có chắc chắn muốn rời khỏi trang này không?')
+        if (!confirmExit) return next(false)
+      }
+    }
 
     if (!window.__authInitialized) {
       window.__authInitialized = true
@@ -138,42 +175,31 @@ router.beforeEach(async (to, from, next) => {
         try {
           await authStore.getCurrentUser()
         } catch (err) {
-          // Nuốt lỗi an toàn
           console.warn("Chưa đăng nhập hoặc phiên hết hạn")
-          // Clear token if getCurrentUser fails with 401/expired
           localStorage.removeItem('token')
         }
       }
     }
 
-    // 🌟 Rút biến ra để đảm bảo lấy trạng thái mới nhất sau khi await
     const user = authStore.user
     const isAuthenticated = !!user
     const isAdminOrMod = user?.roles?.some(role => ['ROLE_ADMIN', 'ROLE_MODERATOR'].includes(role))
 
-    // 1. Chặn người dùng đã đăng nhập vào các trang auth (Login/Register/...)
     if (to.matched.some(record => record.meta.requiresGuest) && isAuthenticated) {
-      // console.log('Already logged in, redirecting away from auth page...')
       return next(isAdminOrMod ? '/dashboard' : '/')
     }
 
-    // 2. Chặn người dùng chưa đăng nhập vào các trang bảo mật
     if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
-      // console.log('Not logged in, redirecting to login...')
       return next('/login')
     }
 
-    // 3. Chặn người dùng không có quyền quản trị/moderator vào dashboard
     if (to.matched.some(record => record.meta.requiresAdminOrMod) && !isAdminOrMod) {
-      // console.log('Unauthorized access to admin/mod page...')
       return next('/')
     }
 
-    // Nếu mọi thứ ổn, cho phép tiếp tục
     next()
   } catch (error) {
     console.error("Lỗi nghiêm trọng tại Router Guard:", error)
-    // Nếu sập Router, ép về một trang public để không bị trắng màn hình
     next('/login')
   }
 })

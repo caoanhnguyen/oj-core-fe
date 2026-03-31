@@ -29,15 +29,9 @@ export const useProblemStore = defineStore('problem', {
                 this.loading = true
                 const apiCall = isAdmin ? problemsAPI.getAdminProblems : problemsAPI.getProblems
                 const data = await apiCall({
+                    ...params,
                     page: params.page || 0,
                     size: params.size || 10,
-                    difficulty: params.difficulty,
-                    keyword: params.keyword,
-                    status: params.status,
-                    problemStatus: params.problemStatus,
-                    topicSlugs: params.topicSlugs,
-                    sort: params.sort,
-                    ruleType: params.ruleType
                 })
 
                 if (append) {

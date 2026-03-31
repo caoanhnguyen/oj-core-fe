@@ -51,7 +51,16 @@ const processQueue = (error, token = null) => {
 
 // Response interceptor xử lý auto refresh token và error message
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // 🌟 Kiểm tra nếu backend trả về 200 nhưng body lại chứa "errorCode" (Trường hợp Spring Security/Custom Exception trả về 200 nhưng body là ErrorResponse)
+    if (response.data && response.data.errorCode) {
+      const error = new Error(response.data.message || 'API Error')
+      error.response = response
+      error.config = response.config
+      return Promise.reject(error)
+    }
+    return response
+  },
   async (error) => {
     // Trường hợp server sập hoặc mất mạng
     if (!error.response) {

@@ -89,7 +89,7 @@ const loadSubmissions = async () => {
     }
 
     if (searchQuery.value) {
-      params.username = searchQuery.value
+      params.keyword = searchQuery.value
     }
 
     let response

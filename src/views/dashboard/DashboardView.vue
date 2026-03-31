@@ -19,9 +19,9 @@ const allMenuItems = [
 ]
 
 const menuItems = computed(() => {
-  // If user is MOD but NOT ADMIN, only show Problems and Topics
+  // If user is MOD but NOT ADMIN, show Problems, Topics, and Contests
   if (authStore.isModerator && !authStore.isAdmin) {
-    return allMenuItems.filter(item => ['problems', 'topics'].includes(item.id))
+    return allMenuItems.filter(item => ['problems', 'topics', 'contests'].includes(item.id))
   }
   return allMenuItems
 })

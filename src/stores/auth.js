@@ -9,7 +9,7 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.user,
+    isAuthenticated: (state) => !!state.user && (!!state.user.id || !!state.user.username),
     currentUser: (state) => state.user,
     isEmailVerified: (state) => state.user?.emailVerified || false,
     isAdmin: (state) => state.user?.roles?.includes('ROLE_ADMIN'),
@@ -23,8 +23,15 @@ export const useAuthStore = defineStore('auth', {
         this.loading = true
         const data = await authAPI.login(username, password)
 
-        // Lưu user info vào Pinia store
-        this.user = data.user || data
+        const loginData = data.user || data
+        
+        // 🌟 KIỂM TRA: Chỉ gán user nếu data thực sự là user (có id hoặc username)
+        if (loginData && (loginData.id || loginData.username)) {
+          this.user = loginData
+        } else {
+          // Nếu backend trả về dữ liệu rỗng hoặc không khớp user DTO -> coi như login thất bại
+          throw new Error('Invalid user data received')
+        }
         
         // Save token if exists (Bearer token case)
         const token = data.accessToken || data.token
@@ -90,6 +97,8 @@ export const useAuthStore = defineStore('auth', {
         this.loading = true
         const data = await authAPI.verifyEmail(token)
         return data
+      } catch (error) {
+        throw error
       } finally {
         this.loading = false
       }
@@ -99,6 +108,8 @@ export const useAuthStore = defineStore('auth', {
       try {
         this.loading = true
         return await authAPI.resendVerificationEmail()
+      } catch (error) {
+        throw error
       } finally {
         this.loading = false
       }
