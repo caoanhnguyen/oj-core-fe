@@ -1,31 +1,28 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Trophy, Clock, Users, Search, ChevronRight, Filter, Calendar, Zap, RotateCcw, LayoutGrid } from 'lucide-vue-next'
+import { Trophy, Clock, Users, Search, ChevronRight, Calendar, Zap, Flame, AlertCircle, Archive } from 'lucide-vue-next'
 import { contestsAPI } from '@/api/contests'
 import { useAuthStore } from '@/stores/auth'
 import { useContestSessionStore } from '@/stores/contestSession'
 import { handleApiError } from '@/utils/errorHandler'
-import DarkPagination from '@/components/common/DarkPagination.vue'
 
 const router = useRouter()
 
-const contests = ref([])
+const allContests = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
-const filterContestStatus = ref('')
-const filterRuleType = ref('')
-const pagination = ref({ page: 1, size: 20, total: 0 })
 
 const authStore = useAuthStore()
 const sessionStore = useContestSessionStore()
 const activeContests = ref([])
-const activeLoading = ref(false)
 const now = ref(new Date())
-
 let timerInterval = null
 
-// Helper to parse server ISO string correctly (appending Z if missing to force UTC)
+// =====================
+// UTC-safe date helpers
+// =====================
 const parseServerDate = (dateStr) => {
   if (!dateStr) return null
   const cleanStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
@@ -36,44 +33,39 @@ const formatDateTime = (dateStr) => {
   const date = parseServerDate(dateStr)
   if (!date) return ''
   return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
   })
 }
 
-const loadActiveContests = async () => {
-  if (!authStore.isAuthenticated) return
-  
-  try {
-    activeLoading.value = true
-    const data = await contestsAPI.getMyActiveContests()
-    activeContests.value = data || []
-  } catch (error) {
-    console.error('Failed to load active contests:', error)
-  } finally {
-    activeLoading.value = false
-  }
+const getDuration = (start, end) => {
+  if (!start || !end) return ''
+  const diff = parseServerDate(end) - parseServerDate(start)
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`
 }
 
-const loadContests = async () => {
+const getRemainingTime = (endTimeStr) => {
+  const endTime = parseServerDate(endTimeStr)
+  if (!endTime) return null
+  const diff = endTime - now.value
+  if (diff <= 0) return '00:00:00'
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':')
+}
+
+// =====================
+// Data fetching
+// =====================
+const loadAllContests = async () => {
   try {
     loading.value = true
-    const params = {
-      page: pagination.value.page - 1,
-      size: pagination.value.size,
-      sort: 'startTime,desc'
-    }
-    if (searchQuery.value) params.keyword = searchQuery.value
-    if (filterContestStatus.value) params.contestStatus = filterContestStatus.value
-    if (filterRuleType.value) params.ruleType = filterRuleType.value
-
-    const data = await contestsAPI.getContests(params)
-    contests.value = data.content || []
-    pagination.value.total = data.totalElements || 0
+    // Fetch a big page to get all contests for client-side grouping
+    const data = await contestsAPI.getContests({ page: 0, size: 200, sort: 'startTime,desc' })
+    allContests.value = data.content || []
   } catch (error) {
     handleApiError(error, 'Không thể tải danh sách contest')
   } finally {
@@ -81,281 +73,255 @@ const loadContests = async () => {
   }
 }
 
-const handleSearch = () => {
-  pagination.value.page = 1
-  loadContests()
-}
-
-const handleFilter = (val) => {
-  pagination.value.page = 1
-  loadContests()
-}
-
-const handlePageChange = (page) => {
-  pagination.value.page = page
-  loadContests()
-}
-
-const handleSizeChange = (size) => {
-  pagination.value.size = size
-  pagination.value.page = 1
-  loadContests()
-}
-
-const goToContest = (contest) => {
-  router.push(`/contests/${contest.id}`)
-}
-
-const getDuration = (start, end) => {
-  if (!start || !end) return ''
-  const diff = parseServerDate(end) - parseServerDate(start)
-  const hours = Math.floor(diff / 3600000)
-  const mins = Math.floor((diff % 3600000) / 60000)
-  return hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`
+const loadActiveContests = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const data = await contestsAPI.getMyActiveContests()
+    activeContests.value = data || []
+  } catch (error) {
+    console.error('Failed to load active contests:', error)
+  }
 }
 
 onMounted(() => {
-  loadContests()
+  loadAllContests()
   loadActiveContests()
-  
   timerInterval = setInterval(() => {
     now.value = sessionStore.getServerNow()
   }, 1000)
 })
 
-import { onUnmounted } from 'vue'
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
 })
 
-const getRemainingTime = (endTimeStr) => {
-  const endTime = parseServerDate(endTimeStr)
-  if (!endTime) return null
-  
-  const diff = endTime - now.value
-  if (diff <= 0) return '00:00:00'
-  
-  const hours = Math.floor(diff / 3600000)
-  const mins = Math.floor((diff % 3600000) / 60000)
-  const secs = Math.floor((diff % 60000) / 1000)
-  
-  return [hours, mins, secs].map(v => String(v).padStart(2, '0')).join(':')
-}
+// =====================
+// Client-side grouping
+// =====================
+const filteredContests = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  if (!q) return allContests.value
+  return allContests.value.filter(c => c.title?.toLowerCase().includes(q))
+})
+
+const ongoingContests  = computed(() => filteredContests.value.filter(c => c.contestStatus === 'ONGOING'))
+const upcomingContests = computed(() => filteredContests.value.filter(c => c.contestStatus === 'UPCOMING'))
+const endedContests    = computed(() => filteredContests.value.filter(c => c.contestStatus === 'ENDED'))
+
+const goToContest = (contest) => router.push(`/contests/${contest.id}`)
 </script>
 
 <template>
   <div class="contests-page">
     <div class="content-section">
-      <div class="section-header">
+
+      <!-- Header -->
+      <div class="page-header">
         <div>
-          <h1 class="section-title">Contests</h1>
-          <p class="section-subtitle">Tham gia các cuộc thi lập trình và thách thức bản thân!</p>
+          <h1 class="page-title">Contests</h1>
+          <p class="page-subtitle">Tham gia các cuộc thi lập trình và thách thức bản thân!</p>
         </div>
-      </div>
-
-      <!-- Active Contests Section -->
-      <div v-if="activeContests.length > 0" class="active-contests-section">
-        <div class="section-badge">
-          <span class="active-dot"></span>
-          ĐANG THAM GIA
-        </div>
-        
-        <div class="active-grid">
-          <div 
-            v-for="item in activeContests" 
-            :key="item.contest.id" 
-            class="active-card"
-            @click="goToContest(item.contest)"
-          >
-            <div class="active-card-content">
-              <div class="active-info">
-                <h3 class="active-title">{{ item.contest.title }}</h3>
-                <div class="active-meta">
-                  <div class="meta-item">
-                    <Trophy :size="14" />
-                    <span>{{ item.contest.ruleType }}</span>
-                  </div>
-                  <div class="meta-item">
-                    <Users :size="14" />
-                    <span>{{ item.contest.participantCount }} người thi</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="active-timer">
-                <div class="timer-label">THỜI GIAN CÒN LẠI</div>
-                <div class="timer-value" :class="{ 'timer-warning': parseServerDate(item.sessionEndTime) - now < 300000 }">
-                  <Clock :size="18" />
-                  {{ getRemainingTime(item.sessionEndTime) }}
-                </div>
-              </div>
-
-              <div class="active-action">
-                <button class="resume-btn">
-                  Tiếp tục thi
-                  <ChevronRight :size="16" />
-                </button>
-              </div>
-            </div>
-            
-            <!-- Progress bar (visual only for now) -->
-            <div class="active-progress-bg">
-              <div class="active-progress-fill" :style="{ width: '100%' }"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Controls -->
-      <div class="table-controls">
-        <div class="search-wrap">
-          <Search class="search-icon" :size="16" />
+        <div class="header-search">
+          <Search :size="15" class="search-icon" />
           <input
-            type="text"
             v-model="searchQuery"
-            @keyup.enter="handleSearch"
+            type="text"
             placeholder="Tìm kiếm contest..."
             class="search-input"
           />
         </div>
+      </div>
 
-        <el-popover
-          placement="bottom-start"
-          :width="320"
-          trigger="click"
-          popper-class="filter-popover"
-          :hide-after="0"
-          :persistent="true"
-        >
-          <template #reference>
-            <div style="display: inline-block;">
-              <el-tooltip content="Lọc contest" placement="top" effect="dark" :hide-after="0">
-                <button class="control-btn" :class="{ active: filterContestStatus !== '' || filterRuleType !== '' }">
-                  <Filter :size="16" />
-                </button>
-              </el-tooltip>
-            </div>
-          </template>
-          
-          <div class="filter-content">
-            <div class="filter-header">
-              <span>Bộ lọc Contests</span>
-            </div>
-            
-            <div class="filter-list">
-               <div class="filter-row">
-                 <span class="filter-label" :class="{ 'is-active': filterContestStatus !== '' }">
-                   <Clock :size="14" /> Trạng thái
-                 </span>
-                 <el-select v-model="filterContestStatus" size="small" class="dark-select value-select" @change="handleFilter" popper-class="dark-select-dropdown">
-                    <el-option label="Tất cả" value="" />
-                    <el-option label="Sắp diễn ra" value="UPCOMING" />
-                    <el-option label="Đang diễn ra" value="ONGOING" />
-                    <el-option label="Đã kết thúc" value="ENDED" />
-                 </el-select>
-               </div>
-
-               <div class="filter-row">
-                 <span class="filter-label" :class="{ 'is-active': filterRuleType !== '' }">
-                   <LayoutGrid :size="14" /> Rule Type
-                 </span>
-                 <el-select v-model="filterRuleType" size="small" class="dark-select value-select" @change="handleFilter" popper-class="dark-select-dropdown">
-                    <el-option label="Tất cả" value="" />
-                    <el-option label="ACM" value="ACM" />
-                    <el-option label="OI" value="OI" />
-                 </el-select>
-               </div>
-            </div>
-
-            <div class="filter-footer">
-              <div class="spacer"></div>
-              <el-button link class="reset-filters" @click="filterContestStatus=''; filterRuleType=''; handleFilter()">
-                <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-              </el-button>
-            </div>
-          </div>
-        </el-popover>
-        
-        <div class="spacer"></div>
-        <div class="solved-count-container" v-if="pagination.total >= 0">
-          <div class="solved-count">
-            <div class="circle-progress"></div>
-            <span>{{ pagination.total }} Contests</span>
-          </div>
+      <!-- ===== MY ACTIVE SESSIONS ===== -->
+      <div v-if="activeContests.length > 0" class="active-sessions-banner">
+        <div class="banner-label">
+          <span class="live-dot" />
+          ĐANG THAM GIA
         </div>
-      </div>
-
-      <!-- Loading Skeletons -->
-      <div v-if="loading && contests.length === 0" class="skeletons">
-        <div v-for="i in 6" :key="i" class="contest-card-skeleton">
-          <div class="skel-line skel-title" />
-          <div class="skel-line skel-meta" />
-          <div class="skel-line skel-meta short" />
-        </div>
-      </div>
-
-      <!-- Empty -->
-      <div v-else-if="!loading && contests.length === 0" class="empty-state">
-        <Trophy :size="48" class="empty-icon" />
-        <p class="empty-text">Không tìm thấy contest nào</p>
-        <span class="empty-sub">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</span>
-      </div>
-
-      <!-- Contest Grid -->
-      <div v-else class="contests-grid">
-        <div
-          v-for="contest in contests"
-          :key="contest.id"
-          class="contest-card"
-          @click="goToContest(contest)"
-        >
-          <!-- Status Indicator -->
-          <div class="card-top-bar">
-            <div class="card-badges">
-              <span :class="['rule-badge', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">
-                {{ contest.ruleType }}
-              </span>
-              <span :class="['status-badge', `status-${contest.contestStatus?.toLowerCase()}`]">
-                <span v-if="contest.contestStatus === 'ONGOING'" class="pulse-dot" />
-                {{ contest.contestStatus === 'ONGOING' ? 'Đang diễn ra' : contest.contestStatus === 'UPCOMING' ? 'Sắp diễn ra' : 'Đã kết thúc' }}
+        <div class="sessions-list">
+          <div
+            v-for="item in activeContests"
+            :key="item.contest.id"
+            class="session-card"
+            @click="goToContest(item.contest)"
+          >
+            <div class="session-info">
+              <span class="session-rule" :class="item.contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi'">{{ item.contest.ruleType }}</span>
+              <h3 class="session-title">{{ item.contest.title }}</h3>
+            </div>
+            <div class="session-timer">
+              <span class="timer-label">CÒN LẠI</span>
+              <span class="timer-value">
+                <Clock :size="14" />
+                {{ getRemainingTime(item.sessionEndTime) }}
               </span>
             </div>
-            <span v-if="contest.visibility === 'PRIVATE'" class="lock-badge">🔒 Private</span>
-          </div>
-
-          <h3 class="card-title">{{ contest.title }}</h3>
-
-          <div class="card-meta">
-            <div class="meta-row">
-              <Calendar :size="14" class="meta-icon" />
-              <span>{{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
-            </div>
-            <div class="meta-row">
-              <Zap :size="14" class="meta-icon" />
-              <span>Thời lượng: {{ getDuration(contest.startTime, contest.endTime) }}</span>
-              <span v-if="contest.durationMinutes" class="meta-dot">•</span>
-              <span v-if="contest.durationMinutes" class="duration-highlight">Làm bài: {{ contest.durationMinutes }} phút</span>
-            </div>
-            <div class="meta-row">
-              <Users :size="14" class="meta-icon" />
-              <span>{{ (contest.participantCount || 0).toLocaleString() }} người tham gia</span>
-            </div>
-          </div>
-
-          <div class="card-footer">
-            <span class="join-link">Xem chi tiết <ChevronRight :size="14" /></span>
+            <button class="session-resume-btn">
+              Tiếp tục thi <ChevronRight :size="14" />
+            </button>
           </div>
         </div>
       </div>
 
-      <DarkPagination
-        v-if="pagination.total > 0"
-        :current-page="pagination.page"
-        :page-size="pagination.size"
-        :total="pagination.total"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <!-- Loading -->
+      <div v-if="loading" class="loading-state">
+        <div class="spinner" />
+        <span>Đang tải...</span>
+      </div>
+
+      <template v-else>
+
+        <!-- ===== ONGOING ===== -->
+        <section class="contest-section">
+          <div class="section-header ongoing-header">
+            <div class="section-title-group">
+              <Flame :size="18" class="section-icon" />
+              <h2 class="section-title">Đang diễn ra</h2>
+              <span class="section-count">{{ ongoingContests.length }}</span>
+            </div>
+          </div>
+
+          <div v-if="ongoingContests.length === 0" class="empty-section">
+            <span>Không có contest nào đang diễn ra</span>
+          </div>
+          <div v-else class="contests-grid">
+            <div
+              v-for="c in ongoingContests"
+              :key="c.id"
+              class="contest-card card-ongoing"
+              @click="goToContest(c)"
+            >
+              <div class="card-top">
+                <div class="card-badges">
+                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
+                  <span class="status-badge status-ongoing"><span class="pulse-dot" />Đang diễn ra</span>
+                </div>
+                <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
+              </div>
+              <h3 class="card-title">{{ c.title }}</h3>
+              <div class="card-meta">
+                <div class="meta-row">
+                  <Calendar :size="13" />
+                  <span>{{ formatDateTime(c.startTime) }} – {{ formatDateTime(c.endTime) }}</span>
+                </div>
+                <div class="meta-row">
+                  <Zap :size="13" />
+                  <span>{{ getDuration(c.startTime, c.endTime) }}</span>
+                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                </div>
+                <div class="meta-row">
+                  <Users :size="13" />
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <span class="card-link">Xem chi tiết <ChevronRight :size="13" /></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== UPCOMING ===== -->
+        <section class="contest-section">
+          <div class="section-header upcoming-header">
+            <div class="section-title-group">
+              <AlertCircle :size="18" class="section-icon" />
+              <h2 class="section-title">Sắp diễn ra</h2>
+              <span class="section-count">{{ upcomingContests.length }}</span>
+            </div>
+          </div>
+
+          <div v-if="upcomingContests.length === 0" class="empty-section">
+            <span>Không có contest nào sắp diễn ra</span>
+          </div>
+          <div v-else class="contests-grid">
+            <div
+              v-for="c in upcomingContests"
+              :key="c.id"
+              class="contest-card card-upcoming"
+              @click="goToContest(c)"
+            >
+              <div class="card-top">
+                <div class="card-badges">
+                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
+                  <span class="status-badge status-upcoming">Sắp diễn ra</span>
+                </div>
+                <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
+              </div>
+              <h3 class="card-title">{{ c.title }}</h3>
+              <div class="card-meta">
+                <div class="meta-row">
+                  <Calendar :size="13" />
+                  <span>{{ formatDateTime(c.startTime) }} – {{ formatDateTime(c.endTime) }}</span>
+                </div>
+                <div class="meta-row">
+                  <Zap :size="13" />
+                  <span>{{ getDuration(c.startTime, c.endTime) }}</span>
+                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                </div>
+                <div class="meta-row">
+                  <Users :size="13" />
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <span class="card-link">Xem chi tiết <ChevronRight :size="13" /></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== ENDED ===== -->
+        <section class="contest-section">
+          <div class="section-header ended-header">
+            <div class="section-title-group">
+              <Archive :size="18" class="section-icon" />
+              <h2 class="section-title">Đã kết thúc</h2>
+              <span class="section-count">{{ endedContests.length }}</span>
+            </div>
+          </div>
+
+          <div v-if="endedContests.length === 0" class="empty-section">
+            <span>Chưa có contest nào kết thúc</span>
+          </div>
+          <div v-else class="contests-grid">
+            <div
+              v-for="c in endedContests"
+              :key="c.id"
+              class="contest-card card-ended"
+              @click="goToContest(c)"
+            >
+              <div class="card-top">
+                <div class="card-badges">
+                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
+                  <span class="status-badge status-ended">Đã kết thúc</span>
+                </div>
+                <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
+              </div>
+              <h3 class="card-title">{{ c.title }}</h3>
+              <div class="card-meta">
+                <div class="meta-row">
+                  <Calendar :size="13" />
+                  <span>{{ formatDateTime(c.startTime) }} – {{ formatDateTime(c.endTime) }}</span>
+                </div>
+                <div class="meta-row">
+                  <Zap :size="13" />
+                  <span>{{ getDuration(c.startTime, c.endTime) }}</span>
+                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                </div>
+                <div class="meta-row">
+                  <Users :size="13" />
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <span class="card-link">Xem kết quả <ChevronRight :size="13" /></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </template>
     </div>
   </div>
 </template>
@@ -367,578 +333,349 @@ const getRemainingTime = (endTimeStr) => {
 }
 
 .content-section {
-  padding: var(--spacing-2xl);
+  padding: 32px 40px;
   max-width: 1400px;
   margin: 0 auto;
 }
 
-.section-header {
+/* ===== HEADER ===== */
+.page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
+  gap: 24px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
 }
 
-.section-title {
+.page-title {
   font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
+  font-weight: 800;
+  color: var(--text-primary, #eff2f6);
+  margin: 0 0 6px;
 }
 
-.section-subtitle {
+.page-subtitle {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #8a8a8a;
   margin: 0;
 }
 
-/* Table Controls CSS */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.search-wrap {
+/* Search */
+.header-search {
   position: relative;
   display: flex;
   align-items: center;
 }
+
 .search-icon {
   position: absolute;
   left: 14px;
-  color: #8a8a8a;
-}
-.search-input {
-  background-color: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 240px;
-  outline: none;
-  transition: all 0.2s;
-}
-.search-input:focus {
-  border-color: #5c5c5c;
-  background-color: #333;
-}
-.search-input::placeholder {
-  color: #8a8a8a;
-}
-.control-btn {
-  background-color: #282828;
-  border: 1px solid transparent;
-  color: #8a8a8a;
-  border-radius: 20px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.control-btn:hover {
-  background-color: #333;
-  color: #eff2f6;
-}
-.control-btn.active {
-  background-color: rgba(255, 161, 22, 0.1);
-  color: var(--accent-primary);
-  border-color: rgba(255, 161, 22, 0.3);
-}
-.spacer {
-  flex: 1;
-}
-
-.solved-count {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8a8a8a;
-  font-size: 13px;
-  font-weight: 500;
-}
-.circle-progress {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #3e3e3e;
-  border-top-color: #00b8a3;
-  transform: rotate(-45deg);
-}
-
-.results-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.search-indicator {
-  color: #ffc01e;
-}
-.results-count {
-  font-size: 13px;
-  color: #eff2f6;
-  font-weight: 500;
-}
-
-/* Grid */
-.contests-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-/* Contest Card */
-.contest-card {
-  background: #1e1e1e;
-  border: 1px solid #282828;
-  border-radius: 12px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.contest-card:hover {
-  border-color: rgba(255, 161, 22, 0.4);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.card-top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card-badges {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* Rule badges */
-.rule-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.rule-acm { background: rgba(0, 184, 163, 0.15); color: #00b8a3; }
-.rule-oi  { background: rgba(255, 161, 22, 0.15); color: #ffa116; }
-
-/* Status badges */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-ongoing  { background: rgba(0, 184, 163, 0.1); color: #00b8a3; }
-.status-upcoming { background: rgba(255, 192, 30, 0.1); color: #ffc01e; }
-.status-ended    { background: rgba(255,255,255,0.06); color: #8a8a8a; }
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #00b8a3;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.3; }
-  100% { opacity: 1; }
-}
-
-.lock-badge {
-  font-size: 11px;
-  color: #8a8a8a;
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #eff2f6;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.card-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.meta-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #8a8a8a;
-}
-
-.meta-icon { color: #5c5c5c; flex-shrink: 0; }
-
-.meta-dot {
   color: #5c5c5c;
-  font-size: 10px;
+  pointer-events: none;
 }
 
-.duration-highlight {
-  color: #ffa116;
-  font-weight: 600;
-}
-
-.card-footer {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid #282828;
-}
-
-.join-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffa116;
-  transition: gap 0.2s;
-}
-
-.contest-card:hover .join-link { gap: 8px; }
-
-/* Skeleton */
-.skeletons {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
-}
-
-.contest-card-skeleton {
+.search-input {
   background: #1e1e1e;
-  border: 1px solid #282828;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: shimmer 1.5s infinite linear;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 9px 16px 9px 38px;
+  color: #eff2f6;
+  font-size: 14px;
+  width: 260px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-@keyframes shimmer {
-  0% { border-color: #282828; }
-  50% { border-color: #333; }
-  100% { border-color: #282828; }
-}
+.search-input:focus { border-color: #555; }
+.search-input::placeholder { color: #5c5c5c; }
 
-.skel-line {
-  background: linear-gradient(90deg, #282828 25%, #333 50%, #282828 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 4px;
-  height: 14px;
-}
-
-.skel-title { height: 20px; width: 70%; }
-.skel-meta { width: 100%; }
-.skel-meta.short { width: 50%; }
-
-@keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.empty-icon { color: #3e3e3e; }
-.empty-text { font-size: 18px; font-weight: 600; color: var(--text-primary); margin: 0; }
-.empty-sub { font-size: 14px; color: #8a8a8a; margin: 0; }
-
-@media (max-width: 768px) {
-  .contests-hero { padding: 24px 20px; }
-  .contests-body { padding: 20px 16px; }
-  .controls-bar { gap: 8px; }
-  .search-input { width: 170px; }
-  .contests-grid { grid-template-columns: 1fr; }
-}
-
-/* Active Contests Styles */
-.active-contests-section {
+/* ===== ACTIVE SESSIONS BANNER ===== */
+.active-sessions-banner {
+  background: linear-gradient(135deg, rgba(255,161,22,0.07), rgba(255,161,22,0.02));
+  border: 1px solid rgba(255,161,22,0.15);
+  border-radius: 14px;
+  padding: 20px 24px;
   margin-bottom: 40px;
-  background: linear-gradient(135deg, rgba(255, 161, 22, 0.05) 0%, rgba(255, 161, 22, 0.02) 100%);
-  border: 1px solid rgba(255, 161, 22, 0.1);
-  border-radius: 16px;
-  padding: 24px;
 }
 
-.section-badge {
+.banner-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 161, 22, 0.15);
-  color: #ffa116;
-  padding: 4px 12px;
-  border-radius: 20px;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  margin-bottom: 20px;
+  letter-spacing: 0.06em;
+  color: #ffa116;
+  margin-bottom: 16px;
 }
 
-.active-dot {
-  width: 6px;
-  height: 6px;
-  background: #ffa116;
+.live-dot {
+  width: 7px; height: 7px;
   border-radius: 50%;
+  background: #ffa116;
   box-shadow: 0 0 8px #ffa116;
-  animation: pulse-active 1.5s infinite;
+  animation: pulse-live 1.4s infinite;
 }
 
-@keyframes pulse-active {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.5); opacity: 0.5; }
-  100% { transform: scale(1); opacity: 1; }
+@keyframes pulse-live {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.4; }
 }
 
-.active-grid {
+.sessions-list { display: flex; flex-direction: column; gap: 10px; }
+
+.session-card {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.active-card {
+  align-items: center;
+  gap: 20px;
   background: #242424;
   border: 1px solid #333;
-  border-radius: 12px;
-  overflow: hidden;
+  border-radius: 10px;
+  padding: 14px 20px;
   cursor: pointer;
   transition: all 0.2s;
-  position: relative;
 }
 
-.active-card:hover {
+.session-card:hover {
   background: #2a2a2a;
   border-color: #444;
   transform: translateX(4px);
 }
 
-.active-card-content {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  padding: 16px 24px;
-  gap: 24px;
+.session-info { flex: 1; min-width: 0; }
+
+.session-rule {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px;
+  margin-bottom: 6px; display: inline-block;
 }
 
-.active-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 8px 0;
+.session-title {
+  font-size: 16px; font-weight: 700;
+  color: #fff; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.active-meta {
-  display: flex;
-  gap: 16px;
-  color: #8a8a8a;
-  font-size: 13px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.active-timer {
-  text-align: right;
-  min-width: 140px;
-}
+.session-timer { text-align: center; min-width: 130px; }
 
 .timer-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: #5c5c5c;
-  margin-bottom: 4px;
+  font-size: 10px; font-weight: 700;
+  color: #5c5c5c; letter-spacing: 0.06em;
+  display: block; margin-bottom: 4px;
 }
 
 .timer-value {
-  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
-  font-size: 20px;
-  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px; font-weight: 700;
   color: #00b8a3;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  display: flex; align-items: center;
+  justify-content: center; gap: 6px;
 }
 
-.timer-warning {
-  color: #ff4d4f;
-  animation: shake 0.5s infinite;
-}
-
-@keyframes shake {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(1px); }
-  75% { transform: translateX(-1px); }
-  100% { transform: translateX(0); }
-}
-
-.resume-btn {
-  background: #ffa116;
-  color: #000;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-weight: 700;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
+.session-resume-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: #ffa116; color: #000;
+  border: none; border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
   transition: all 0.2s;
 }
 
-.resume-btn:hover {
+.session-resume-btn:hover {
   background: #ffb342;
-  box-shadow: 0 4px 12px rgba(255, 161, 22, 0.3);
+  box-shadow: 0 4px 12px rgba(255,161,22,0.35);
 }
 
-.active-progress-bg {
-  height: 2px;
-  background: #333;
-  width: 100%;
-}
+/* ===== SECTION ===== */
+.contest-section { margin-bottom: 48px; }
 
-.active-progress-fill {
-  height: 100%;
-  background: #ffa116;
-  transition: width 1s linear;
-}
-
-@media (max-width: 640px) {
-  .active-card-content {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    text-align: center;
-  }
-  .active-timer {
-    text-align: center;
-  }
-  .timer-value {
-    justify-content: center;
-  }
-  .active-action {
-    display: flex;
-    justify-content: center;
-  }
-}
-</style>
-
-<style>
-/* Global Filter Popover Styles */
-.filter-popover.el-popper {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-  border-radius: 12px !important;
-  padding: 0 !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
-}
-.filter-popover.el-popper .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-.filter-header {
-  padding: 16px;
-  border-bottom: 1px solid #3e3e3e;
-  font-weight: 600;
-  color: #eff2f6;
-  font-size: 14px;
+.section-header {
   display: flex;
   align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid transparent;
+}
+
+.ongoing-header  { border-bottom-color: rgba(0, 184, 163, 0.4); }
+.upcoming-header { border-bottom-color: rgba(255, 192, 30, 0.4); }
+.ended-header    { border-bottom-color: rgba(255,255,255,0.08); }
+
+.section-title-group {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.section-icon { flex-shrink: 0; }
+.ongoing-header  .section-icon { color: #00b8a3; }
+.upcoming-header .section-icon { color: #ffc01e; }
+.ended-header    .section-icon { color: #5c5c5c; }
+
+.section-title {
+  font-size: 18px; font-weight: 700;
+  color: #eff2f6; margin: 0;
+}
+
+.section-count {
+  font-size: 13px; font-weight: 700;
+  padding: 2px 10px; border-radius: 20px;
+}
+
+.ongoing-header  .section-count { background: rgba(0,184,163,0.12); color: #00b8a3; }
+.upcoming-header .section-count { background: rgba(255,192,30,0.12); color: #ffc01e; }
+.ended-header    .section-count { background: rgba(255,255,255,0.06); color: #8a8a8a; }
+
+/* ===== GRID ===== */
+.contests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+/* ===== CARD ===== */
+.contest-card {
+  background: #1a1a1a;
+  border: 1px solid #282828;
+  border-radius: 12px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.contest-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.card-ongoing::before  { background: linear-gradient(90deg, #00b8a3, #00d4bc); }
+.card-upcoming::before { background: linear-gradient(90deg, #ffc01e, #ffaa00); }
+.card-ended::before    { background: linear-gradient(90deg, #3e3e3e, #555); }
+
+.contest-card:hover { border-color: #3e3e3e; transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+.contest-card:hover::before { opacity: 1; }
+
+.card-ended { opacity: 0.75; }
+.card-ended:hover { opacity: 1; }
+
+/* Card top */
+.card-top {
+  display: flex; align-items: center;
   justify-content: space-between;
 }
 
-.filter-list {
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.card-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.rule-badge {
+  padding: 3px 9px; border-radius: 5px;
+  font-size: 11px; font-weight: 700;
+}
+.rule-acm { background: rgba(0,184,163,0.15); color: #00b8a3; }
+.rule-oi  { background: rgba(255,161,22,0.15); color: #ffa116; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+}
+.status-ongoing  { background: rgba(0,184,163,0.1); color: #00b8a3; }
+.status-upcoming { background: rgba(255,192,30,0.1); color: #ffc01e; }
+.status-ended    { background: rgba(255,255,255,0.06); color: #8a8a8a; }
+
+.pulse-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #00b8a3;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.lock-badge { font-size: 12px; color: #5c5c5c; }
+
+/* Card content */
+.card-title {
+  font-size: 15px; font-weight: 700;
+  color: #eff2f6; margin: 0;
+  line-height: 1.4;
 }
 
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.card-meta {
+  display: flex; flex-direction: column; gap: 6px;
 }
 
-.filter-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8a8a8a;
-  font-size: 13px;
-  width: 100px;
-  transition: color 0.2s;
-}
-.filter-label.is-active {
-  color: #eff2f6;
+.meta-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: #8a8a8a;
 }
 
-.dark-select.value-select {
-  flex: 1;
+.meta-row svg { color: #4a4a4a; flex-shrink: 0; }
+
+.chip-windowed {
+  background: rgba(255,161,22,0.1);
+  color: #ffa116;
+  font-size: 11px; font-weight: 600;
+  padding: 1px 7px; border-radius: 10px;
+  margin-left: 4px;
 }
 
-.dark-select .el-input__wrapper {
-  background-color: transparent !important;
-  box-shadow: none !important;
-  padding: 0 8px;
-}
-.dark-select .el-input__inner {
-  color: #eff2f6;
-  font-size: 13px;
-}
-.dark-select:not(.is-disabled):hover .el-input__wrapper {
-  background-color: rgba(255, 255, 255, 0.05) !important;
+/* Card footer */
+.card-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #252525;
 }
 
-.filter-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #3e3e3e;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 0 0 12px 12px;
+.card-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: #ffa116;
+  transition: gap 0.2s;
 }
 
-.reset-filters {
-  color: #8a8a8a !important;
-  font-size: 13px;
+.contest-card:hover .card-link { gap: 8px; }
+
+/* ===== EMPTY ===== */
+.empty-section {
+  padding: 28px;
+  background: #161616;
+  border: 1px dashed #2e2e2e;
+  border-radius: 10px;
+  color: #5c5c5c;
+  font-size: 14px;
+  text-align: center;
 }
-.reset-filters:hover {
-  color: #eff2f6 !important;
+
+/* ===== LOADING ===== */
+.loading-state {
+  display: flex; align-items: center;
+  justify-content: center; gap: 12px;
+  padding: 80px 20px;
+  color: #8a8a8a; font-size: 14px;
+}
+
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid #333;
+  border-top-color: #ffa116;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+  .content-section { padding: 20px 16px; }
+  .page-header { flex-direction: column; }
+  .search-input { width: 100%; }
+  .session-card { flex-direction: column; align-items: flex-start; }
+  .session-timer { text-align: left; }
+  .contests-grid { grid-template-columns: 1fr; }
 }
 </style>
