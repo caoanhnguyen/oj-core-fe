@@ -2,11 +2,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Trophy, Clock, Users, Search, ChevronRight, Calendar, Zap, Flame, AlertCircle, Archive } from 'lucide-vue-next'
+import { Trophy, Clock, Users, ChevronRight, Calendar, Zap, Flame, AlertCircle, Archive, LayoutGrid } from 'lucide-vue-next'
 import { contestsAPI } from '@/api/contests'
 import { useAuthStore } from '@/stores/auth'
 import { useContestSessionStore } from '@/stores/contestSession'
 import { handleApiError } from '@/utils/errorHandler'
+import TableControls from '@/components/common/TableControls.vue'
 
 const router = useRouter()
 
@@ -96,17 +97,70 @@ onUnmounted(() => {
 })
 
 // =====================
+// Filters & search
+// =====================
+const filterValues = ref({ ruleType: '', status: '' })
+
+const contestFilterConfig = [
+  {
+    key: 'ruleType',
+    label: 'Rule Type',
+    icon: LayoutGrid,
+    options: [
+      { label: 'OI',  value: 'OI' },
+      { label: 'ACM', value: 'ACM' }
+    ]
+  },
+  {
+    key: 'status',
+    label: 'Trạng thái',
+    icon: Trophy,
+    options: [
+      { label: 'Đang diễn ra', value: 'ONGOING' },
+      { label: 'Sắp diễn ra',  value: 'UPCOMING' },
+      { label: 'Đã kết thúc',  value: 'ENDED' }
+    ]
+  }
+]
+
+const handleFilterChange = ({ key, value }) => {
+  filterValues.value[key] = value
+}
+
+const handleResetFilters = () => {
+  filterValues.value = { ruleType: '', status: '' }
+}
+
+// =====================
 // Client-side grouping
 // =====================
 const filteredContests = computed(() => {
-  const q = searchQuery.value.toLowerCase()
-  if (!q) return allContests.value
-  return allContests.value.filter(c => c.title?.toLowerCase().includes(q))
+  const q    = searchQuery.value.toLowerCase()
+  const rt   = filterValues.value.ruleType
+  const st   = filterValues.value.status
+  return allContests.value.filter(c => {
+    if (q  && !c.title?.toLowerCase().includes(q)) return false
+    if (rt && c.ruleType !== rt) return false
+    if (st && c.contestStatus !== st) return false
+    return true
+  })
 })
 
-const ongoingContests  = computed(() => filteredContests.value.filter(c => c.contestStatus === 'ONGOING'))
-const upcomingContests = computed(() => filteredContests.value.filter(c => c.contestStatus === 'UPCOMING'))
-const endedContests    = computed(() => filteredContests.value.filter(c => c.contestStatus === 'ENDED'))
+const ongoingContests  = computed(() => {
+  // If status filter is active, only show that group
+  if (filterValues.value.status && filterValues.value.status !== 'ONGOING') return []
+  return filteredContests.value.filter(c => c.contestStatus === 'ONGOING')
+})
+const upcomingContests = computed(() => {
+  if (filterValues.value.status && filterValues.value.status !== 'UPCOMING') return []
+  return filteredContests.value.filter(c => c.contestStatus === 'UPCOMING')
+})
+const endedContests    = computed(() => {
+  if (filterValues.value.status && filterValues.value.status !== 'ENDED') return []
+  return filteredContests.value.filter(c => c.contestStatus === 'ENDED')
+})
+
+const totalFiltered = computed(() => filteredContests.value.length)
 
 const goToContest = (contest) => router.push(`/contests/${contest.id}`)
 </script>
@@ -121,16 +175,17 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
           <h1 class="page-title">Contests</h1>
           <p class="page-subtitle">Tham gia các cuộc thi lập trình và thách thức bản thân!</p>
         </div>
-        <div class="header-search">
-          <Search :size="15" class="search-icon" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Tìm kiếm contest..."
-            class="search-input"
-          />
-        </div>
       </div>
+
+      <!-- Controls -->
+      <TableControls
+        v-model="searchQuery"
+        search-placeholder="Tìm kiếm contest..."
+        :filter-config="contestFilterConfig"
+        :total-label="totalFiltered ? `${totalFiltered} contest` : ''"
+        @filter-change="handleFilterChange"
+        @reset-filters="handleResetFilters"
+      />
 
       <!-- ===== MY ACTIVE SESSIONS ===== -->
       <div v-if="activeContests.length > 0" class="active-sessions-banner">
@@ -333,7 +388,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
 }
 
 .content-section {
-  padding: 32px 40px;
+  padding: var(--spacing-2xl);
   max-width: 1400px;
   margin: 0 auto;
 }

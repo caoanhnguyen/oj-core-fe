@@ -1,6 +1,5 @@
 <script setup>
-
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useContestStore } from '@/stores/contest'
@@ -8,244 +7,182 @@ import { useContestSessionStore } from '@/stores/contestSession'
 import { useSyncedTimer } from '@/composables/useSyncedTimer'
 import { contestsAPI } from '@/api/contests'
 import { handleApiError } from '@/utils/errorHandler'
-import { Trophy, Clock, Users, BookOpen, BarChart2, List, ChevronLeft, Lock, Key, RefreshCw, Medal, ShieldAlert, Zap, Check } from 'lucide-vue-next'
+import {
+  Trophy, Clock, Users, BookOpen, BarChart2, List, ChevronLeft,
+  Lock, Key, RefreshCw, Zap, Check, ChevronRight, Calendar, Shield
+} from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import ContestTable from '@/components/common/ContestTable.vue'
 
-const route = useRoute()
+const route  = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const contestStore = useContestStore()
 const sessionStore = useContestSessionStore()
 
 const contestId = computed(() => route.params.id)
-const activeTab = ref('info')
+const activeTab  = ref('info')
+const contest    = ref(null)
+const loading    = ref(false)
 
-const contest = ref(null)
-const loading = ref(false)
-
+// =====================
+// UTC-safe date helpers
+// =====================
 const parseServerDate = (dateStr) => {
   if (!dateStr) return null
-  const cleanStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
-  return new Date(cleanStr)
+  const s = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  return new Date(s)
 }
 
 const formatDateTime = (dateStr) => {
-  const date = parseServerDate(dateStr)
-  if (!date) return ''
-  return date.toLocaleString(undefined, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  })
+  const d = parseServerDate(dateStr)
+  if (!d) return ''
+  return d.toLocaleString(undefined, { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false })
 }
 
+const getDuration = (start, end) => {
+  if (!start || !end) return ''
+  const diff = parseServerDate(end) - parseServerDate(start)
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `${h} giờ${m > 0 ? ` ${m} phút` : ''}` : `${m} phút`
+}
+
+// =====================
+// Derived state
+// =====================
 const isRegistered = computed(() => !!contest.value?.isRegistered || !!contest.value?.registered)
+const isFinished   = computed(() => contest.value?.contestStatus === 'ENDED')
+const isWindowed   = computed(() => (contest.value?.durationMinutes || 0) > 0)
+const hasJoined    = computed(() => !!contest.value?.contestParticipation?.startTime)
+
 const isStarted = computed(() => {
   if (!contest.value) return false
-  const now = sessionStore.getServerNow()
-  const start = parseServerDate(contest.value.startTime)
-  return now >= start
+  return sessionStore.getServerNow() >= parseServerDate(contest.value.startTime)
 })
 
-const isFinished = computed(() => contest.value?.contestStatus === 'ENDED')
-
-const isWindowed = computed(() => (contest.value?.durationMinutes || 0) > 0)
-const hasJoined = computed(() => !!contest.value?.contestParticipation?.startTime)
 const isPersonalSessionActive = computed(() => {
   if (!hasJoined.value || !contest.value?.contestParticipation?.endTime) return false
-  const now = sessionStore.getServerNow()
   const end = parseServerDate(contest.value.contestParticipation.endTime)
-  return now < end && !contest.value.contestParticipation.isFinished
+  return sessionStore.getServerNow() < end && !contest.value.contestParticipation.isFinished
 })
 
 const isTabDisabled = (id) => {
-  if (id === 'info') return false
-  
-  // Rule 0: Contest đã kết thúc -> Mở toang cho tất cả
+  if (id === 'info' || id === 'participants' || id === 'leaderboard') return false
   if (isFinished.value) return false
-  
-  // Rule 1: Tab Thí sinh & Xếp hạng (Tùy yêu cầu, ở đây mở để tăng tính cạnh tranh)
-  if (id === 'participants' || id === 'leaderboard') {
-    // Nếu là Windowed, có thể xem được list người tham gia trước khi Join
-    // Nếu là Fixed, xem được danh sách Thí sinh trước khi thi
-    if (id === 'participants') return false
-    // Leaderboard thường chỉ cho xem sau khi đã nộp bài hoặc sau khi thi (đây là tùy chọn)
-    // Để đơn giản, ta cho phép xem list để kích thích đăng ký
-  }
-
-  // Rule 2: Quyền truy cập Bài tập và Kết quả cá nhân
   if (id === 'problems' || id === 'submissions') {
-    if (isWindowed.value) {
-      // Windowed: Buộc phải JOIN (bấm nút Start) mới được xem đề
-      return !hasJoined.value
-    } else {
-      // Fixed: Phải có đăng ký VÀ đúng giờ mới được xem đề
-      return !isRegistered.value || !isStarted.value
-    }
+    return isWindowed.value ? !hasJoined.value : (!isRegistered.value || !isStarted.value)
   }
-  
   return false
 }
 
-// ====================
-// Load Contest Detail
-// ====================
+// =====================
+// Countdown
+// =====================
+const countdownLabel = computed(() => {
+  if (!contest.value) return ''
+  return sessionStore.getServerNow() < parseServerDate(contest.value.startTime) ? 'Bắt đầu sau' : 'Kết thúc sau'
+})
+
+const targetTime = computed(() => {
+  if (!contest.value) return null
+  if (isWindowed.value && hasJoined.value && !contest.value.contestParticipation?.isFinished) {
+    return parseServerDate(contest.value.contestParticipation.endTime)?.getTime() || null
+  }
+  const now   = sessionStore.getServerNow()
+  const start = parseServerDate(contest.value.startTime)?.getTime()
+  const end   = parseServerDate(contest.value.endTime)?.getTime()
+  return start && now < start ? start : end
+})
+
+const { formattedTime: timeLeft } = useSyncedTimer(targetTime)
+
+// =====================
+// Load contest
+// =====================
 const loadContest = async () => {
   try {
     loading.value = true
-    const data = await contestsAPI.getContestById(contestId.value)
-    contest.value = data
-    
-    // Đồng bộ thời gian ngay sau khi có data từ server
-    if (data.serverTime) {
-      sessionStore.syncTime(data.serverTime)
-    }
-  } catch (error) {
-    handleApiError(error, 'Không thể tải thông tin contest')
+    contest.value = await contestsAPI.getContestById(contestId.value)
+  } catch (err) {
+    handleApiError(err, 'Không thể tải thông tin contest')
     router.replace('/contests')
   } finally {
     loading.value = false
   }
 }
 
-// ====================
-// Countdown Logic (Refactored to use synced world time)
-// ====================
-const countdownLabel = computed(() => {
-  if (!contest.value) return ''
-  const now = sessionStore.getServerNow()
-  const start = parseServerDate(contest.value.startTime)
-  if (now < start) return 'Bắt đầu sau'
-  return 'Kết thúc sau'
-})
-
-const targetTime = computed(() => {
-  if (!contest.value) return null
-  
-  // Nếu đang trong phiên thi Windowed -> Đếm ngược theo giờ cá nhân
-  if (isWindowed.value && hasJoined.value && !contest.value.contestParticipation?.isFinished) {
-    const end = parseServerDate(contest.value.contestParticipation.endTime)
-    return end ? end.getTime() : null
-  }
-  
-  const now = sessionStore.getServerNow()
-  const start = parseServerDate(contest.value.startTime)?.getTime()
-  const end = parseServerDate(contest.value.endTime)?.getTime()
-  
-  if (start && now < start) return start // Đếm ngược đến lúc mở Contest
-  return end // Đếm ngược đến lúc đóng cửa Contest (Global)
-})
-
-const { formattedTime: timeLeft } = useSyncedTimer(targetTime)
-
-// ====================
-// Registration
-// ====================
+// =====================
+// Registration / Start
+// =====================
 const registerLoading = ref(false)
 const showPasswordInput = ref(false)
-const registerPassword = ref('')
+const registerPassword  = ref('')
 
 const handleRegister = async () => {
-  if (!authStore.isAuthenticated) {
-    router.push('/login')
-    return
-  }
+  if (!authStore.isAuthenticated) { router.push('/login'); return }
   if (contest.value?.visibility === 'PRIVATE' && !showPasswordInput.value) {
-    showPasswordInput.value = true
-    return
+    showPasswordInput.value = true; return
   }
   try {
     registerLoading.value = true
     await contestStore.registerContest(contestId.value, registerPassword.value || null)
-    // Reload to update isRegistered flag
     await loadContest()
-    
-    // Sync time after reload
-    if (contest.value?.serverTime) {
-      sessionStore.syncTime(contest.value.serverTime)
-    }
-
     showPasswordInput.value = false
-    registerPassword.value = ''
-    
-    // Nếu đang ở tab bài tập thì load luôn bài tập
-    if (activeTab.value === 'problems') {
-      loadProblems()
-    }
-  } catch {} finally {
-    registerLoading.value = false
-  }
+    registerPassword.value  = ''
+    if (activeTab.value === 'problems') loadProblems()
+  } catch {} finally { registerLoading.value = false }
 }
 
 const startLoading = ref(false)
 const handleStartContest = async () => {
   try {
     await ElMessageBox.confirm(
-      'Bạn đang chuẩn bị bắt đầu thực hiện bài thi. Một khi đã bắt đầu, đồng hồ đếm ngược sẽ chạy liên tục và không thể tạm dừng cho đến khi hết giờ hoặc bạn chọn kết thúc sớm. Bạn đã sẵn sàng?',
-      'Xác nhận bắt đầu thi',
-      {
-        confirmButtonText: 'Bắt đầu ngay',
-        cancelButtonText: 'Để sau',
-        confirmButtonClass: 'confirm-start-btn',
-        type: 'warning'
-      }
+      'Một khi đã bắt đầu, đồng hồ sẽ chạy liên tục cho đến khi bạn nộp bài hoặc hết giờ. Bạn đã sẵn sàng?',
+      'Bắt đầu thi',
+      { confirmButtonText: 'Bắt đầu ngay', cancelButtonText: 'Để sau', type: 'warning' }
     )
-    
     startLoading.value = true
     await sessionStore.startSession(contest.value.id)
-    
-    // Quan trọng: Reload lại contest info để lấy contestParticipation mới (có startTime/endTime)
     await loadContest()
-    
-    ElMessage.success('Bắt đầu bài thi thành công!')
-    
-    // Switch to problems tab inside contest
+    ElMessage.success('Bắt đầu thi thành công!')
     activeTab.value = 'problems'
     loadProblems()
   } catch (err) {
     if (err !== 'cancel') handleApiError(err)
-  } finally {
-    startLoading.value = false
-  }
+  } finally { startLoading.value = false }
 }
 
-const handleEnterExam = () => {
-  activeTab.value = 'problems'
-  loadProblems()
-}
+const handleEnterExam = () => { activeTab.value = 'problems'; loadProblems() }
 
-// ====================
-// Problems Tab
-// ====================
-const problems = ref([])
+// =====================
+// Problems tab
+// =====================
+const problems        = ref([])
 const problemsLoading = ref(false)
 
 const loadProblems = async () => {
   try {
     problemsLoading.value = true
     problems.value = await contestsAPI.getProblems(contestId.value)
-  } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách bài tập')
-  } finally {
-    problemsLoading.value = false
-  }
+  } catch (err) { handleApiError(err, 'Không thể tải danh sách bài tập') }
+  finally { problemsLoading.value = false }
 }
 
-const canViewProblems = computed(() => {
-  if (!contest.value) return false
-  return contest.value.contestStatus === 'ONGOING' || contest.value.contestStatus === 'ENDED'
-})
+const problemColumns = [
+  { key: '_ac',           label: '',          width: '50',  align: 'center' },
+  { key: 'displayId',     label: '#',         width: '80', align: 'center' },
+  { key: 'originalTitle', label: 'Bài tập',  minWidth: '300' },
+  { key: 'points',        label: 'Điểm',      width: '100', align: 'right' }
+]
 
-// ====================
-// Participants Tab
-// ====================
-const participants = ref([])
-const participantsLoading = ref(false)
-const participantSearch = ref('')
+// =====================
+// Participants tab
+// =====================
+const participants          = ref([])
+const participantsLoading   = ref(false)
+const participantSearch     = ref('')
 const participantsPagination = ref({ page: 0, size: 20, total: 0 })
 
 const loadParticipants = async () => {
@@ -258,18 +195,20 @@ const loadParticipants = async () => {
     })
     participants.value = data.content || []
     participantsPagination.value.total = data.totalElements || 0
-  } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách thí sinh')
-  } finally {
-    participantsLoading.value = false
-  }
+  } catch (err) { handleApiError(err, 'Không thể tải danh sách thí sinh') }
+  finally { participantsLoading.value = false }
 }
 
-// ====================
-// Leaderboard Tab
-// ====================
-const leaderboard = ref([])
-const leaderboardLoading = ref(false)
+const participantColumns = [
+  { key: '_rank',    label: '#',        width: '60',  align: 'center' },
+  { key: 'username', label: 'Thí sinh', minWidth: '200' }
+]
+
+// =====================
+// Leaderboard tab
+// =====================
+const leaderboard          = ref([])
+const leaderboardLoading   = ref(false)
 const leaderboardPagination = ref({ page: 0, size: 20, total: 0 })
 
 const loadLeaderboard = async () => {
@@ -281,18 +220,22 @@ const loadLeaderboard = async () => {
     })
     leaderboard.value = data.content || []
     leaderboardPagination.value.total = data.totalElements || 0
-  } catch (error) {
-    handleApiError(error, 'Không thể tải bảng xếp hạng')
-  } finally {
-    leaderboardLoading.value = false
-  }
+  } catch (err) { handleApiError(err, 'Không thể tải bảng xếp hạng') }
+  finally { leaderboardLoading.value = false }
 }
 
-// ====================
-// My Submissions Tab
-// ====================
-const mySubmissions = ref([])
-const mySubsLoading = ref(false)
+const lbColumns = computed(() => [
+  { key: '_rank',    label: 'Hạng',      width: '100',  align: 'center' },
+  { key: 'username', label: 'Thí sinh',  minWidth: '240' },
+  { key: 'score',    label: 'Điểm',       width: '120', align: 'center' },
+  ...(contest.value?.ruleType === 'ACM' ? [{ key: 'penalty', label: 'Penalty', width: '130', align: 'center' }] : [])
+])
+
+// =====================
+// My Submissions tab
+// =====================
+const mySubmissions   = ref([])
+const mySubsLoading   = ref(false)
 const mySubsPagination = ref({ page: 0, size: 20, total: 0 })
 
 const loadMySubmissions = async () => {
@@ -305,980 +248,735 @@ const loadMySubmissions = async () => {
     })
     mySubmissions.value = data.content || []
     mySubsPagination.value.total = data.totalElements || 0
-  } catch (error) {
-    handleApiError(error, 'Không thể tải lịch sử nộp bài')
-  } finally {
-    mySubsLoading.value = false
-  }
+  } catch (err) { handleApiError(err, 'Không thể tải lịch sử nộp bài') }
+  finally { mySubsLoading.value = false }
 }
 
-// ====================
+const submissionColumns = [
+  { key: 'createdDate',   label: 'Thời gian nộp',  minWidth: '170' },
+  { key: 'problemTitle',  label: 'Bài tập',         minWidth: '200' },
+  { key: 'verdict',       label: 'Kết quả',         width: '130', align: 'center' },
+  { key: 'score',         label: 'Điểm',            width: '90',  align: 'center' },
+  { key: 'languageKey',   label: 'Ngôn ngữ',        width: '120', align: 'center' }
+]
+
+// =====================
 // Tab switching
-// ====================
+// =====================
 const switchTab = (tab) => {
+  if (isTabDisabled(tab)) return
   activeTab.value = tab
-  if (tab === 'problems' && problems.value.length === 0) loadProblems()
-  if (tab === 'participants' && participants.value.length === 0) loadParticipants()
-  if (tab === 'leaderboard' && leaderboard.value.length === 0) loadLeaderboard()
-  if (tab === 'submissions' && mySubmissions.value.length === 0) loadMySubmissions()
+  if (tab === 'problems'     && !problems.value.length)      loadProblems()
+  if (tab === 'participants' && !participants.value.length)   loadParticipants()
+  if (tab === 'leaderboard'  && !leaderboard.value.length)   loadLeaderboard()
+  if (tab === 'submissions'  && !mySubmissions.value.length)  loadMySubmissions()
 }
 
-// ====================
-// Helpers
-// ====================
-const getDuration = (start, end) => {
-  if (!start || !end) return ''
-  const diff = parseServerDate(end) - parseServerDate(start)
-  const h = Math.floor(diff / 3600000)
-  const m = Math.floor((diff % 3600000) / 60000)
-  return h > 0 ? `${h} giờ ${m > 0 ? m + ' phút' : ''}` : `${m} phút`
-}
+// =====================
+// Verdict styling
+// =====================
+const verdictColor = (v) => ({
+  AC: '#2cbb5d', WA: '#ef4743', TLE: '#ffa116', MLE: '#ffa116',
+  RE: '#ef4743', CE: '#ef4743', PENDING: '#8a8a8a', SE: '#ef4743'
+}[v] || '#8a8a8a')
 
-const getVerdictClass = (v) => ({ AC: 'verdict-ac', WA: 'verdict-wa', TLE: 'verdict-tle', MLE: 'verdict-tle', RE: 'verdict-wa', CE: 'verdict-info', PENDING: 'verdict-info', SE: 'verdict-wa' }[v] || 'verdict-info')
+const getMedal = (rank) => ({ 1: '🥇', 2: '🥈', 3: '🥉' }[rank] || rank)
 
-const getRankMedal = (rank) => {
-  if (rank === 1) return '🥇'
-  if (rank === 2) return '🥈'
-  if (rank === 3) return '🥉'
-  return ''
-}
-
-onMounted(async () => {
-  await loadContest()
-})
-
-onUnmounted(() => {
-  // sessionStore handles itself or timer does
-})
+onMounted(loadContest)
+onUnmounted(() => {})
 </script>
 
 <template>
-  <div class="contest-detail-page" v-if="!loading">
-    <!-- Back Nav -->
-    <div class="back-nav">
-      <button class="back-btn" @click="router.push('/contests')">
-        <ChevronLeft :size="18" /> Contests
-      </button>
-    </div>
+  <!-- Loading fullscreen -->
+  <div v-if="loading" class="page-loading">
+    <div class="spin" />
+  </div>
 
-    <div v-if="contest" class="contest-layout">
-      <!-- Left Main Panel -->
-      <div class="main-panel">
-        <!-- Contest Header Card -->
-        <div class="contest-header-card">
-          <div class="header-top">
-            <div class="header-badges">
-              <span :class="['rule-badge', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ contest.ruleType }}</span>
-              <span :class="['status-badge', `status-${contest.contestStatus?.toLowerCase()}`]">
-                <span v-if="contest.contestStatus === 'ONGOING'" class="pulse-dot" />
-                {{ contest.contestStatus === 'ONGOING' ? 'Đang diễn ra' : contest.contestStatus === 'UPCOMING' ? 'Sắp diễn ra' : 'Đã kết thúc' }}
-              </span>
-              <span v-if="contest.visibility === 'PRIVATE'" class="private-badge"><Lock :size="12" /> Private</span>
-            </div>
+  <div v-else-if="contest" class="detail-page">
+    <div class="content-section">
 
-            <!-- Countdown -->
-            <div v-if="timeLeft && timeLeft !== '00:00:00'" class="countdown-chip">
-              <Clock :size="14" />
-              <span class="countdown-label">{{ countdownLabel }}</span>
-              <span class="countdown-time">{{ timeLeft }}</span>
-            </div>
+      <!-- ===== BREADCRUMB ===== -->
+      <div class="breadcrumb-row">
+        <button class="back-btn" @click="router.push('/contests')">
+          <ChevronLeft :size="14" /> Contests
+        </button>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">{{ contest.title }}</span>
+      </div>
+
+      <!-- ===== HEADER BLOCK ===== -->
+      <div class="page-header-row">
+        <div class="header-center">
+          <div class="top-badges">
+            <span :class="['badge-rule', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">
+              {{ contest.ruleType }}
+            </span>
+            <span :class="['badge-status', `status-${contest.contestStatus?.toLowerCase()}`]">
+              <span v-if="contest.contestStatus === 'ONGOING'" class="pulse-dot" />
+              {{ contest.contestStatus === 'ONGOING' ? 'Đang diễn ra' : contest.contestStatus === 'UPCOMING' ? 'Sắp diễn ra' : 'Đã kết thúc' }}
+            </span>
+            <span v-if="contest.visibility === 'PRIVATE'" class="badge-private">
+              <Lock :size="11" /> Private
+            </span>
           </div>
-
           <h1 class="contest-title">{{ contest.title }}</h1>
-
-          <div class="meta-row-list">
-            <div class="meta-item">
-              <Calendar :size="16" class="meta-icon" />
-              <span>{{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
-            </div>
-            <div class="meta-item">
-              <RefreshCw :size="15" class="meta-icon" />
-              <span>Thời lượng: {{ getDuration(contest.startTime, contest.endTime) }}</span>
-            </div>
-            <div class="meta-item" v-if="contest.durationMinutes">
-              <Zap :size="15" class="meta-icon duration-icon" />
-              <span class="duration-highlight">Làm bài: {{ contest.durationMinutes }} phút</span>
-            </div>
-            <div class="meta-item">
-              <Users :size="15" class="meta-icon" />
-              <span>{{ (contest.participantCount || 0).toLocaleString() }} người tham gia</span>
-            </div>
+          <div class="contest-meta">
+            <span><Calendar :size="13" /> {{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
+            <span><RefreshCw :size="13" /> {{ getDuration(contest.startTime, contest.endTime) }}</span>
+            <span v-if="contest.durationMinutes" class="chip-windowed">
+              <Zap :size="12" /> Làm bài: {{ contest.durationMinutes }} phút
+            </span>
+            <span><Users :size="13" /> {{ (contest.participantCount || 0).toLocaleString() }} thí sinh</span>
           </div>
         </div>
 
-        <!-- Tabs -->
-        <div class="tab-bar">
+        <!-- Countdown chip -->
+        <div v-if="timeLeft && timeLeft !== '00:00:00'" class="countdown-chip">
+          <Clock :size="14" />
+          <div>
+            <div class="cd-label">{{ countdownLabel }}</div>
+            <div class="cd-time">{{ timeLeft }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TAB NAV ===== -->
+      <div class="tab-nav">
+        <div class="tab-nav-inner">
           <button
             v-for="tab in [
-              { id: 'info', label: 'Thông tin', icon: Trophy },
-              { id: 'problems', label: 'Bài tập', icon: BookOpen },
-              { id: 'participants', label: 'Thí sinh', icon: Users },
-              { id: 'leaderboard', label: 'Xếp hạng', icon: BarChart2 },
+              { id: 'info',         label: 'Thông tin',       icon: Trophy },
+              { id: 'problems',     label: 'Bài tập',         icon: BookOpen },
+              { id: 'participants', label: 'Thí sinh',         icon: Users },
+              { id: 'leaderboard',  label: 'Xếp hạng',        icon: BarChart2 },
               ...(isRegistered ? [{ id: 'submissions', label: 'Kết quả của tôi', icon: List }] : [])
             ]"
             :key="tab.id"
             class="tab-btn"
-            :class="{ active: activeTab === tab.id, 'is-disabled': isTabDisabled(tab.id) }"
+            :class="{ active: activeTab === tab.id, disabled: isTabDisabled(tab.id) }"
             :disabled="isTabDisabled(tab.id)"
             @click="switchTab(tab.id)"
           >
             <component :is="tab.icon" :size="15" />
             {{ tab.label }}
+            <span v-if="tab.id === 'problems' && problems.length" class="tab-count">{{ problems.length }}</span>
+            <span v-if="tab.id === 'participants'" class="tab-count">{{ contest.participantCount || 0 }}</span>
           </button>
         </div>
 
-        <!-- ===== INFO TAB ===== -->
-        <div v-if="activeTab === 'info'" class="tab-content">
-          <div class="desc-section">
-            <h3 class="section-label">Mô tả</h3>
-            <div class="desc-body" v-html="contest.description || '<p>Chưa có mô tả.</p>'" />
-          </div>
-
-          <div class="rules-section">
-            <h3 class="section-label">Thể lệ: {{ contest.ruleType }}</h3>
-            <div v-if="contest.ruleType === 'ACM'" class="rule-desc">
-              <p>Hệ thống <strong>ACM</strong>: Mỗi bài tập được chấm theo nguyên tắc tất cả hoặc không. Nếu tất cả test case đều đúng thì được chấp nhận (AC), ngược lại là sai (WA). Penalty được tính theo số lần nộp sai và thời gian nộp bài.</p>
+        <!-- Action area in tab bar -->
+        <div class="tab-action">
+          <!-- Windowed: Chưa join -->
+          <template v-if="isWindowed && isRegistered && !hasJoined && !isFinished && isStarted">
+            <button class="btn-primary" :disabled="startLoading" @click="handleStartContest">
+              <Zap :size="14" /> Bắt đầu thi
+            </button>
+          </template>
+          <!-- Fixed/Windowed: Đang thi -->
+          <template v-else-if="hasJoined && isPersonalSessionActive">
+            <div class="session-live-badge">
+              <span class="pulse-dot" /> Đang trong giờ thi
             </div>
-            <div v-else class="rule-desc">
-              <p>Hệ thống <strong>OI</strong>: Điểm được tính theo số lượng test case đúng. Mỗi thí sinh chỉ được nộp bài một lần cho mỗi bài tập. Không tính penalty thời gian.</p>
+            <button class="btn-secondary" @click="handleEnterExam">
+              <BookOpen :size="14" /> Vào phòng thi
+            </button>
+          </template>
+          <!-- Chưa đăng ký -->
+          <template v-else-if="!isRegistered && !isFinished">
+            <div v-if="showPasswordInput" class="password-inline">
+              <Key :size="14" />
+              <input v-model="registerPassword" type="password" placeholder="Nhập mật khẩu" class="pw-input" />
             </div>
-          </div>
-        </div>
-
-        <!-- ===== PROBLEMS TAB ===== -->
-        <div v-if="activeTab === 'problems'" class="tab-content">
-          <div>
-            <div v-if="problemsLoading" class="loading-wrap">
-              <el-icon class="is-loading" :size="24"><RefreshCw /></el-icon>
-            </div>
-            <div v-else class="problems-table">
-              <div class="problems-header-row">
-                <span class="col-status"></span>
-                <span class="col-id">ID</span>
-                <span class="col-title">Bài tập</span>
-                <span class="col-points">Điểm</span>
-              </div>
-              <div v-for="p in problems" :key="p.id" class="problem-row" @click="router.push(`/problems/${p.problemSlug}?contestId=${contestId}`)">
-                <span class="col-status">
-                  <div v-if="p.submissionVerdict === 'AC'" class="status-ac-orb">
-                    <Check :size="12" stroke-width="4" />
-                  </div>
-                </span>
-                <span class="col-id prob-id">{{ p.displayId }}</span>
-                <span class="col-title prob-title">{{ p.originalTitle }}</span>
-                <span class="col-points prob-points">{{ p.points }}</span>
-              </div>
-              <div v-if="problems.length === 0" class="empty-msg">Chưa có bài tập nào.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== PARTICIPANTS TAB ===== -->
-        <div v-if="activeTab === 'participants'" class="tab-content">
-          <div class="tab-toolbar">
-            <div class="search-wrap">
-              <input type="text" v-model="participantSearch" @keyup.enter="() => { participantsPagination.page = 0; loadParticipants() }" placeholder="Tìm kiếm..." class="search-input-sm" />
-            </div>
-            <span class="count-badge">{{ participantsPagination.total }} thí sinh</span>
-          </div>
-
-          <div v-if="participantsLoading" class="loading-wrap"><el-icon class="is-loading" :size="24"><RefreshCw /></el-icon></div>
-
-          <div v-else class="participants-list">
-            <div v-for="(p, idx) in participants" :key="p.userId" class="participant-item">
-              <span class="p-rank">#{{ participantsPagination.page * participantsPagination.size + idx + 1 }}</span>
-              <span class="p-username">{{ p.username }}</span>
-            </div>
-            <div v-if="participants.length === 0" class="empty-msg">Chưa có thí sinh nào đăng ký.</div>
-          </div>
-
-          <DarkPagination
-            v-if="participantsPagination.total > participantsPagination.size"
-            :current-page="participantsPagination.page + 1"
-            :page-size="participantsPagination.size"
-            :total="participantsPagination.total"
-            @current-change="(p) => { participantsPagination.page = p - 1; loadParticipants() }"
-          />
-        </div>
-
-        <!-- ===== LEADERBOARD TAB ===== -->
-        <div v-if="activeTab === 'leaderboard'" class="tab-content">
-          <div>
-            <div v-if="leaderboardLoading" class="loading-wrap"><el-icon class="is-loading" :size="24"><RefreshCw /></el-icon></div>
-            <div v-else class="leaderboard-table">
-              <div class="lb-header-row">
-                <span class="lb-col-rank">Hạng</span>
-                <span class="lb-col-user">Thí sinh</span>
-                <span class="lb-col-score">Điểm</span>
-                <span v-if="contest.ruleType === 'ACM'" class="lb-col-penalty">Penalty</span>
-              </div>
-              <div
-                v-for="(entry, idx) in leaderboard"
-                :key="entry.userId"
-                class="lb-row"
-                :class="{ 'lb-top3': leaderboardPagination.page === 0 && idx < 3 }"
-              >
-                <span class="lb-col-rank lb-rank-val">
-                  <span v-if="leaderboardPagination.page === 0 && idx < 3" class="medal">{{ getRankMedal(idx + 1) }}</span>
-                  <span v-else>{{ leaderboardPagination.page * leaderboardPagination.size + idx + 1 }}</span>
-                </span>
-                <span class="lb-col-user lb-username">{{ entry.username }}</span>
-                <span class="lb-col-score lb-score">{{ entry.score }}</span>
-                <span v-if="contest.ruleType === 'ACM'" class="lb-col-penalty lb-penalty">{{ entry.penalty }}s</span>
-              </div>
-              <div v-if="leaderboard.length === 0" class="empty-msg">Chưa có dữ liệu xếp hạng.</div>
-            </div>
-
-            <DarkPagination
-              v-if="leaderboardPagination.total > leaderboardPagination.size"
-              :current-page="leaderboardPagination.page + 1"
-              :page-size="leaderboardPagination.size"
-              :total="leaderboardPagination.total"
-              @current-change="(p) => { leaderboardPagination.page = p - 1; loadLeaderboard() }"
-            />
-          </div>
-        </div>
-
-        <!-- ===== MY SUBMISSIONS TAB ===== -->
-        <div v-if="activeTab === 'submissions'" class="tab-content">
-          <div v-if="mySubsLoading" class="loading-wrap"><el-icon class="is-loading" :size="24"><RefreshCw /></el-icon></div>
-          <div v-else class="submissions-list">
-            <div v-for="sub in mySubmissions" :key="sub.submissionId" class="submission-row" @click="router.push(`/submissions/${sub.submissionId}`)">
-              <div class="sub-info">
-                <span class="sub-problem">{{ sub.problemTitle || sub.problemId }}</span>
-                <span class="sub-time">{{ parseServerDate(sub.createdDate)?.toLocaleString() }}</span>
-              </div>
-              <div class="sub-right">
-                <el-tag type="info" size="small" effect="plain" style="margin-right: 8px;">{{ sub.languageKey }}</el-tag>
-                <span :class="['verdict-badge', getVerdictClass(sub.verdict)]">{{ sub.verdict || 'PENDING' }}</span>
-              </div>
-            </div>
-            <div v-if="mySubmissions.length === 0" class="empty-msg">Bạn chưa nộp bài nào trong contest này.</div>
-          </div>
-
-          <DarkPagination
-            v-if="mySubsPagination.total > mySubsPagination.size"
-            :current-page="mySubsPagination.page + 1"
-            :page-size="mySubsPagination.size"
-            :total="mySubsPagination.total"
-            @current-change="(p) => { mySubsPagination.page = p - 1; loadMySubmissions() }"
-          />
+            <button class="btn-primary" :disabled="registerLoading" @click="handleRegister">
+              <Shield :size="14" />
+              {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
+            </button>
+          </template>
+          <!-- Fixed đã đăng ký, đang diễn ra, chưa thi -->
+          <template v-else-if="!isWindowed && isRegistered && isStarted && !hasJoined && !isFinished">
+            <button class="btn-secondary" @click="handleEnterExam">
+              <BookOpen :size="14" /> Vào phòng thi
+            </button>
+          </template>
         </div>
       </div>
 
-      <!-- Right Sidebar -->
-      <div class="sidebar-panel">
-        <!-- Register Card -->
-        <div class="sidebar-card register-card">
-          <div v-if="contest.registered || contest.isRegistered" class="registered-state">
-            <div class="status-card-inner">
-              <div class="status-icon-box">
-                <div class="icon-circle">
-                  <Check :size="24" stroke-width="3" />
-                </div>
-              </div>
-              <p class="status-main-text">Đã đăng ký tham gia</p>
-              
-              <div class="participation-actions">
-                <!-- Nếu đã thi xong -->
-                <div v-if="contest.contestParticipation?.isFinished" class="action-group">
-                  <p class="status-sub-text">Bạn đã hoàn thành bài thi này.</p>
-                  <el-button type="primary" class="action-btn-premium" @click="activeTab = 'leaderboard'">
-                    <BarChart2 :size="16" /> Xem bảng xếp hạng
-                  </el-button>
-                </div>
-                
-                <!-- Đang trong quá trình thi -->
-                <div v-else-if="hasJoined" class="action-group">
-                  <div class="ongoing-badge">
-                    <span class="dot-live" /> Đang trong giờ thi
-                  </div>
-                  <el-button class="action-btn-premium ongoing-btn" @click="handleEnterExam">
-                    <BookOpen :size="16" /> Vào phòng thi
-                  </el-button>
-                </div>
+      <!-- ===== CONTENT ===== -->
+      <div class="tab-content">
 
-                <!-- Đã đăng ký nhưng chưa bắt đầu (Chỉ cho Fixed Contest) -->
-                <div v-else-if="!isWindowed" class="action-group">
-                  <p v-if="!isStarted" class="status-sub-text">Contest chưa bắt đầu.</p>
-                  <el-button v-if="isStarted" class="action-btn-premium start-btn" @click="handleEnterExam">
-                    <Zap :size="16" /> Vào phòng thi
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Trạng thái chưa Đăng ký hoặc chưa Join (Dành cho Windowed) -->
-          <div v-else-if="!isFinished" class="unregistered-state">
-            <div v-if="isWindowed" class="status-card-inner">
-               <div class="windowed-join-wrap">
-                 <div class="zap-icon-pulse">
-                   <Zap :size="28" fill="currentColor" />
-                 </div>
-                 <h3 class="join-title">Windowed Contest</h3>
-                 <p class="join-desc">Bạn có <b>{{ contest.durationMinutes }} phút</b> để thực hiện bài thi này bất cứ lúc nào trong cửa sổ thời gian của contest.</p>
-                 
-                 <el-button :loading="startLoading" class="join-contest-btn" @click="handleStartContest">
-                   THAM GIA THI NGAY
-                   <ChevronRight :size="18" />
-                 </el-button>
-                 <p class="join-terms">Bằng cách nhấn tham gia, phiên thi của bạn sẽ bắt đầu và không thể tạm dừng.</p>
-               </div>
-            </div>
-
-            <!-- Fixed Contest Flow -->
-            <div v-else class="fixed-register-wrap">
-              <p class="register-hint">
-                <span v-if="contest.contestStatus === 'UPCOMING'">Contest sẽ bắt đầu sớm. Đăng ký ngay để không bỏ lỡ!</span>
-                <span v-else>Contest đang diễn ra. Đăng ký để tham gia!</span>
+      <!-- INFO TAB -->
+      <div v-if="activeTab === 'info'" class="info-layout">
+        <div class="info-main">
+          <section class="content-block">
+            <h3 class="block-title">Mô tả</h3>
+            <div class="desc-body" v-html="contest.description || '<p style=\'color:#8a8a8a\'>Chưa có mô tả.</p>'" />
+          </section>
+          <section class="content-block">
+            <h3 class="block-title">Thể lệ: {{ contest.ruleType }}</h3>
+            <div class="rule-box">
+              <p v-if="contest.ruleType === 'ACM'">
+                Hệ thống <strong>ACM/ICPC</strong>: Mỗi bài tập được chấm theo nguyên tắc "tất cả hoặc không". Kết quả <em>AC</em> khi toàn bộ test case đúng. Xếp hạng theo số bài giải được, tiebreak theo tổng thời gian + penalty (mỗi lần nộp sai: +20 phút).
               </p>
-
-              <div v-if="showPasswordInput && contest.visibility === 'PRIVATE'" class="password-input-wrap">
-                <Key :size="16" class="input-icon" />
-                <input type="password" v-model="registerPassword" placeholder="Nhập mật khẩu..." class="password-input" />
+              <p v-else>
+                Hệ thống <strong>OI</strong>: Điểm được tính theo tỉ lệ số test case đúng. Mỗi thí sinh chỉ được nộp một lần cho mỗi bài. Không có penalty thời gian.
+              </p>
+            </div>
+          </section>
+        </div>
+        <aside class="info-sidebar">
+          <div class="info-card">
+            <h4 class="info-card-title">Thông tin cuộc thi</h4>
+            <div class="info-rows">
+              <div class="info-row">
+                <span class="ir-label">Rule</span>
+                <span :class="['badge-rule-sm', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ contest.ruleType }}</span>
               </div>
-
-              <button class="register-btn" :disabled="registerLoading" @click="handleRegister">
-                <span v-if="registerLoading" class="btn-loading">Đang xử lý...</span>
-                <span v-else-if="!authStore.isAuthenticated">Đăng nhập để đăng ký</span>
-                <span v-else-if="contest.visibility === 'PRIVATE' && !showPasswordInput">Nhập mật khẩu</span>
-                <span v-else>{{ showPasswordInput ? 'Xác nhận đăng ký' : 'Đăng ký tham gia' }}</span>
-              </button>
+              <div class="info-row">
+                <span class="ir-label">Bắt đầu</span>
+                <span class="ir-val">{{ formatDateTime(contest.startTime) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="ir-label">Kết thúc</span>
+                <span class="ir-val">{{ formatDateTime(contest.endTime) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="ir-label">Thời lượng</span>
+                <span class="ir-val">{{ getDuration(contest.startTime, contest.endTime) }}</span>
+              </div>
+              <div v-if="contest.durationMinutes" class="info-row">
+                <span class="ir-label ir-highlight">Làm bài</span>
+                <span class="ir-val ir-highlight">{{ contest.durationMinutes }} phút</span>
+              </div>
+              <div class="info-row">
+                <span class="ir-label">Thí sinh</span>
+                <span class="ir-val">{{ (contest.participantCount || 0).toLocaleString() }}</span>
+              </div>
+              <div class="info-row">
+                <span class="ir-label">Quyền truy cập</span>
+                <span class="ir-val">{{ contest.visibility === 'PUBLIC' ? 'Công khai' : 'Riêng tư' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="ir-label">Tổ chức bởi</span>
+                <span class="ir-val">{{ contest.authorUsername }}</span>
+              </div>
             </div>
           </div>
 
-          <div v-else class="ended-state">
-            <p class="ended-text">Contest đã kết thúc</p>
-          </div>
-        </div>
-
-        <!-- Info Card -->
-        <div class="sidebar-card info-card">
-          <h4 class="sidebar-card-title">Thông tin</h4>
-          <div class="info-list">
-            <div class="info-row">
-              <span class="info-label">Rule</span>
-              <span :class="['rule-badge-sm', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ contest.ruleType }}</span>
+          <!-- Registration state card -->
+          <div class="info-card" v-if="!isFinished">
+            <h4 class="info-card-title">Trạng thái tham gia</h4>
+            <div v-if="isRegistered" class="reg-state">
+              <div class="reg-check-icon"><Check :size="20" stroke-width="3" /></div>
+              <p class="reg-status-text">Đã đăng ký</p>
+              <p v-if="contest.contestParticipation?.isFinished" class="reg-sub">Bạn đã hoàn thành.</p>
+              <p v-else-if="hasJoined" class="reg-sub ongoing">Phiên thi đang chạy.</p>
+              <p v-else-if="!isStarted" class="reg-sub">Chờ contest bắt đầu.</p>
             </div>
-            <div class="info-row">
-              <span class="info-label">Bắt đầu</span>
-              <span class="info-value">{{ formatDateTime(contest.startTime) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Kết thúc</span>
-              <span class="info-value">{{ formatDateTime(contest.endTime) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Thời lượng</span>
-              <span class="info-value">{{ getDuration(contest.startTime, contest.endTime) }}</span>
-            </div>
-            <div class="info-row" v-if="contest.durationMinutes">
-              <span class="info-labelHighlight">Làm bài</span>
-              <span class="info-valueHighlight">{{ contest.durationMinutes }} phút</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Thí sinh</span>
-              <span class="info-value">{{ (contest.participantCount || 0).toLocaleString() }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Visibility</span>
-              <span class="info-value">{{ contest.visibility === 'PUBLIC' ? 'Công khai' : 'Riêng tư' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Tổ chức bởi</span>
-              <span class="info-value">{{ contest.authorUsername }}</span>
+            <div v-else class="reg-state">
+              <p class="reg-sub">Bạn chưa đăng ký thi.</p>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
-    </div>
 
-    <!-- Loading State -->
-    <div v-else-if="loading" class="page-loading">
-      <el-icon class="is-loading" :size="32"><RefreshCw /></el-icon>
+      <!-- PROBLEMS TAB -->
+      <div v-if="activeTab === 'problems'" class="full-tab">
+        <ContestTable
+          :columns="problemColumns"
+          :data="problems"
+          :loading="problemsLoading"
+          empty-text="Chưa có bài tập nào."
+        >
+          <template #cell-_ac="{ row }">
+            <div v-if="row.submissionVerdict === 'AC'" class="ac-orb">
+              <Check :size="11" stroke-width="4" />
+            </div>
+          </template>
+          <template #cell-displayId="{ row }">
+            <span class="prob-id">{{ row.displayId }}</span>
+          </template>
+          <template #cell-originalTitle="{ row }">
+            <span
+              class="prob-title"
+              @click.stop="router.push(`/problems/${row.problemSlug}?contestId=${contestId}`)"
+            >{{ row.originalTitle }}</span>
+          </template>
+          <template #cell-points="{ row }">
+            <span class="prob-points">{{ row.points }}</span>
+          </template>
+        </ContestTable>
+      </div>
+
+      <!-- PARTICIPANTS TAB -->
+      <div v-if="activeTab === 'participants'" class="full-tab">
+        <div class="tab-toolbar">
+          <input
+            v-model="participantSearch"
+            type="text"
+            placeholder="Tìm thí sinh..."
+            class="tab-search"
+            @keyup.enter="() => { participantsPagination.page = 0; loadParticipants() }"
+          />
+          <span class="tab-count-badge">{{ participantsPagination.total }} thí sinh</span>
+        </div>
+
+        <ContestTable
+          :columns="participantColumns"
+          :data="participants"
+          :loading="participantsLoading"
+          empty-text="Chưa có thí sinh nào."
+          :clickable="false"
+        >
+          <template #cell-_rank="{ index }">
+            <span class="rank-num">{{ participantsPagination.page * participantsPagination.size + index + 1 }}</span>
+          </template>
+          <template #cell-username="{ row }">
+            <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
+          </template>
+        </ContestTable>
+
+        <DarkPagination
+          v-if="participantsPagination.total > participantsPagination.size"
+          :current-page="participantsPagination.page + 1"
+          :page-size="participantsPagination.size"
+          :total="participantsPagination.total"
+          @current-change="(p) => { participantsPagination.page = p - 1; loadParticipants() }"
+        />
+      </div>
+
+      <!-- LEADERBOARD TAB -->
+      <div v-if="activeTab === 'leaderboard'" class="full-tab">
+        <ContestTable
+          :columns="lbColumns"
+          :data="leaderboard"
+          :loading="leaderboardLoading"
+          empty-text="Chưa có dữ liệu xếp hạng."
+          :clickable="false"
+        >
+          <template #cell-_rank="{ index }">
+            <span class="lb-rank">{{ getMedal(leaderboardPagination.page * leaderboardPagination.size + index + 1) }}</span>
+          </template>
+          <template #cell-username="{ row }">
+            <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
+          </template>
+          <template #cell-score="{ row }">
+            <span class="lb-score">{{ row.score }}</span>
+          </template>
+          <template #cell-penalty="{ row }">
+            <span class="lb-penalty">{{ row.penalty }}s</span>
+          </template>
+        </ContestTable>
+
+        <DarkPagination
+          v-if="leaderboardPagination.total > leaderboardPagination.size"
+          :current-page="leaderboardPagination.page + 1"
+          :page-size="leaderboardPagination.size"
+          :total="leaderboardPagination.total"
+          @current-change="(p) => { leaderboardPagination.page = p - 1; loadLeaderboard() }"
+        />
+      </div>
+
+      <!-- MY SUBMISSIONS TAB -->
+      <div v-if="activeTab === 'submissions'" class="full-tab">
+        <ContestTable
+          :columns="submissionColumns"
+          :data="mySubmissions"
+          :loading="mySubsLoading"
+          empty-text="Bạn chưa nộp bài nào trong contest này."
+          @row-click="(row) => router.push(`/submissions/${row.submissionId}`)"
+        >
+          <template #cell-createdDate="{ row }">
+            <span class="cell-date">{{ parseServerDate(row.createdDate)?.toLocaleString() }}</span>
+          </template>
+          <template #cell-problemTitle="{ row }">
+            <span class="prob-title">{{ row.problemTitle || row.problemId }}</span>
+          </template>
+          <template #cell-verdict="{ row }">
+            <span class="verdict-text" :style="{ color: verdictColor(row.verdict) }">
+              {{ row.verdict || 'PENDING' }}
+            </span>
+          </template>
+          <template #cell-score="{ row }">
+            <span class="cell-score">{{ row.score ?? '—' }}</span>
+          </template>
+          <template #cell-languageKey="{ row }">
+            <span class="lang-badge">{{ row.languageKey }}</span>
+          </template>
+        </ContestTable>
+
+        <DarkPagination
+          v-if="mySubsPagination.total > mySubsPagination.size"
+          :current-page="mySubsPagination.page + 1"
+          :page-size="mySubsPagination.size"
+          :total="mySubsPagination.total"
+          @current-change="(p) => { mySubsPagination.page = p - 1; loadMySubmissions() }"
+        />
+      </div>
+
+    </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.contest-detail-page {
+/* ===== PAGE SHELL ===== */
+.detail-page {
   min-height: 100vh;
-  background: var(--bg-primary);
-  padding: 0;
+  background: var(--bg-primary, #141414);
 }
 
-/* Back nav */
-.back-nav {
-  padding: 16px 24px;
-  border-bottom: 1px solid #282828;
-  background: #141414;
+.content-section {
+  padding: var(--spacing-2xl, 32px);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 100vh;
+}
+.spin {
+  width: 28px; height: 28px;
+  border: 3px solid #333;
+  border-top-color: #ffa116;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== HEADER ROW ===== */
+.breadcrumb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  color: #8a8a8a;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: none;
+  color: #5c5c5c; font-size: 13px; cursor: pointer;
+  padding: 0; border-radius: 4px;
+  transition: color 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.back-btn:hover { color: #eff2f6; }
+
+.breadcrumb-sep {
+  color: #3e3e3e;
   font-size: 14px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  user-select: none;
 }
 
-.back-btn:hover { color: #eff2f6; background: rgba(255,255,255,0.05); }
-
-/* Layout */
-.contest-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 0;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 24px;
-  align-items: flex-start;
-  gap: 24px;
+.breadcrumb-current {
+  color: #8a8a8a;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
 }
 
-/* Main Panel */
-.main-panel { min-width: 0; }
-
-/* Header Card */
-.contest-header-card {
-  background: #1e1e1e;
-  border: 1px solid #282828;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 0;
-}
-
-.header-top {
+.page-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #1e1e1e;
 }
 
-.header-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.header-center { flex: 1; min-width: 0; }
 
-/* Rule badges */
-.rule-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
+
+.top-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+
+.badge-rule {
+  padding: 3px 10px; border-radius: 5px;
+  font-size: 11px; font-weight: 700;
 }
 .rule-acm { background: rgba(0,184,163,0.15); color: #00b8a3; }
 .rule-oi  { background: rgba(255,161,22,0.15); color: #ffa116; }
 
-.rule-badge-sm {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* Status badges */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+.badge-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
 }
 .status-ongoing  { background: rgba(0,184,163,0.1); color: #00b8a3; }
 .status-upcoming { background: rgba(255,192,30,0.1); color: #ffc01e; }
 .status-ended    { background: rgba(255,255,255,0.06); color: #8a8a8a; }
 
-.pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: #00b8a3; animation: pulse 1.5s infinite; }
-@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+.badge-private {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; background: rgba(239,71,67,0.1); color: #ef4743;
+}
 
-.private-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  background: rgba(239,71,67,0.1);
-  color: #ef4743;
+.pulse-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.contest-title {
+  font-size: 22px; font-weight: 800;
+  color: #eff2f6; margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.contest-meta {
+  display: flex; align-items: center; gap: 20px;
+  font-size: 13px; color: #8a8a8a;
+  flex-wrap: wrap;
+}
+.contest-meta span { display: flex; align-items: center; gap: 5px; }
+
+.chip-windowed {
+  background: rgba(255,161,22,0.1); color: #ffa116;
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 12px; font-weight: 600;
 }
 
 /* Countdown */
 .countdown-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,161,22,0.08);
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,161,22,0.07);
   border: 1px solid rgba(255,161,22,0.2);
-  border-radius: 8px;
-  padding: 6px 14px;
+  border-radius: 10px; padding: 10px 16px;
+  flex-shrink: 0;
   color: #ffa116;
 }
-.countdown-label { font-size: 12px; color: #8a8a8a; }
-.countdown-time { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cd-label { font-size: 11px; color: #8a8a8a; margin-bottom: 2px; }
+.cd-time  { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.contest-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #eff2f6;
-  margin: 0 0 16px;
-  line-height: 1.3;
-}
-
-.meta-row-list { display: flex; flex-direction: column; gap: 8px; }
-.meta-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8a8a8a; }
-.meta-icon { color: #5c5c5c; flex-shrink: 0; }
-.duration-icon { color: #ffa116 !important; }
-.duration-highlight { color: #ffa116; font-weight: 600; }
-
-/* Tabs */
-.tab-bar {
-  display: flex;
-  gap: 8px;
-  border-bottom: 2px solid #282828;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0 4px;
-  scrollbar-width: none; /* Hide scrollbar Firefox */
-}
-.tab-bar::-webkit-scrollbar { display: none; } /* Hide scrollbar Chrome/Safari */
-
-.tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #8a8a8a;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  margin-bottom: -2px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tab-btn:hover { color: #eff2f6; background: rgba(255,255,255,0.03); }
-.tab-btn.active { color: #ffa116; border-bottom-color: #ffa116; font-weight: 600; }
-.tab-btn.is-disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  filter: grayscale(1);
-}
-.tab-btn.is-disabled:hover {
-  color: #8a8a8a;
-  background: transparent;
-}
-
-/* Tab content */
-.tab-content {
-  background: #1e1e1e;
-  border: 1px solid #282828;
-  border-top: none;
-  border-radius: 0 0 12px 12px;
-  padding: 24px;
-  min-height: 300px;
-}
-
-/* Info tab */
-.section-label { font-size: 14px; font-weight: 700; color: #eff2f6; margin: 0 0 12px; }
-.desc-section { margin-bottom: 24px; }
-.desc-body { color: #8a8a8a; font-size: 14px; line-height: 1.7; }
-.desc-body :deep(p) { margin: 0 0 12px; }
-.desc-body :deep(h1), .desc-body :deep(h2), .desc-body :deep(h3) { color: #eff2f6; }
-
-.rules-section { padding: 16px; background: rgba(255,161,22,0.04); border: 1px solid rgba(255,161,22,0.15); border-radius: 8px; }
-.rule-desc { font-size: 14px; color: #8a8a8a; line-height: 1.6; }
-.rule-desc p { margin: 0; }
-.rule-desc strong { color: #ffa116; }
-
-/* Locked state */
-.locked-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 60px 20px;
-  text-align: center;
-}
-.lock-icon { color: #3e3e3e; }
-.locked-title { font-size: 16px; font-weight: 600; color: #eff2f6; margin: 0; }
-.locked-sub { font-size: 14px; color: #8a8a8a; margin: 0; }
-
-/* Problems table */
-.problems-header-row, .problem-row {
-  display: grid;
-  grid-template-columns: 40px 60px 1fr 80px;
-  align-items: center;
-  padding: 12px 8px;
-}
-
-.col-status {
-  display: flex;
-  justify-content: center;
-}
-
-.status-ac-orb {
-  width: 20px;
-  height: 20px;
-  background: rgba(44, 187, 93, 0.15);
-  color: #2cbb5d;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.problems-header-row {
-  font-size: 12px;
-  font-weight: 700;
-  color: #8a8a8a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #282828;
-}
-.problem-row {
-  border-bottom: 1px solid #1e1e1e;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-.problem-row:hover { background: rgba(255,255,255,0.05); }
-.col-id { font-size: 13px; }
-.col-title { font-size: 14px; }
-.col-points { font-size: 13px; text-align: right; }
-.prob-id { font-weight: 700; color: #ffa116; }
-.prob-title { color: #eff2f6; font-weight: 500; }
-.prob-points { color: #00b8a3; font-weight: 600; }
-
-/* Tab toolbar */
-.tab-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.search-input-sm {
-  background: #141414;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 7px 14px;
-  color: #eff2f6;
-  font-size: 13px;
-  outline: none;
-  width: 200px;
-}
-.search-input-sm::placeholder { color: #8a8a8a; }
-.count-badge { margin-left: auto; font-size: 13px; color: #8a8a8a; }
-
-/* Participants */
-.participants-list { display: flex; flex-direction: column; gap: 4px; }
-.participant-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  transition: background 0.15s;
-}
-.participant-item:hover { background: rgba(255,255,255,0.04); }
-.p-rank { font-size: 13px; color: #5c5c5c; width: 30px; }
-.p-username { font-size: 14px; color: #eff2f6; font-weight: 500; }
-
-/* Leaderboard */
-.lb-header-row, .lb-row {
-  display: grid;
-  grid-template-columns: 80px 1fr 100px 120px;
-  align-items: center;
-  padding: 12px 8px;
-}
-.lb-header-row {
-  font-size: 12px;
-  font-weight: 700;
-  color: #8a8a8a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #282828;
-}
-.lb-row { border-bottom: 1px solid rgba(255,255,255,0.03); border-radius: 6px; }
-.lb-top3 { background: linear-gradient(90deg, rgba(255,161,22,0.05), transparent); }
-.lb-rank-val { font-size: 14px; color: #8a8a8a; font-weight: 600; }
-.medal { font-size: 18px; }
-.lb-username { font-size: 14px; font-weight: 500; color: #eff2f6; }
-.lb-score { font-size: 15px; font-weight: 700; color: #00b8a3; }
-.lb-penalty { font-size: 13px; color: #8a8a8a; }
-
-/* Submissions */
-.submissions-list { display: flex; flex-direction: column; gap: 4px; }
-.submission-row {
+/* ===== TAB NAV ===== */
+.tab-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-  border-bottom: 1px solid #282828;
-}
-.submission-row:hover { background: rgba(255,255,255,0.04); }
-.sub-info { display: flex; flex-direction: column; gap: 3px; }
-.sub-problem { font-size: 14px; font-weight: 500; color: #eff2f6; }
-.sub-time { font-size: 12px; color: #8a8a8a; }
-.sub-right { display: flex; align-items: center; gap: 8px; }
-
-/* Verdict */
-.verdict-badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
-.verdict-ac   { color: #2cbb5d; background: rgba(44,187,93,0.12); }
-.verdict-wa   { color: #ef4743; background: rgba(239,71,67,0.12); }
-.verdict-tle  { color: #ffa116; background: rgba(255,161,22,0.12); }
-.verdict-info { color: #8a8a8a; background: rgba(255,255,255,0.08); }
-
-/* Sidebar */
-.sidebar-panel { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
-.sidebar-card {
-  background: #1e1e1e;
-  border: 1px solid #282828;
-  border-radius: 12px;
-  padding: 20px;
+  gap: 16px;
+  border-bottom: 1px solid #222;
+  margin-bottom: 28px;
+  margin-left: -4px;
 }
 
-/* Register card */
-.registered-state {
-  padding: 8px 0;
+.tab-nav-inner {
+  display: flex; align-items: center;
+  overflow-x: auto; gap: 2px;
 }
-.status-card-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.status-icon-box {
-  margin-bottom: 16px;
-}
-.icon-circle {
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 184, 163, 0.1);
-  color: #00b8a3;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(0, 184, 163, 0.2);
-}
-.status-main-text {
-  font-size: 15px;
-  font-weight: 700;
-  color: #00b8a3;
-  margin: 0 0 4px;
-}
-.status-sub-text {
-  font-size: 13px;
-  color: #8a8a8a;
-  margin: 0 0 16px;
-}
+.tab-nav-inner::-webkit-scrollbar { display: none; }
 
-.action-group {
-  width: 100%;
-}
-
-.ongoing-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: rgba(255, 161, 22, 0.1);
-  color: #ffa116;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-bottom: 12px;
-}
-.dot-live {
-  width: 6px;
-  height: 6px;
-  background: #ffa116;
-  border-radius: 50%;
-  animation: pulse 1s infinite;
-}
-
-.action-btn-premium {
-  width: 100%;
-  height: 42px !important;
-  background: linear-gradient(135deg, #ffa116, #ff8800) !important;
-  border: none !important;
-  color: #000 !important;
-  font-weight: 700 !important;
-  font-size: 14px !important;
-  border-radius: 8px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  transition: all 0.25s !important;
-}
-.action-btn-premium:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255, 161, 22, 0.3);
-  opacity: 0.95;
-}
-.action-btn-premium:active {
-  transform: translateY(0);
-}
-
-.ongoing-btn {
-  background: #1e1e1e !important;
-  border: 1px solid #ffa116 !important;
-  color: #ffa116 !important;
-}
-.ongoing-btn:hover {
-  background: rgba(255, 161, 22, 0.05) !important;
-}
-.ended-state { text-align: center; }
-.ended-text { font-size: 14px; color: #8a8a8a; margin: 0; }
-.register-hint { font-size: 13px; color: #8a8a8a; margin: 0 0 16px; line-height: 1.5; }
-
-.password-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.input-icon { position: absolute; left: 12px; color: #8a8a8a; }
-.password-input {
-  width: 100%;
-  background: #141414;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 9px 12px 9px 36px;
-  color: #eff2f6;
-  font-size: 14px;
-  outline: none;
-}
-.password-input:focus { border-color: #ffa116; }
-
-.register-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #ffa116, #ff8800);
-  border: none;
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #000;
-  cursor: pointer;
+.tab-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 14px 18px;
+  background: transparent; border: none;
+  border-bottom: 2px solid transparent;
+  color: #8a8a8a; font-size: 14px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  margin-bottom: -1px;
   transition: all 0.2s;
 }
-.register-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
-.register-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.tab-btn:hover:not(.disabled) { color: #eff2f6; }
+.tab-btn.active { color: #ffa116; border-bottom-color: #ffa116; font-weight: 600; }
+.tab-btn.disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Info card */
-.sidebar-card-title { font-size: 14px; font-weight: 700; color: #eff2f6; margin: 0 0 14px; }
-.info-list { display: flex; flex-direction: column; gap: 10px; }
-.info-row { display: flex; align-items: center; justify-content: space-between; }
-.info-label { font-size: 12px; color: #8a8a8a; }
-.info-labelHighlight { font-size: 12px; color: #8a8a8a; }
-.info-value { font-size: 13px; color: #eff2f6; font-weight: 500; max-width: 60%; text-align: right; }
-.info-valueHighlight { font-size: 13px; color: #ffa116; font-weight: 600; text-align: right; }
+.tab-count {
+  background: rgba(255,255,255,0.08);
+  color: #8a8a8a; font-size: 11px; font-weight: 700;
+  padding: 1px 7px; border-radius: 10px;
+}
+.tab-btn.active .tab-count { background: rgba(255,161,22,0.15); color: #ffa116; }
 
-/* Loading */
-.loading-wrap { display: flex; justify-content: center; padding: 60px; }
-.page-loading { min-height: 60vh; display: flex; align-items: center; justify-content: center; }
-.is-loading { animation: spin 1s linear infinite; color: #ffa116; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* Empty */
-.empty-msg { text-align: center; padding: 40px 20px; color: #8a8a8a; font-size: 14px; }
-
-/* Windowed Join Flow */
-.windowed-join-wrap {
-  padding: 12px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+/* Tab action buttons */
+.tab-action {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; padding: 8px 0;
 }
 
-.zap-icon-pulse {
-  color: #ffa116;
-  background: rgba(255, 161, 22, 0.1);
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 161, 22, 0.2);
-  animation: float 3s ease-in-out infinite;
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #ffa116; color: #000;
+  border: none; border-radius: 8px;
+  padding: 8px 18px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-primary:hover { background: #ffb342; box-shadow: 0 4px 14px rgba(255,161,22,0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent;
+  border: 1px solid #3e3e3e;
+  color: #eff2f6;
+  border-radius: 8px; padding: 8px 18px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-secondary:hover { border-color: #ffa116; color: #ffa116; }
+
+.session-live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 20px;
+  background: rgba(255,161,22,0.1); color: #ffa116;
+  font-size: 12px; font-weight: 700;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-.join-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #fff;
-  margin: 0;
-}
-
-.join-desc {
-  font-size: 13px;
+.password-inline {
+  display: flex; align-items: center; gap: 6px;
+  background: #1e1e1e; border: 1px solid #333;
+  border-radius: 8px; padding: 0 12px; height: 36px;
   color: #8a8a8a;
-  line-height: 1.6;
-  margin: 0;
+}
+.pw-input {
+  background: transparent; border: none; outline: none;
+  color: #eff2f6; font-size: 13px; width: 160px;
 }
 
-.join-desc b {
-  color: #ffa116;
+.tab-content { width: 100%; }
+
+/* INFO layout */
+.info-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  align-items: flex-start;
 }
 
-.join-contest-btn {
-  width: 100%;
-  height: 48px !important;
-  background: linear-gradient(135deg, #ffa116, #ff8800) !important;
-  border: none !important;
-  color: #000 !important;
-  font-weight: 800 !important;
-  font-size: 15px !important;
-  border-radius: 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  letter-spacing: 0.5px;
-  box-shadow: 0 4px 20px rgba(255, 161, 22, 0.2);
-  transition: all 0.3s !important;
+.content-block { margin-bottom: 28px; }
+
+.block-title {
+  font-size: 14px; font-weight: 700;
+  color: #eff2f6; margin: 0 0 14px;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-.join-contest-btn:hover {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 8px 30px rgba(255, 161, 22, 0.4);
+.desc-body {
+  font-size: 14px; color: #8a8a8a; line-height: 1.8;
+}
+.desc-body :deep(p) { margin: 0 0 12px; }
+.desc-body :deep(h1),.desc-body :deep(h2),.desc-body :deep(h3) { color: #eff2f6; }
+
+.rule-box {
+  background: rgba(255,161,22,0.04);
+  border: 1px solid rgba(255,161,22,0.12);
+  border-radius: 8px; padding: 16px;
+  font-size: 14px; color: #8a8a8a; line-height: 1.7;
+}
+.rule-box p { margin: 0; }
+.rule-box strong { color: #ffa116; }
+.rule-box em { color: #2cbb5d; font-style: normal; font-weight: 600; }
+
+/* Sidebar */
+.info-card {
+  background: #1a1a1a;
+  border: 1px solid #242424;
+  border-radius: 10px; padding: 18px;
+  margin-bottom: 16px;
 }
 
-.join-terms {
-  font-size: 11px;
-  color: #5c5c5c;
-  font-style: italic;
-  margin: 0;
+.info-card-title {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: #5c5c5c; margin: 0 0 14px;
 }
 
-.fixed-register-wrap {
-  width: 100%;
+.info-rows { display: flex; flex-direction: column; gap: 10px; }
+
+.info-row {
+  display: flex; justify-content: space-between;
+  align-items: center; font-size: 13px;
 }
 
-@media (max-width: 768px) {
-  .contest-layout { grid-template-columns: 1fr; }
-  .sidebar-panel { order: -1; position: static; }
+.ir-label { color: #8a8a8a; }
+.ir-val   { color: #eff2f6; font-weight: 500; text-align: right; }
+.ir-highlight { color: #ffa116 !important; font-weight: 600 !important; }
+
+.badge-rule-sm {
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700;
+}
+
+/* Registration state */
+.reg-state { text-align: center; padding: 8px 0; }
+.reg-check-icon {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(0,184,163,0.12); color: #00b8a3;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+  border: 1px solid rgba(0,184,163,0.2);
+}
+.reg-status-text { color: #00b8a3; font-weight: 700; font-size: 14px; margin: 0 0 4px; }
+.reg-sub { color: #8a8a8a; font-size: 13px; margin: 0; }
+.reg-sub.ongoing { color: #ffa116; }
+
+/* ===== FULL TAB (tables) ===== */
+.full-tab { width: 100%; }
+
+.tab-toolbar {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tab-search {
+  background: #1e1e1e; border: 1px solid #333; border-radius: 8px;
+  padding: 8px 14px; color: #eff2f6; font-size: 13px;
+  outline: none; width: 220px; transition: border-color 0.2s;
+}
+.tab-search:focus { border-color: #555; }
+.tab-search::placeholder { color: #5c5c5c; }
+
+.tab-count-badge {
+  font-size: 13px; color: #8a8a8a; font-weight: 500;
+}
+
+/* Cell styles */
+.ac-orb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(44,187,93,0.15); color: #2cbb5d;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.prob-id    { font-weight: 700; color: #ffa116; font-size: 13px; }
+.prob-title {
+  font-size: 14px; font-weight: 500; color: #eff2f6;
+  cursor: pointer; transition: color 0.2s;
+}
+.prob-title:hover { color: #ffa116; }
+.prob-points { color: #00b8a3; font-weight: 600; font-size: 14px; }
+
+.rank-num { color: #8a8a8a; font-size: 13px; font-weight: 600; }
+.lb-rank  { font-size: 16px; }
+.lb-score { color: #00b8a3; font-weight: 700; font-size: 15px; }
+.lb-penalty { color: #8a8a8a; font-size: 13px; }
+
+.user-link {
+  color: #eff2f6; text-decoration: none; font-weight: 500;
+  transition: color 0.2s;
+}
+.user-link:hover { color: #ffa116; }
+
+.cell-date  { font-size: 13px; color: #8a8a8a; }
+.cell-score { color: #eff2f6; font-weight: 600; }
+
+.verdict-text { font-weight: 700; font-size: 13px; }
+
+.lang-badge {
+  background: rgba(255,255,255,0.07);
+  border-radius: 5px; padding: 2px 8px;
+  font-size: 12px; color: #ccc; font-family: monospace;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .top-bar, .tab-content { padding: 16px 20px; }
+  .tab-nav { padding: 0 20px; }
+  .info-layout { grid-template-columns: 1fr; }
   .contest-title { font-size: 18px; }
-  .header-top { flex-direction: column; align-items: flex-start; }
 }
 </style>

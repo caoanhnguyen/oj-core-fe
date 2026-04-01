@@ -400,7 +400,7 @@ onMounted(() => {
 
 <style scoped>
 .content-section {
-  padding: 32px 40px;
+  padding: var(--spacing-2xl);
   max-width: 1400px;
   margin: 0 auto;
   min-height: calc(100vh - 56px);
