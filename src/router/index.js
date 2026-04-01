@@ -160,9 +160,10 @@ router.beforeEach(async (to, from, next) => {
         return next({ name: 'contest-detail', params: { id: contestId }, query: { tab: 'submissions' } })
       }
 
-      const isProblemInContest = to.path.startsWith('/problems/') && to.query.contestId === contestId
+      const isProblemInContest = (to.path.startsWith('/problems/') && to.query.contestId === contestId)
+      const isSubmissionInContest = (to.path.startsWith('/submissions/')) // Cho phép xem log nộp bài thoải mái
       
-      if (!isGoingToContest && !isProblemInContest && to.name !== 'login' && to.name !== 'not-found') {
+      if (!isGoingToContest && !isProblemInContest && !isSubmissionInContest && to.name !== 'login' && to.name !== 'not-found') {
         const confirmExit = window.confirm('Bạn đang trong một phiên thi đấu. Thời gian vẫn sẽ tiếp tục trôi. Bạn có chắc chắn muốn rời khỏi trang này không?')
         if (!confirmExit) return next(false)
       }

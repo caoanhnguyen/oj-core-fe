@@ -7,6 +7,8 @@ export const useContestSessionStore = defineStore('contestSession', () => {
   // Trạng thái phiên thi: { contestId, endTime, isFinished }
   const activeSession = ref(JSON.parse(localStorage.getItem('activeContestSession')) || null)
   const timeOffset = ref(parseInt(localStorage.getItem('contestTimeOffset') || '0')) 
+  const lastSyncServerTime = ref(0)
+  const lastSyncLocalTime = ref(0)
 
   const isExamMode = computed(() => {
     if (!activeSession.value) return false
@@ -15,21 +17,29 @@ export const useContestSessionStore = defineStore('contestSession', () => {
 
   /** Đồng bộ thời gian với server */
   const syncTime = (serverTimeStr) => {
-    const serverTime = new Date(serverTimeStr).getTime()
-    const localTime = Date.now()
-    timeOffset.value = serverTime - localTime
+    if (!serverTimeStr) return
+    const cleanStr = serverTimeStr.includes('Z') || serverTimeStr.includes('+') ? serverTimeStr : serverTimeStr + 'Z'
+    lastSyncServerTime.value = new Date(cleanStr).getTime()
+    lastSyncLocalTime.value = performance.now()
+    
+    // Vẫn lưu offset cũ cho các mục đích legacy nếu cần
+    timeOffset.value = lastSyncServerTime.value - Date.now()
     localStorage.setItem('contestTimeOffset', timeOffset.value.toString())
   }
 
-  /** Lấy đối tượng Date hiện tại đã được đồng bộ với server */
+  /** Lấy đối tượng Date hiện tại (Chống cheat đổi giờ máy tính) */
   const getServerNow = () => {
-    return new Date(Date.now() + timeOffset.value)
+    if (lastSyncServerTime.value === 0) return new Date()
+    const elapsed = performance.now() - lastSyncLocalTime.value
+    return new Date(lastSyncServerTime.value + elapsed)
   }
 
   const setSession = (contestId, endTime) => {
+    // Thêm Z nếu thiếu để đảm bảo parse đúng UTC (backend dùng LocalDateTime không có Z)
+    const cleanEndTime = endTime && !(endTime.includes('Z') || endTime.includes('+')) ? endTime + 'Z' : endTime
     const session = { 
       contestId, 
-      endTime: new Date(endTime).getTime() 
+      endTime: new Date(cleanEndTime).getTime() 
     }
     activeSession.value = session
     localStorage.setItem('activeContestSession', JSON.stringify(session))
@@ -78,6 +88,8 @@ export const useContestSessionStore = defineStore('contestSession', () => {
     getServerNow,
     setSession,
     clearSession,
+    lastSyncServerTime,
+    lastSyncLocalTime,
     startSession,
     finishSession
   }

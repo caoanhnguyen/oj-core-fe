@@ -8,7 +8,7 @@ import { useContestSessionStore } from '@/stores/contestSession'
 import { useSyncedTimer } from '@/composables/useSyncedTimer'
 import { contestsAPI } from '@/api/contests'
 import { handleApiError } from '@/utils/errorHandler'
-import { Trophy, Clock, Users, BookOpen, BarChart2, List, ChevronLeft, Lock, Key, RefreshCw, Medal, ShieldAlert, Zap } from 'lucide-vue-next'
+import { Trophy, Clock, Users, BookOpen, BarChart2, List, ChevronLeft, Lock, Key, RefreshCw, Medal, ShieldAlert, Zap, Check } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 
@@ -24,28 +24,68 @@ const activeTab = ref('info')
 const contest = ref(null)
 const loading = ref(false)
 
+const parseServerDate = (dateStr) => {
+  if (!dateStr) return null
+  const cleanStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  return new Date(cleanStr)
+}
+
+const formatDateTime = (dateStr) => {
+  const date = parseServerDate(dateStr)
+  if (!date) return ''
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
 const isRegistered = computed(() => !!contest.value?.isRegistered || !!contest.value?.registered)
 const isStarted = computed(() => {
   if (!contest.value) return false
   const now = sessionStore.getServerNow()
-  const start = new Date(contest.value.startTime)
+  const start = parseServerDate(contest.value.startTime)
   return now >= start
 })
 
 const isFinished = computed(() => contest.value?.contestStatus === 'ENDED')
 
+const isWindowed = computed(() => (contest.value?.durationMinutes || 0) > 0)
+const hasJoined = computed(() => !!contest.value?.contestParticipation?.startTime)
+const isPersonalSessionActive = computed(() => {
+  if (!hasJoined.value || !contest.value?.contestParticipation?.endTime) return false
+  const now = sessionStore.getServerNow()
+  const end = parseServerDate(contest.value.contestParticipation.endTime)
+  return now < end && !contest.value.contestParticipation.isFinished
+})
+
 const isTabDisabled = (id) => {
   if (id === 'info') return false
   
-  // Rule 0: Nếu contest đã kết thúc -> Mở toang cho tất cả mọi người
+  // Rule 0: Contest đã kết thúc -> Mở toang cho tất cả
   if (isFinished.value) return false
   
-  // Rule 1: Chưa đăng ký -> Chỉ xem được Info (với contest chưa kết thúc)
-  if (!isRegistered.value) return true
-  
-  // Rule 2: Đã đăng ký nhưng CHƯA tới giờ thi -> Chỉ xem được Info & Participants
-  if (!isStarted.value) {
-    if (id === 'problems' || id === 'leaderboard' || id === 'submissions') return true
+  // Rule 1: Tab Thí sinh & Xếp hạng (Tùy yêu cầu, ở đây mở để tăng tính cạnh tranh)
+  if (id === 'participants' || id === 'leaderboard') {
+    // Nếu là Windowed, có thể xem được list người tham gia trước khi Join
+    // Nếu là Fixed, xem được danh sách Thí sinh trước khi thi
+    if (id === 'participants') return false
+    // Leaderboard thường chỉ cho xem sau khi đã nộp bài hoặc sau khi thi (đây là tùy chọn)
+    // Để đơn giản, ta cho phép xem list để kích thích đăng ký
+  }
+
+  // Rule 2: Quyền truy cập Bài tập và Kết quả cá nhân
+  if (id === 'problems' || id === 'submissions') {
+    if (isWindowed.value) {
+      // Windowed: Buộc phải JOIN (bấm nút Start) mới được xem đề
+      return !hasJoined.value
+    } else {
+      // Fixed: Phải có đăng ký VÀ đúng giờ mới được xem đề
+      return !isRegistered.value || !isStarted.value
+    }
   }
   
   return false
@@ -78,19 +118,26 @@ const loadContest = async () => {
 const countdownLabel = computed(() => {
   if (!contest.value) return ''
   const now = sessionStore.getServerNow()
-  const start = new Date(contest.value.startTime)
+  const start = parseServerDate(contest.value.startTime)
   if (now < start) return 'Bắt đầu sau'
   return 'Kết thúc sau'
 })
 
 const targetTime = computed(() => {
   if (!contest.value) return null
-  const now = sessionStore.getServerNow()
-  const start = new Date(contest.value.startTime).getTime()
-  const end = new Date(contest.value.endTime).getTime()
   
-  if (now < start) return start
-  return end
+  // Nếu đang trong phiên thi Windowed -> Đếm ngược theo giờ cá nhân
+  if (isWindowed.value && hasJoined.value && !contest.value.contestParticipation?.isFinished) {
+    const end = parseServerDate(contest.value.contestParticipation.endTime)
+    return end ? end.getTime() : null
+  }
+  
+  const now = sessionStore.getServerNow()
+  const start = parseServerDate(contest.value.startTime)?.getTime()
+  const end = parseServerDate(contest.value.endTime)?.getTime()
+  
+  if (start && now < start) return start // Đếm ngược đến lúc mở Contest
+  return end // Đếm ngược đến lúc đóng cửa Contest (Global)
 })
 
 const { formattedTime: timeLeft } = useSyncedTimer(targetTime)
@@ -150,6 +197,10 @@ const handleStartContest = async () => {
     
     startLoading.value = true
     await sessionStore.startSession(contest.value.id)
+    
+    // Quan trọng: Reload lại contest info để lấy contestParticipation mới (có startTime/endTime)
+    await loadContest()
+    
     ElMessage.success('Bắt đầu bài thi thành công!')
     
     // Switch to problems tab inside contest
@@ -275,14 +326,9 @@ const switchTab = (tab) => {
 // ====================
 // Helpers
 // ====================
-const formatDateTime = (dt) => {
-  if (!dt) return ''
-  return new Date(dt).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
 const getDuration = (start, end) => {
   if (!start || !end) return ''
-  const diff = new Date(end) - new Date(start)
+  const diff = parseServerDate(end) - parseServerDate(start)
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   return h > 0 ? `${h} giờ ${m > 0 ? m + ' phút' : ''}` : `${m} phút`
@@ -331,7 +377,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Countdown -->
-            <div v-if="timeLeft" class="countdown-chip">
+            <div v-if="timeLeft && timeLeft !== '00:00:00'" class="countdown-chip">
               <Clock :size="14" />
               <span class="countdown-label">{{ countdownLabel }}</span>
               <span class="countdown-time">{{ timeLeft }}</span>
@@ -342,7 +388,7 @@ onUnmounted(() => {
 
           <div class="meta-row-list">
             <div class="meta-item">
-              <Clock :size="15" class="meta-icon" />
+              <Calendar :size="16" class="meta-icon" />
               <span>{{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
             </div>
             <div class="meta-item">
@@ -407,11 +453,17 @@ onUnmounted(() => {
             </div>
             <div v-else class="problems-table">
               <div class="problems-header-row">
+                <span class="col-status"></span>
                 <span class="col-id">ID</span>
                 <span class="col-title">Bài tập</span>
                 <span class="col-points">Điểm</span>
               </div>
               <div v-for="p in problems" :key="p.id" class="problem-row" @click="router.push(`/problems/${p.problemSlug}?contestId=${contestId}`)">
+                <span class="col-status">
+                  <div v-if="p.submissionVerdict === 'AC'" class="status-ac-orb">
+                    <Check :size="12" stroke-width="4" />
+                  </div>
+                </span>
                 <span class="col-id prob-id">{{ p.displayId }}</span>
                 <span class="col-title prob-title">{{ p.originalTitle }}</span>
                 <span class="col-points prob-points">{{ p.points }}</span>
@@ -491,10 +543,10 @@ onUnmounted(() => {
         <div v-if="activeTab === 'submissions'" class="tab-content">
           <div v-if="mySubsLoading" class="loading-wrap"><el-icon class="is-loading" :size="24"><RefreshCw /></el-icon></div>
           <div v-else class="submissions-list">
-            <div v-for="sub in mySubmissions" :key="sub.id" class="submission-row" @click="router.push(`/submissions/${sub.id}`)">
+            <div v-for="sub in mySubmissions" :key="sub.submissionId" class="submission-row" @click="router.push(`/submissions/${sub.submissionId}`)">
               <div class="sub-info">
                 <span class="sub-problem">{{ sub.problemTitle || sub.problemId }}</span>
-                <span class="sub-time">{{ new Date(sub.createdDate).toLocaleString('vi-VN') }}</span>
+                <span class="sub-time">{{ parseServerDate(sub.createdDate)?.toLocaleString() }}</span>
               </div>
               <div class="sub-right">
                 <el-tag type="info" size="small" effect="plain" style="margin-right: 8px;">{{ sub.languageKey }}</el-tag>
@@ -536,16 +588,8 @@ onUnmounted(() => {
                   </el-button>
                 </div>
                 
-                <!-- Nếu chưa bắt đầu làm bài -->
-                <div v-else-if="!contest.contestParticipation?.startTime" class="action-group">
-                  <p class="status-sub-text">Sẵn sàng để bắt đầu thử thách?</p>
-                  <el-button :loading="startLoading" class="action-btn-premium start-btn" @click="handleStartContest">
-                    <Zap :size="16" /> Bắt đầu làm bài
-                  </el-button>
-                </div>
-                
                 <!-- Đang trong quá trình thi -->
-                <div v-else class="action-group">
+                <div v-else-if="hasJoined" class="action-group">
                   <div class="ongoing-badge">
                     <span class="dot-live" /> Đang trong giờ thi
                   </div>
@@ -553,29 +597,59 @@ onUnmounted(() => {
                     <BookOpen :size="16" /> Vào phòng thi
                   </el-button>
                 </div>
+
+                <!-- Đã đăng ký nhưng chưa bắt đầu (Chỉ cho Fixed Contest) -->
+                <div v-else-if="!isWindowed" class="action-group">
+                  <p v-if="!isStarted" class="status-sub-text">Contest chưa bắt đầu.</p>
+                  <el-button v-if="isStarted" class="action-btn-premium start-btn" @click="handleEnterExam">
+                    <Zap :size="16" /> Vào phòng thi
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
-          <div v-else-if="contest.contestStatus === 'ENDED'" class="ended-state">
-            <p class="ended-text">Contest đã kết thúc</p>
-          </div>
-          <div v-else>
-            <p class="register-hint">
-              <span v-if="contest.contestStatus === 'UPCOMING'">Contest sẽ bắt đầu sớm. Đăng ký ngay để không bỏ lỡ!</span>
-              <span v-else>Contest đang diễn ra. Đăng ký để tham gia!</span>
-            </p>
 
-            <div v-if="showPasswordInput && contest.visibility === 'PRIVATE'" class="password-input-wrap">
-              <Key :size="16" class="input-icon" />
-              <input type="password" v-model="registerPassword" placeholder="Nhập mật khẩu..." class="password-input" />
+          <!-- Trạng thái chưa Đăng ký hoặc chưa Join (Dành cho Windowed) -->
+          <div v-else-if="!isFinished" class="unregistered-state">
+            <div v-if="isWindowed" class="status-card-inner">
+               <div class="windowed-join-wrap">
+                 <div class="zap-icon-pulse">
+                   <Zap :size="28" fill="currentColor" />
+                 </div>
+                 <h3 class="join-title">Windowed Contest</h3>
+                 <p class="join-desc">Bạn có <b>{{ contest.durationMinutes }} phút</b> để thực hiện bài thi này bất cứ lúc nào trong cửa sổ thời gian của contest.</p>
+                 
+                 <el-button :loading="startLoading" class="join-contest-btn" @click="handleStartContest">
+                   THAM GIA THI NGAY
+                   <ChevronRight :size="18" />
+                 </el-button>
+                 <p class="join-terms">Bằng cách nhấn tham gia, phiên thi của bạn sẽ bắt đầu và không thể tạm dừng.</p>
+               </div>
             </div>
 
-            <button class="register-btn" :disabled="registerLoading" @click="handleRegister">
-              <span v-if="registerLoading" class="btn-loading">Đang xử lý...</span>
-              <span v-else-if="!authStore.isAuthenticated">Đăng nhập để đăng ký</span>
-              <span v-else-if="contest.visibility === 'PRIVATE' && !showPasswordInput">Nhập mật khẩu</span>
-              <span v-else>{{ showPasswordInput ? 'Xác nhận đăng ký' : 'Đăng ký tham gia' }}</span>
-            </button>
+            <!-- Fixed Contest Flow -->
+            <div v-else class="fixed-register-wrap">
+              <p class="register-hint">
+                <span v-if="contest.contestStatus === 'UPCOMING'">Contest sẽ bắt đầu sớm. Đăng ký ngay để không bỏ lỡ!</span>
+                <span v-else>Contest đang diễn ra. Đăng ký để tham gia!</span>
+              </p>
+
+              <div v-if="showPasswordInput && contest.visibility === 'PRIVATE'" class="password-input-wrap">
+                <Key :size="16" class="input-icon" />
+                <input type="password" v-model="registerPassword" placeholder="Nhập mật khẩu..." class="password-input" />
+              </div>
+
+              <button class="register-btn" :disabled="registerLoading" @click="handleRegister">
+                <span v-if="registerLoading" class="btn-loading">Đang xử lý...</span>
+                <span v-else-if="!authStore.isAuthenticated">Đăng nhập để đăng ký</span>
+                <span v-else-if="contest.visibility === 'PRIVATE' && !showPasswordInput">Nhập mật khẩu</span>
+                <span v-else>{{ showPasswordInput ? 'Xác nhận đăng ký' : 'Đăng ký tham gia' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="ended-state">
+            <p class="ended-text">Contest đã kết thúc</p>
           </div>
         </div>
 
@@ -845,9 +919,25 @@ onUnmounted(() => {
 /* Problems table */
 .problems-header-row, .problem-row {
   display: grid;
-  grid-template-columns: 80px 1fr 80px;
+  grid-template-columns: 40px 60px 1fr 80px;
   align-items: center;
   padding: 12px 8px;
+}
+
+.col-status {
+  display: flex;
+  justify-content: center;
+}
+
+.status-ac-orb {
+  width: 20px;
+  height: 20px;
+  background: rgba(44, 187, 93, 0.15);
+  color: #2cbb5d;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .problems-header-row {
   font-size: 12px;
@@ -1105,6 +1195,85 @@ onUnmounted(() => {
 
 /* Empty */
 .empty-msg { text-align: center; padding: 40px 20px; color: #8a8a8a; font-size: 14px; }
+
+/* Windowed Join Flow */
+.windowed-join-wrap {
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.zap-icon-pulse {
+  color: #ffa116;
+  background: rgba(255, 161, 22, 0.1);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 161, 22, 0.2);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.join-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.join-desc {
+  font-size: 13px;
+  color: #8a8a8a;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.join-desc b {
+  color: #ffa116;
+}
+
+.join-contest-btn {
+  width: 100%;
+  height: 48px !important;
+  background: linear-gradient(135deg, #ffa116, #ff8800) !important;
+  border: none !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 20px rgba(255, 161, 22, 0.2);
+  transition: all 0.3s !important;
+}
+
+.join-contest-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(255, 161, 22, 0.4);
+}
+
+.join-terms {
+  font-size: 11px;
+  color: #5c5c5c;
+  font-style: italic;
+  margin: 0;
+}
+
+.fixed-register-wrap {
+  width: 100%;
+}
 
 @media (max-width: 768px) {
   .contest-layout { grid-template-columns: 1fr; }

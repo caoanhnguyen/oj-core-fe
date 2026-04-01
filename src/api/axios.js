@@ -49,10 +49,18 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
+import { useContestSessionStore } from '../stores/contestSession'
+
 // Response interceptor xử lý auto refresh token và error message
 axiosInstance.interceptors.response.use(
   (response) => {
-    // 🌟 Kiểm tra nếu backend trả về 200 nhưng body lại chứa "errorCode" (Trường hợp Spring Security/Custom Exception trả về 200 nhưng body là ErrorResponse)
+    // 🌟 Stealth Time Sync: Lấy serverTime từ mọi API trả về để đồng bộ lại Store
+    if (response.data && response.data.serverTime) {
+      const sessionStore = useContestSessionStore()
+      sessionStore.syncTime(response.data.serverTime)
+    }
+    
+    // 🌟 Kiểm tra nếu backend trả về 200 nhưng body lại chứa "errorCode"
     if (response.data && response.data.errorCode) {
       const error = new Error(response.data.message || 'API Error')
       error.response = response

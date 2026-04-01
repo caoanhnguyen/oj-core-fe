@@ -154,5 +154,11 @@ export const contestsAPI = {
   finish: async (id) => {
     const response = await axiosInstance.post(`/contests/${id}/finish`)
     return response.data
+  },
+
+  /** User: Lấy danh sách các contest mà mình đang thi (Active Session) */
+  getMyActiveContests: async () => {
+    const response = await axiosInstance.get('/contests/my-active')
+    return response.data.data
   }
 }

@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Trophy, Clock, Users, Search, ChevronRight, Filter, Calendar, Zap, RotateCcw, LayoutGrid } from 'lucide-vue-next'
 import { contestsAPI } from '@/api/contests'
+import { useAuthStore } from '@/stores/auth'
+import { useContestSessionStore } from '@/stores/contestSession'
 import { handleApiError } from '@/utils/errorHandler'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 
@@ -14,6 +16,48 @@ const searchQuery = ref('')
 const filterContestStatus = ref('')
 const filterRuleType = ref('')
 const pagination = ref({ page: 1, size: 20, total: 0 })
+
+const authStore = useAuthStore()
+const sessionStore = useContestSessionStore()
+const activeContests = ref([])
+const activeLoading = ref(false)
+const now = ref(new Date())
+
+let timerInterval = null
+
+// Helper to parse server ISO string correctly (appending Z if missing to force UTC)
+const parseServerDate = (dateStr) => {
+  if (!dateStr) return null
+  const cleanStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  return new Date(cleanStr)
+}
+
+const formatDateTime = (dateStr) => {
+  const date = parseServerDate(dateStr)
+  if (!date) return ''
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
+const loadActiveContests = async () => {
+  if (!authStore.isAuthenticated) return
+  
+  try {
+    activeLoading.value = true
+    const data = await contestsAPI.getMyActiveContests()
+    activeContests.value = data || []
+  } catch (error) {
+    console.error('Failed to load active contests:', error)
+  } finally {
+    activeLoading.value = false
+  }
+}
 
 const loadContests = async () => {
   try {
@@ -62,33 +106,41 @@ const goToContest = (contest) => {
   router.push(`/contests/${contest.id}`)
 }
 
-const formatDateTime = (dt) => {
-  if (!dt) return ''
-  return new Date(dt).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-
 const getDuration = (start, end) => {
   if (!start || !end) return ''
-  const diff = new Date(end) - new Date(start)
+  const diff = parseServerDate(end) - parseServerDate(start)
   const hours = Math.floor(diff / 3600000)
   const mins = Math.floor((diff % 3600000) / 60000)
   return hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins}m`
 }
 
-const statusFilters = [
-  { label: 'Tất cả', value: '' },
-  { label: 'Sắp diễn ra', value: 'UPCOMING' },
-  { label: 'Đang diễn ra', value: 'ONGOING' },
-  { label: 'Đã kết thúc', value: 'ENDED' }
-]
+onMounted(() => {
+  loadContests()
+  loadActiveContests()
+  
+  timerInterval = setInterval(() => {
+    now.value = sessionStore.getServerNow()
+  }, 1000)
+})
 
-const ruleFilters = [
-  { label: 'Tất cả', value: '' },
-  { label: 'ACM', value: 'ACM' },
-  { label: 'OI', value: 'OI' }
-]
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval)
+})
 
-onMounted(loadContests)
+const getRemainingTime = (endTimeStr) => {
+  const endTime = parseServerDate(endTimeStr)
+  if (!endTime) return null
+  
+  const diff = endTime - now.value
+  if (diff <= 0) return '00:00:00'
+  
+  const hours = Math.floor(diff / 3600000)
+  const mins = Math.floor((diff % 3600000) / 60000)
+  const secs = Math.floor((diff % 60000) / 1000)
+  
+  return [hours, mins, secs].map(v => String(v).padStart(2, '0')).join(':')
+}
 </script>
 
 <template>
@@ -98,6 +150,59 @@ onMounted(loadContests)
         <div>
           <h1 class="section-title">Contests</h1>
           <p class="section-subtitle">Tham gia các cuộc thi lập trình và thách thức bản thân!</p>
+        </div>
+      </div>
+
+      <!-- Active Contests Section -->
+      <div v-if="activeContests.length > 0" class="active-contests-section">
+        <div class="section-badge">
+          <span class="active-dot"></span>
+          ĐANG THAM GIA
+        </div>
+        
+        <div class="active-grid">
+          <div 
+            v-for="item in activeContests" 
+            :key="item.contest.id" 
+            class="active-card"
+            @click="goToContest(item.contest)"
+          >
+            <div class="active-card-content">
+              <div class="active-info">
+                <h3 class="active-title">{{ item.contest.title }}</h3>
+                <div class="active-meta">
+                  <div class="meta-item">
+                    <Trophy :size="14" />
+                    <span>{{ item.contest.ruleType }}</span>
+                  </div>
+                  <div class="meta-item">
+                    <Users :size="14" />
+                    <span>{{ item.contest.participantCount }} người thi</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="active-timer">
+                <div class="timer-label">THỜI GIAN CÒN LẠI</div>
+                <div class="timer-value" :class="{ 'timer-warning': parseServerDate(item.sessionEndTime) - now < 300000 }">
+                  <Clock :size="18" />
+                  {{ getRemainingTime(item.sessionEndTime) }}
+                </div>
+              </div>
+
+              <div class="active-action">
+                <button class="resume-btn">
+                  Tiếp tục thi
+                  <ChevronRight :size="16" />
+                </button>
+              </div>
+            </div>
+            
+            <!-- Progress bar (visual only for now) -->
+            <div class="active-progress-bg">
+              <div class="active-progress-fill" :style="{ width: '100%' }"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -173,9 +278,9 @@ onMounted(loadContests)
         
         <div class="spacer"></div>
         <div class="solved-count-container" v-if="pagination.total >= 0">
-          <div class="results-badge">
-            <Search :size="14" class="search-indicator" />
-            <span class="results-count">{{ pagination.total }} cuộc thi</span>
+          <div class="solved-count">
+            <div class="circle-progress"></div>
+            <span>{{ pagination.total }} Contests</span>
           </div>
         </div>
       </div>
@@ -223,7 +328,7 @@ onMounted(loadContests)
           <div class="card-meta">
             <div class="meta-row">
               <Calendar :size="14" class="meta-icon" />
-              <span>{{ formatDateTime(contest.startTime) }}</span>
+              <span>{{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
             </div>
             <div class="meta-row">
               <Zap :size="14" class="meta-icon" />
@@ -349,14 +454,21 @@ onMounted(loadContests)
   flex: 1;
 }
 
-.solved-count-container {
+.solved-count {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 6px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 8px;
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 500;
+}
+.circle-progress {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #3e3e3e;
+  border-top-color: #00b8a3;
+  transform: rotate(-45deg);
 }
 
 .results-badge {
@@ -569,6 +681,179 @@ onMounted(loadContests)
   .controls-bar { gap: 8px; }
   .search-input { width: 170px; }
   .contests-grid { grid-template-columns: 1fr; }
+}
+
+/* Active Contests Styles */
+.active-contests-section {
+  margin-bottom: 40px;
+  background: linear-gradient(135deg, rgba(255, 161, 22, 0.05) 0%, rgba(255, 161, 22, 0.02) 100%);
+  border: 1px solid rgba(255, 161, 22, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 161, 22, 0.15);
+  color: #ffa116;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 20px;
+}
+
+.active-dot {
+  width: 6px;
+  height: 6px;
+  background: #ffa116;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #ffa116;
+  animation: pulse-active 1.5s infinite;
+}
+
+@keyframes pulse-active {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.active-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.active-card {
+  background: #242424;
+  border: 1px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.active-card:hover {
+  background: #2a2a2a;
+  border-color: #444;
+  transform: translateX(4px);
+}
+
+.active-card-content {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  padding: 16px 24px;
+  gap: 24px;
+}
+
+.active-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.active-meta {
+  display: flex;
+  gap: 16px;
+  color: #8a8a8a;
+  font-size: 13px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-timer {
+  text-align: right;
+  min-width: 140px;
+}
+
+.timer-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #5c5c5c;
+  margin-bottom: 4px;
+}
+
+.timer-value {
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: #00b8a3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.timer-warning {
+  color: #ff4d4f;
+  animation: shake 0.5s infinite;
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(1px); }
+  75% { transform: translateX(-1px); }
+  100% { transform: translateX(0); }
+}
+
+.resume-btn {
+  background: #ffa116;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resume-btn:hover {
+  background: #ffb342;
+  box-shadow: 0 4px 12px rgba(255, 161, 22, 0.3);
+}
+
+.active-progress-bg {
+  height: 2px;
+  background: #333;
+  width: 100%;
+}
+
+.active-progress-fill {
+  height: 100%;
+  background: #ffa116;
+  transition: width 1s linear;
+}
+
+@media (max-width: 640px) {
+  .active-card-content {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    text-align: center;
+  }
+  .active-timer {
+    text-align: center;
+  }
+  .timer-value {
+    justify-content: center;
+  }
+  .active-action {
+    display: flex;
+    justify-content: center;
+  }
 }
 </style>
 
