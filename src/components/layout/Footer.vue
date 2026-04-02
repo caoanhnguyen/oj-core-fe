@@ -4,7 +4,7 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
 
 <template>
   <footer class="main-footer">
-    <div class="footer-content">
+    <div class="footer-content container">
       <div class="footer-left">
         <div class="footer-logo">
           <Code2 :size="24" class="logo-icon" />
@@ -39,7 +39,7 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
       </div>
     </div>
     
-    <div class="footer-bottom">
+    <div class="footer-bottom container">
       <p>&copy; 2026 KMA OJ. Developed with ❤️ by 
         <a class="footer-link" href="https://github.com/caoanhnguyen">caoanh_ng.</a>
       </p>
@@ -56,8 +56,6 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
 }
 
 .footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   gap: 60px;
@@ -146,8 +144,6 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
 
 
 .footer-bottom {
-  max-width: 1200px;
-  margin: 0 auto;
   padding-top: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   text-align: center;

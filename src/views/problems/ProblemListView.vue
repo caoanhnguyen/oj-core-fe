@@ -6,7 +6,10 @@ import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
 import { useAuthStore } from '@/stores/auth'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import TableControls from '@/components/common/TableControls.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import DataTable from '@/components/common/DataTable.vue'
 import { debounce } from 'lodash'
 
 const router = useRouter()
@@ -224,6 +227,22 @@ const handleSizeChange = (val) => {
   fetchProblemsData()
 }
 
+// Configs for TableControls
+const filterConfig = [
+  { key: 'difficulty', label: 'Difficulty', icon: Gauge, options: [{ label: 'Easy', value: 'EASY' }, { label: 'Medium', value: 'MEDIUM' }, { label: 'Hard', value: 'HARD' }] },
+  { key: 'ruleType', label: 'Rule Type', icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] }
+]
+
+const handleFilterChange = ({ key, value }) => {
+  if (value === '') {
+     filters.value[key].active = false
+     filters.value[key].value = null
+  } else {
+     filters.value[key].active = true
+     filters.value[key].value = value
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     fetchProblemsData(),
@@ -234,14 +253,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="problems-page">
-    <div class="content-section">
-      <div class="section-header">
-        <div>
-          <h1 class="section-title">Problems</h1>
-          <p class="section-subtitle">Browse and solve coding problems to improve your skills</p>
-        </div>
-      </div>
+  <div class="public-layout-page">
+    <div class="public-layout-container">
+      <PageHeader 
+        title="Problems" 
+        subtitle="Browse and solve coding problems to improve your skills"
+      />
 
       <!-- Quick Topic Filters Row -->
       <div v-if="topics.length > 0" class="topics-row-outer">
@@ -265,247 +282,153 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="table-controls">
-        <div class="search-wrap">
-          <Search class="search-icon" :size="16" />
-          <input type="text" v-model="searchQuery" placeholder="Search problems" class="search-input" />
-        </div>
-        
-          <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
-            <span class="el-dropdown-link">
-              <button class="control-btn sort-btn" :class="{ active: currentSortField, 'has-text': currentSortField }">
-                <ArrowUpDown v-if="!currentSortField" :size="16" />
-                <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" style="transform: rotate(180deg);" />
-                <ArrowUpDown v-else :size="16" />
-                <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'difficulty' ? 'Difficulty' : 'Title' }}</span>
-              </button>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu class="dark-dropdown custom-sort-menu">
-                <el-dropdown-item command="title" :class="{ 'is-active': currentSortField === 'title' }">
-                  <div class="sort-menu-content">
-                    <span>Title</span>
-                    <ArrowDownWideNarrow v-if="currentSortField === 'title' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                    <ArrowUpNarrowWide v-if="currentSortField === 'title' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
+      <TableControls
+        v-model="searchQuery"
+        search-placeholder="Search problems..."
+        :sort-options="[
+          { label: 'Title', value: 'title' },
+          { label: 'Difficulty', value: 'difficulty' }
+        ]"
+        :current-sort="currentSortField"
+        :current-sort-dir="currentSortDirection"
+        @sort="handleSort"
+        @reset-sort="resetSort"
+        :filter-config="filterConfig"
+        filter-title="Filter Problems"
+        @filter-change="handleFilterChange"
+        @reset-filters="resetFilters"
+      >
+        <template #custom-filters>
+           <div class="filter-row">
+             <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
+             <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
+               <Tag :size="14" /> Topics
+             </span>
+             <el-popover
+               placement="right-start"
+               :width="280"
+               trigger="click"
+               popper-class="topic-popover filter-popover"
+               :hide-after="0"
+               :persistent="true"
+               :teleported="false"
+               :disabled="!filters.topics.active"
+               @show="onTopicPopoverShow"
+             >
+               <template #reference>
+                  <div style="position: relative; flex: 1; min-width: 0;">
+                    <el-select
+                      size="small"
+                      class="dark-select value-select"
+                      :disabled="!filters.topics.active"
+                      :model-value="filters.topics.value.length ? (filters.topics.value.length === 1 ? filters.topics.value[0] : `${filters.topics.value[0]} +${filters.topics.value.length - 1}`) : ''"
+                      placeholder="Select"
+                      style="width: 100%; pointer-events: none;"
+                    />
+                    <div 
+                      :style="{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: filters.topics.active ? 'pointer' : 'not-allowed' }"
+                    ></div>
                   </div>
-                </el-dropdown-item>
-                <el-dropdown-item command="difficulty" :class="{ 'is-active': currentSortField === 'difficulty' }">
-                  <div class="sort-menu-content">
-                    <span>Difficulty</span>
-                    <ArrowDownWideNarrow v-if="currentSortField === 'difficulty' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                    <ArrowUpNarrowWide v-if="currentSortField === 'difficulty' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
-                  </div>
-                </el-dropdown-item>
-                <div class="filter-footer sort-footer">
-                  <el-button link class="reset-filters" @click="resetSort">
-                    <RotateCcw :size="14" style="margin-right: 6px;" /> Reset Sort
-                  </el-button>
-                </div>
-              </el-dropdown-menu>
+                </template>
+               <div class="topic-selector-content" @click.stop>
+                 <div class="popover-search">
+                   <Search class="search-icon" :size="14" />
+                   <input 
+                     ref="topicSearchInput"
+                     type="text" 
+                     v-model="topicSearchQuery" 
+                     placeholder="search" 
+                     class="search-input" 
+                   />
+                 </div>
+                 <div class="topic-pills-container">
+                   <button
+                     v-for="topic in filteredTopicsList"
+                     :key="topic.id || topic.name"
+                     class="topic-pill"
+                     :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
+                     @click="handleTopicToggle(topic.name)"
+                   >
+                     {{ topic.name }}
+                   </button>
+                   <div v-if="filteredTopicsList.length === 0" class="no-topics">No topics found</div>
+                 </div>
+                 <div class="topic-selector-footer">
+                   <el-button link class="reset-filters" @click="resetTopicFilter">
+                     <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
+                   </el-button>
+                 </div>
+               </div>
+             </el-popover>
+           </div>
+        </template>
+        <template #custom-total>
+          <div class="solved-count-container" v-if="authStore.isAuthenticated">
+            <!-- Normal state: No filters -> Show progress ring -->
+            <template v-if="!hasActiveFilters && !searchQuery">
+              <div class="progress-ring">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                  <path class="circle-bg"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path class="circle"
+                    :stroke-dasharray="`${progressPercent}, 100`"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+              </div>
+              <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
             </template>
-          </el-dropdown>
-
-        <el-popover
-          placement="bottom-start"
-          :width="350"
-          trigger="click"
-          popper-class="filter-popover"
-          :hide-after="0"
-          :persistent="true"
-        >
-          <template #reference>
-            <div style="display: inline-block;">
-              <el-tooltip content="Filter problems" placement="top" effect="dark" :hide-after="0">
-                <button class="control-btn" :class="{ active: hasActiveFilters }">
-                  <Filter :size="16" />
-                </button>
-              </el-tooltip>
-            </div>
-          </template>
-          <div class="filter-content">
-            <div class="filter-header">
-              <span>Filter Problems</span>
-            </div>
-            
-            <div class="filter-list">
-               <div class="filter-row">
-                 <el-checkbox v-model="filters.difficulty.active" class="dark-checkbox" />
-                 <span class="filter-label" :class="{ 'is-active': filters.difficulty.active }">
-                   <Gauge :size="14" /> Difficulty
-                 </span>
-                 <el-select v-model="filters.difficulty.operator" size="small" class="dark-select math-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                   <el-option label="is" value="is" />
-                 </el-select>
-                 <el-select v-model="filters.difficulty.value" size="small" class="dark-select value-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                    <el-option label="Easy" value="EASY" />
-                    <el-option label="Medium" value="MEDIUM" />
-                    <el-option label="Hard" value="HARD" />
-                 </el-select>
-               </div>
-
-               <div class="filter-row">
-                 <el-checkbox v-model="filters.ruleType.active" class="dark-checkbox" />
-                 <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
-                   <LayoutGrid :size="14" /> Rule Type
-                 </span>
-                 <el-select v-model="filters.ruleType.operator" size="small" class="dark-select math-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
-                   <el-option label="is" value="is" />
-                 </el-select>
-                 <el-select v-model="filters.ruleType.value" size="small" class="dark-select value-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
-                    <el-option label="ACM" value="ACM" />
-                    <el-option label="OI" value="OI" />
-                 </el-select>
-               </div>
-               
-               <div class="filter-row">
-                 <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
-                 <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
-                   <Tag :size="14" /> Topics
-                 </span>
-                 <el-select v-model="filters.topics.operator" size="small" class="dark-select math-select" :disabled="!filters.topics.active" popper-class="dark-select-dropdown">
-                   <el-option label="in" value="in" />
-                 </el-select>
-                 <el-popover
-                   placement="right-start"
-                   :width="280"
-                   trigger="click"
-                   popper-class="topic-popover filter-popover"
-                   :hide-after="0"
-                   :persistent="true"
-                   :teleported="false"
-                   @show="onTopicPopoverShow"
-                 >
-                   <template #reference>
-                     <div class="topic-trigger" :class="{ 'is-inactive': !filters.topics.active }" @click.stop>
-                       <span v-if="filters.topics.value.length === 0">Select</span>
-                       <div v-else class="selected-topics-text">
-                          {{ filters.topics.value[0] }}
-                          <span v-if="filters.topics.value.length > 1" class="more-count">
-                            +{{ filters.topics.value.length - 1 }}
-                          </span>
-                       </div>
-                       <ChevronDown :size="14" class="topic-trigger-icon" />
-                     </div>
-                   </template>
-                   <div class="topic-selector-content" @click.stop>
-                     <div class="popover-search">
-                       <Search class="search-icon" :size="14" />
-                       <input 
-                         ref="topicSearchInput"
-                         type="text" 
-                         v-model="topicSearchQuery" 
-                         placeholder="search" 
-                         class="search-input" 
-                       />
-                     </div>
-                     <div class="topic-pills-container">
-                       <button
-                         v-for="topic in filteredTopicsList"
-                         :key="topic.id || topic.name"
-                         class="topic-pill"
-                         :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
-                         @click="handleTopicToggle(topic.name)"
-                       >
-                         {{ topic.name }}
-                       </button>
-                       <div v-if="filteredTopicsList.length === 0" class="no-topics">No topics found</div>
-                     </div>
-                     <div class="topic-selector-footer">
-                       <el-button link class="reset-filters" @click="resetTopicFilter">
-                         <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
-                       </el-button>
-                     </div>
-                   </div>
-                 </el-popover>
-               </div>
-            </div>
-
-            <div class="filter-footer">
-              <div class="spacer"></div>
-              <el-button link class="reset-filters" @click="resetFilters">
-                <RotateCcw :size="14" style="margin-right: 6px;" /> Reset All
-              </el-button>
-            </div>
+            <!-- Filter state: Show total results -->
+            <template v-else>
+              <div class="results-badge">
+                <Search :size="14" class="search-indicator" />
+                <span class="results-count">Found: {{ problemStore.pagination.totalElements }} results</span>
+              </div>
+            </template>
           </div>
-        </el-popover>
-        
-        <div class="spacer"></div>
-        <div class="solved-count-container" v-if="authStore.isAuthenticated">
-          <!-- Normal state: No filters -> Show progress ring -->
-          <template v-if="!hasActiveFilters && !searchQuery">
-            <div class="progress-ring">
-              <svg viewBox="0 0 36 36" class="circular-chart">
-                <path class="circle-bg"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path class="circle"
-                  :stroke-dasharray="`${progressPercent}, 100`"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-            </div>
-            <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
-          </template>
-
-          <!-- Filter state: Show total results -->
-          <template v-else>
-            <div class="results-badge">
-              <Search :size="14" class="search-indicator" />
-              <span class="results-count">Found: {{ problemStore.pagination.totalElements }} results</span>
-            </div>
-          </template>
-        </div>
-      </div>
+        </template>
+      </TableControls>
 
       <TableSkeleton v-if="problemStore.loading && problems.length === 0" :columns="4" :rows="10" />
 
-      <el-table 
-        v-else 
+      <DataTable 
+        v-else
         :data="problems" 
-        class="dashboard-table leetcode-table" 
-        v-loading="problemStore.loading" 
-        :show-header="true"
+        :columns="[
+          { key: 'solved', label: '', width: 50, resizable: false },
+          { key: 'index', label: '#', width: 60, resizable: false },
+          { key: 'title', label: 'Title', minWidth: 300 },
+          { key: 'ruleType', label: 'Rule Type', minWidth: 150 },
+          { key: 'difficulty', label: 'Difficulty', minWidth: 150 },
+          { key: 'score', label: 'Score', minWidth: 150 },
+          { key: 'rate', label: 'Accepted rate', minWidth: 150 }
+        ]"
+        :loading="problemStore.loading" 
+        empty-text="No problems found"
       >
-        <template #empty>
-          <el-empty description="No problems found" />
+        <template #cell-solved="{ row }">
+          <Check v-if="row.userProblemState === 'SOLVED'" :size="20" class="solved-icon" />
         </template>
-
-        <el-table-column label="" width="50" align="center">
-          <template #default="{ row }">
-            <Check v-if="row.userProblemState === 'SOLVED'" :size="20" class="solved-icon" />
-          </template>
-        </el-table-column>
-        <el-table-column label="#" width="60" align="center">
-          <template #default="{ $index }">
-            <span class="cell-index">{{ (pagination.page - 1) * pagination.size + $index + 1 }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Title" min-width="300">
-          <template #default="{ row }">
-            <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Rule Type" min-width="150" align="center">
-          <template #default="{ row }">
-             <span :class="['rule-type-text', getRuleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Difficulty" min-width="150" align="center">
-          <template #default="{ row }">
-             <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Score" min-width="150" align="center">
-          <template #default="{ row }">
-             <span :class="['score-text']">{{ row.totalScore }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Accepted rate" min-width="150" align="center">
-          <template #default="{ row }">
-            <span class="cell-index">{{ ((row.acceptedCount / row.submissionCount) * 100).toFixed(2) }}%</span>
-          </template>
-        </el-table-column>
-      </el-table>
+        <template #cell-index="{ index }">
+          <span class="cell-index">{{ (pagination.page - 1) * pagination.size + index + 1 }}</span>
+        </template>
+        <template #cell-title="{ row }">
+          <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
+        </template>
+        <template #cell-ruleType="{ row }">
+           <span :class="['rule-type-text', getRuleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
+        </template>
+        <template #cell-difficulty="{ row }">
+           <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+        </template>
+        <template #cell-score="{ row }">
+           <span class="score-text">{{ row.totalScore }}</span>
+        </template>
+        <template #cell-rate="{ row }">
+          <span class="cell-index">{{ ((row.acceptedCount / row.submissionCount) * 100 || 0).toFixed(2) }}%</span>
+        </template>
+      </DataTable>
 
       <!-- Generic Pagination -->
       <DarkPagination
@@ -521,98 +444,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.problems-page {
-  min-height: calc(100vh - 60px);
-  background: var(--bg-primary);
-}
 
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* Table Controls CSS */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.search-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: #8a8a8a;
-}
-.search-input {
-  background-color: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 240px;
-  outline: none;
-  transition: all 0.2s;
-}
-.search-input:focus {
-  border-color: #5c5c5c;
-  background-color: #333;
-}
-.search-input::placeholder {
-  color: #8a8a8a;
-}
-.control-btn {
-  background-color: #282828;
-  border: 1px solid transparent;
-  color: #8a8a8a;
-  border-radius: 20px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.control-btn:hover {
-  background-color: #333;
-  color: #eff2f6;
-}
-.control-btn.active {
-  background-color: rgba(255, 161, 22, 0.1);
-  color: var(--accent-primary);
-  border-color: rgba(255, 161, 22, 0.3);
-}
-.spacer {
-  flex: 1;
-}
 .solved-count-container {
   display: flex;
   align-items: center;
@@ -656,79 +488,9 @@ onMounted(async () => {
   letter-spacing: 0.3px;
 }
 
-.sort-btn.has-text {
-  width: auto;
-  padding: 0 16px;
-  gap: 8px;
-  border-radius: 20px;
-}
 
-.sort-text {
-  font-size: 13px;
-  font-weight: 500;
-}
 
-.custom-sort-menu .el-dropdown-menu__item {
-  padding: 0 12px;
-}
 
-.sort-footer {
-  padding: 8px 12px 4px 12px;
-  border-top: 1px solid #3e3e3e;
-  margin-top: 4px;
-}
-
-.sort-menu-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-width: 140px;
-  width: 100%;
-}
-.sort-indicator {
-  color: var(--accent-primary);
-  margin-left: 12px;
-}
-
-/* LeetCode Table CSS Override */
-:deep(.leetcode-table) {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-}
-:deep(.leetcode-table .el-table__inner-wrapper::before) {
-  display: none;
-}
-:deep(.leetcode-table .el-table__inner-wrapper),
-:deep(.leetcode-table .el-table__body-wrapper),
-:deep(.leetcode-table .el-scrollbar),
-:deep(.leetcode-table .el-scrollbar__wrap) {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
-}
-:deep(.leetcode-table th.el-table__cell) {
-  background: transparent !important;
-  border-bottom: 1px solid #3e3e3e !important;
-  color: #8a8a8a;
-  font-weight: 500;
-  font-size: 13px;
-}
-:deep(.leetcode-table td.el-table__cell) {
-  border-bottom: none !important;
-  padding: 12px 0;
-  background: transparent !important;
-}
-:deep(.leetcode-table tr) {
-  background: transparent !important;
-}
-/* Updated Zebra Backgrounds */
-:deep(.leetcode-table tr:nth-child(even) td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-:deep(.leetcode-table tr:hover td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
 :deep(.leetcode-table .cell-index) {
   font-weight: 500;
   color: #8a8a8a;
@@ -795,176 +557,9 @@ onMounted(async () => {
 </style>
 
 <style>
-/* Global Filter Popover Styles */
-.filter-popover.el-popper {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-  padding: 0 !important;
-  border-radius: 8px !important;
-  color: #eff2f6 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-  width: 350px !important; /* Sweet spot width */
-  min-width: 310px !important;
-}
-.filter-popover.el-popper .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-.filter-content {
-  display: flex;
-  flex-direction: column;
-}
-.filter-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #3e3e3e;
-  font-size: 14px;
-  font-weight: 600;
-  color: #eff2f6;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.filter-list {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px; /* Back to original comfortable gap */
-  margin-bottom: 0 !important;
-}
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* Standard gap */
-}
-
-.dark-checkbox {
-  --el-checkbox-checked-bg-color: var(--accent-primary);
-  --el-checkbox-checked-input-border-color: var(--accent-primary);
-}
-.dark-checkbox .el-checkbox__inner {
-  background-color: #333;
-  border-color: #5c5c5c;
-}
-
-.filter-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 90px;
-  color: #8a8a8a;
-  font-size: 13px;
-  flex-shrink: 0;
-  transition: color 0.2s;
-}
-.filter-label.is-active {
-  color: var(--accent-primary) !important;
-}
-
-/* Base Select styling for filters */
-.dark-select .el-input__wrapper {
-  background-color: #333 !important;
-  box-shadow: 0 0 0 1px #3e3e3e inset !important;
-  border-radius: 6px;
-}
-.dark-select .el-input__wrapper.is-focus {
-  box-shadow: 0 0 0 1px #5c5c5c inset !important;
-}
-.dark-select .el-input__inner {
-  color: #eff2f6 !important;
-  font-size: 13px;
-}
-.dark-select .el-input__suffix .el-select__caret {
-  color: #8a8a8a;
-}
-.dark-select.is-disabled .el-input__wrapper {
-  background-color: #282828 !important;
-  box-shadow: 0 0 0 1px #333 inset !important;
-  border-radius: 6px;
-}
-.dark-select.is-disabled .el-input__inner {
-  color: #5c5c5c !important;
-}
-
-.math-select {
-  width: 65px;
-  flex-shrink: 0;
-}
-.value-select {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Global Select Dropdown Styling */
-.dark-select-dropdown {
-  background-color: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-}
-.dark-select-dropdown .el-select-dropdown__item {
-  color: #eff2f6 !important;
-  padding: 0 12px;
-}
-.dark-select-dropdown .el-select-dropdown__item.is-selected {
-  color: var(--accent-primary) !important;
-  background-color: rgba(255, 161, 22, 0.1) !important;
-  font-weight: 600;
-}
-.dark-select-dropdown .el-select-dropdown__item.is-hovering {
-  background-color: #333 !important;
-}
-.dark-select-dropdown .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-.filter-footer {
-  padding: 12px 16px;
-  border-top: 1px solid #3e3e3e;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.reset-filters {
-  color: #8a8a8a !important;
-  font-size: 13px;
-}
-.reset-filters:hover {
-  color: #eff2f6 !important;
-}
 
 /* Custom Topic Selector UI */
-.topic-trigger {
-  flex: 1;
-  min-width: 0; /* Let flex handle it */
-  height: 24px;
-  background-color: #333;
-  box-shadow: 0 0 0 1px #3e3e3e inset;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  color: #eff2f6;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  overflow: hidden;
-}
-.topic-trigger .topic-trigger-icon {
-  margin-left: auto;
-  color: #8a8a8a;
-  flex-shrink: 0;
-}
-.topic-trigger:not(.is-disabled):hover {
-  box-shadow: 0 0 0 1px #5c5c5c inset;
-}
-.topic-trigger.is-inactive {
-  background-color: #282828;
-  box-shadow: 0 0 0 1px #333 inset;
-  color: #5c5c5c;
-  cursor: pointer; /* Cho phép click để mở popover kể cả khi filter chưa active */
-}
+
 .selected-topics-text {
   color: var(--accent-primary);
   overflow: hidden;

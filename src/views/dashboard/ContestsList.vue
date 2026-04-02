@@ -10,6 +10,7 @@ import { handleApiError } from '@/utils/errorHandler'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
+import AppButton from '@/components/common/AppButton.vue'
 
 const contestStore = useContestStore()
 const problemStore = useProblemStore()
@@ -514,9 +515,9 @@ onMounted(loadContests)
           <h1 class="section-title">Quản lý Contest</h1>
           <p class="section-subtitle">Tạo và quản trị các cuộc thi lập trình</p>
         </div>
-        <el-button type="primary" @click="openCreateForm" class="add-button">
-          <Plus :size="16" style="margin-right: 8px;" /> Tạo Contest
-        </el-button>
+        <AppButton variant="primary" :icon="Plus" @click="openCreateForm">
+          Tạo Contest
+        </AppButton>
       </div>
 
       <!-- Controls -->
@@ -634,9 +635,9 @@ onMounted(loadContests)
               </div>
 
               <div class="filter-footer">
-                <el-button link class="reset-filters" @click="resetFilters">
-                  <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-                </el-button>
+                <AppButton variant="text" :icon="RotateCcw" class="reset-filters" @click="resetFilters">
+                  Đặt lại
+                </AppButton>
               </div>
             </div>
           </div>

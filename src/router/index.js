@@ -130,7 +130,32 @@ const router = createRouter({
         {
           path: 'contests',
           name: 'admin-contests',
-          component: () => import('../views/dashboard/ContestsList.vue')
+          component: () => import('../views/dashboard/contests/ContestsList.vue')
+        },
+        {
+          path: 'contests/create',
+          name: 'admin-contest-create',
+          component: () => import('../views/dashboard/contests/ContestCreateView.vue')
+        },
+        {
+          path: 'contests/:id/:tab?',
+          name: 'admin-contest-detail',
+          component: () => import('../views/dashboard/contests/ContestDetailView.vue')
+        },
+        {
+          path: 'problems',
+          name: 'admin-problems',
+          component: () => import('../views/dashboard/ProblemsList.vue')
+        },
+        {
+          path: 'topics',
+          name: 'admin-topics',
+          component: () => import('../views/dashboard/TopicsList.vue')
+        },
+        {
+          path: 'discussions',
+          name: 'admin-discussions',
+          component: () => import('../views/dashboard/DiscussionsList.vue')
         }
       ]
     },
@@ -162,7 +187,7 @@ router.beforeEach(async (to, from, next) => {
 
       const isProblemInContest = (to.path.startsWith('/problems/') && to.query.contestId === contestId)
       const isSubmissionInContest = (to.path.startsWith('/submissions/')) // Cho phép xem log nộp bài thoải mái
-      
+
       if (!isGoingToContest && !isProblemInContest && !isSubmissionInContest && to.name !== 'login' && to.name !== 'not-found') {
         const confirmExit = window.confirm('Bạn đang trong một phiên thi đấu. Thời gian vẫn sẽ tiếp tục trôi. Bạn có chắc chắn muốn rời khỏi trang này không?')
         if (!confirmExit) return next(false)

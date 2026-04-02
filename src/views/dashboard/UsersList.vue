@@ -4,6 +4,9 @@ import usersApi from '@/api/users'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import TableControls from '@/components/common/TableControls.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import DataTable from '@/components/common/DataTable.vue'
 import RoleDialog from '@/components/admin/RoleDialog.vue'
 import { useRouter } from 'vue-router'
 import { 
@@ -54,13 +57,37 @@ const filter = reactive({
   size: 20
 })
 
-const hasActiveFilters = ref(false)
+const filterConfig = computed(() => [
+  {
+    type: 'select',
+    label: 'Trạng thái',
+    active: filter.isLocked.active,
+    value: filter.isLocked.value,
+    options: [
+      { label: 'Hoạt động', value: true },
+      { label: 'Bị khóa', value: false }
+    ],
+    onUpdateActive: (val) => filter.isLocked.active = val,
+    onUpdateValue: (val) => filter.isLocked.value = val
+  },
+  {
+    type: 'select',
+    label: 'Vai trò',
+    active: filter.role.active,
+    value: filter.role.value,
+    options: [
+      { label: 'ADMIN', value: 'ROLE_ADMIN' },
+      { label: 'MODERATOR', value: 'ROLE_MODERATOR' },
+      { label: 'USER', value: 'ROLE_USER' }
+    ],
+    onUpdateActive: (val) => filter.role.active = val,
+    onUpdateValue: (val) => filter.role.value = val
+  }
+])
 
-watch(() => [filter.isLocked.active, filter.isLocked.value, filter.role.active, filter.role.value], () => {
-    hasActiveFilters.value = (filter.isLocked.active && filter.isLocked.value !== null) || 
-                             (filter.role.active && filter.role.value !== null)
-    handleSearch()
-}, { deep: true })
+const handleFilterChange = () => {
+  handleSearch()
+}
 
 const roleDialog = reactive({
   visible: false,
@@ -115,12 +142,10 @@ const handleSelectionChange = (val) => {
 }
 
 const canLockSelected = computed(() => {
-  // Can lock if at least one selected user is currently active
   return selectedUsers.value.some(u => u.accountNonLocked !== false)
 })
 
 const canUnlockSelected = computed(() => {
-  // Can unlock if at least one selected user is currently locked
   return selectedUsers.value.some(u => u.accountNonLocked === false)
 })
 
@@ -205,128 +230,53 @@ onMounted(fetchUsers)
 </script>
 
 <template>
-  <div class="content-section">
-    <div class="section-header">
-       <div class="title-group">
-         <h1 class="section-title">Quản lý người dùng</h1>
-         <p class="section-subtitle">Xem và quản trị danh sách người dùng, phân quyền hệ thống</p>
-       </div>
-    </div>
+  <div class="admin-layout-container">
+    <PageHeader 
+      title="Quản lý người dùng" 
+      subtitle="Xem và quản trị danh sách người dùng, phân quyền hệ thống"
+    />
 
     <!-- Table Controls -->
-    <div class="table-controls">
-      <div class="search-wrap">
-        <Search class="search-icon" :size="16" />
-        <input 
-          type="text" 
-          v-model="filter.keyword" 
-          placeholder="Tìm kiếm người dùng..." 
-          class="search-input" 
-          @keyup.enter="handleSearch"
-        />
-      </div>
-
-      <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
-        <span class="el-dropdown-link">
-          <button class="control-btn sort-btn" :class="{ active: currentSortField, 'has-text': currentSortField }">
-            <ArrowUpDown v-if="!currentSortField" :size="16" />
-            <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" />
-            <ArrowUpDown v-else :size="16" />
-            <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'username' ? 'Username' : 'Họ tên' }}</span>
+    <TableControls
+      v-model="filter.keyword"
+      @update:modelValue="handleSearch"
+      search-placeholder="Tìm kiếm người dùng..." 
+      :total-elements="totalElements"
+      item-name="Người dùng"
+      :sort-options="[
+        { label: 'Username', value: 'username' },
+        { label: 'Họ tên', value: 'fullName' }
+      ]"
+      :current-sort="currentSortField"
+      :current-sort-dir="currentSortDirection"
+      @sort="handleSort"
+      @reset-sort="resetSort"
+      :filter-config="filterConfig"
+      filter-title="Bộ lọc người dùng"
+      @filter-change="handleFilterChange"
+      @reset-filters="resetFilter"
+    >
+      <template #custom-actions>
+        <div class="bulk-actions" v-if="selectedUsers.length > 0" style="margin-right: auto; padding-left: 12px;">
+          <button 
+            class="bulk-btn bulk-btn-lock" 
+            @click="handleBulkLock(true)"
+            :disabled="!canLockSelected"
+            :class="{ 'is-disabled': !canLockSelected }"
+          >
+            <Lock :size="13" style="margin-right: 5px" /> Khóa
           </button>
-        </span>
-        <template #dropdown>
-          <el-dropdown-menu class="dark-dropdown custom-sort-menu">
-            <el-dropdown-item command="username" :class="{ 'is-active': currentSortField === 'username' }">
-              <div class="sort-menu-content">
-                <span>Username</span>
-                <ArrowDownWideNarrow v-if="currentSortField === 'username' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                <ArrowUpNarrowWide v-if="currentSortField === 'username' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
-              </div>
-            </el-dropdown-item>
-            <el-dropdown-item command="fullName" :class="{ 'is-active': currentSortField === 'fullName' }">
-              <div class="sort-menu-content">
-                <span>Họ tên</span>
-                <ArrowDownWideNarrow v-if="currentSortField === 'fullName' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                <ArrowUpNarrowWide v-if="currentSortField === 'fullName' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
-              </div>
-            </el-dropdown-item>
-            <div class="filter-footer sort-footer">
-              <el-button link class="reset-filters" @click="resetSort">
-                <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-              </el-button>
-            </div>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-      
-      <el-popover
-        placement="bottom-start"
-        :width="350"
-        trigger="click"
-        popper-class="filter-popover dark-popper"
-      >
-        <template #reference>
-          <button class="control-btn" :class="{ active: hasActiveFilters }">
-            <Filter :size="16" />
+          <button 
+            class="bulk-btn bulk-btn-unlock" 
+            @click="handleBulkLock(false)"
+            :disabled="!canUnlockSelected"
+            :class="{ 'is-disabled': !canUnlockSelected }"
+          >
+            <Unlock :size="13" style="margin-right: 5px" /> Mở khóa
           </button>
-        </template>
-        
-        <div class="filter-content">
-          <div class="filter-header">Bộ lọc người dùng</div>
-          <div class="filter-list">
-            <div class="filter-row">
-              <el-checkbox v-model="filter.isLocked.active" class="dark-checkbox" />
-              <span class="filter-label" :class="{ 'is-active': filter.isLocked.active }">Trạng thái</span>
-              <el-select v-model="filter.isLocked.value" size="small" class="dark-styled-select" :disabled="!filter.isLocked.active" popper-class="dark-popper-dropdown">
-                 <el-option label="Hoạt động" :value="true" />
-                 <el-option label="Bị khóa" :value="false" />
-              </el-select>
-            </div>
-
-            <div class="filter-row">
-              <el-checkbox v-model="filter.role.active" class="dark-checkbox" />
-              <span class="filter-label" :class="{ 'is-active': filter.role.active }">Vai trò</span>
-              <el-select v-model="filter.role.value" size="small" class="dark-styled-select" :disabled="!filter.role.active" popper-class="dark-popper-dropdown">
-                 <el-option label="ADMIN" value="ROLE_ADMIN" />
-                 <el-option label="MODERATOR" value="ROLE_MODERATOR" />
-                 <el-option label="USER" value="ROLE_USER" />
-              </el-select>
-            </div>
-          </div>
-          <div class="filter-footer">
-            <el-button link class="reset-filters" @click="resetFilter">
-              <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-            </el-button>
-          </div>
         </div>
-      </el-popover>
-
-      <div class="bulk-actions" v-if="selectedUsers.length > 0">
-        <button 
-          class="bulk-btn bulk-btn-lock" 
-          @click="handleBulkLock(true)"
-          :disabled="!canLockSelected"
-          :class="{ 'is-disabled': !canLockSelected }"
-        >
-          <Lock :size="13" style="margin-right: 5px" /> Khóa
-        </button>
-        <button 
-          class="bulk-btn bulk-btn-unlock" 
-          @click="handleBulkLock(false)"
-          :disabled="!canUnlockSelected"
-          :class="{ 'is-disabled': !canUnlockSelected }"
-        >
-          <Unlock :size="13" style="margin-right: 5px" /> Mở khóa
-        </button>
-      </div>
-      
-      <div class="spacer"></div>
-      <div class="count-display">
-         <div class="circle-indicator"></div>
-         <span>{{ totalElements || 0 }} Người dùng</span>
-      </div>
-    </div>
+      </template>
+    </TableControls>
 
     <!-- Table Section -->
     <div class="table-container">
@@ -460,84 +410,6 @@ onMounted(fetchUsers)
 </template>
 
 <style scoped>
-.content-section {
-  padding: 30px;
-}
-
-.section-header {
-  margin-bottom: 30px;
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #eff2f6;
-  margin: 0 0 4px 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: #8a8a8a;
-  margin: 0;
-}
-
-/* Table Controls */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.search-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: #8a8a8a;
-  z-index: 2;
-}
-
-.search-input {
-  background-color: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 300px;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.search-input:focus {
-  border-color: #5c5c5c;
-  background-color: #333;
-}
-
-.control-btn {
-  background-color: #282828;
-  border: 1px solid transparent;
-  color: #8a8a8a;
-  border-radius: 20px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.control-btn:hover {
-  background-color: #333;
-  color: #eff2f6;
-}
-
 .control-btn.active {
   background-color: rgba(255, 161, 22, 0.1);
   color: var(--accent-primary);

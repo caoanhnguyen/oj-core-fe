@@ -9,6 +9,7 @@ import {
   User, Mail, Phone, MapPin, School, BookOpen, 
   Github, Linkedin, Globe, Camera, Save, ArrowLeft
 } from 'lucide-vue-next'
+import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -99,9 +100,9 @@ onMounted(loadProfile)
   <div class="edit-profile-page">
     <div class="edit-container" v-loading="loading">
       <div class="header">
-        <el-button link @click="router.back()">
-          <ArrowLeft :size="20" /> Quay lại
-        </el-button>
+        <AppButton variant="text" :icon="ArrowLeft" @click="router.back()">
+          Quay lại
+        </AppButton>
         <h1>Chỉnh sửa hồ sơ</h1>
       </div>
 
@@ -209,11 +210,9 @@ onMounted(loadProfile)
             </div>
 
             <div class="form-actions">
-              <button class="save-btn" :disabled="saving" @click="handleUpdateProfile">
-                <Save v-if="!saving" :size="18" style="margin-right: 8px;" />
-                <span v-if="saving">Đang lưu...</span>
-                <span v-else>Lưu thay đổi</span>
-              </button>
+              <AppButton variant="primary" :icon="Save" :loading="saving" :disabled="saving" @click="handleUpdateProfile">
+                {{ saving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+              </AppButton>
             </div>
           </el-form>
         </div>
@@ -371,31 +370,7 @@ onMounted(loadProfile)
   justify-content: flex-end;
 }
 
-.save-btn {
-  background: var(--accent-primary);
-  border: none;
-  color: #000;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  height: 40px;
-}
 
-.save-btn:hover {
-  background: #ff8800;
-  transform: translateY(-1px);
-}
-
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
 
 /* Dark Form Styles Overrides */
 :deep(.el-form-item__label) {

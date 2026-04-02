@@ -6,9 +6,13 @@ import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import DataTable from '@/components/common/DataTable.vue'
+import TableControls from '@/components/common/TableControls.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 import { handleApiError } from '@/utils/errorHandler'
+import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const problemStore = useProblemStore()
@@ -115,30 +119,29 @@ const fetchProblemsData = async () => {
   await problemStore.fetchProblems(queryParams, false, true)
 }
 
-// Debounced fetch automatically triggering API for search/filter inputs 
 const debouncedFetchProblems = debounce(fetchProblemsData, 500)
+
+const filterConfig = [
+  { key: 'status', label: 'Trạng thái', icon: CheckCircle, options: [{ label: 'Hoạt động', value: 'ACTIVE' }, { label: 'Đã xóa', value: 'DELETED' }] },
+  { key: 'problemStatus', label: 'Hiển thị', icon: CheckCircle, options: [{ label: 'Công khai', value: 'PUBLISHED' }, { label: 'Bản nháp', value: 'DRAFT' }] },
+  { key: 'difficulty', label: 'Độ khó', icon: Gauge, options: [{ label: 'Dễ', value: 'EASY' }, { label: 'Trung bình', value: 'MEDIUM' }, { label: 'Khó', value: 'HARD' }] },
+  { key: 'ruleType', label: 'Quy tắc', icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] },
+]
+
+const handleFilterChange = ({ key, value }) => {
+  if (value === '') {
+     filters.value[key].active = false
+     filters.value[key].value = null
+  } else {
+     filters.value[key].active = true
+     filters.value[key].value = value
+  }
+}
 
 watch(searchQuery, () => {
   pagination.value.page = 1
   debouncedFetchProblems()
 })
-
-watch([currentSortField, currentSortDirection], () => {
-  pagination.value.page = 1
-  debouncedFetchProblems()
-})
-
-watch(filters, () => {
-  // Do not fetch if an active filter doesn't have a value yet
-  const hasIncompleteFilter = Object.values(filters.value).some(f => 
-    f.active && (!f.value || f.value.length === 0)
-  );
-  if (hasIncompleteFilter) {
-    return;
-  }
-  pagination.value.page = 1 // Reset to first page
-  debouncedFetchProblems()
-}, { deep: true })
 
 watch(() => pagination.value.page, () => {
   fetchProblemsData()
@@ -277,281 +280,148 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="content-section">
-    <div class="section-header">
-      <div>
-        <h1 class="section-title">Quản lý bài tập</h1>
-        <p class="section-subtitle">Tạo, chỉnh sửa và quản trị các bài tập lập trình</p>
-      </div>
-      <el-button type="primary" @click="handleAddProblem" class="add-button">
-        <FileText :size="16" style="margin-right: 8px;" />
+  <div class="admin-layout-container">
+    <PageHeader 
+      title="Quản lý bài tập" 
+      subtitle="Tạo, chỉnh sửa và quản trị các bài tập lập trình"
+    >
+      <AppButton variant="primary" :icon="FileText" @click="handleAddProblem">
         Thêm bài tập
-      </el-button>
-    </div>
+      </AppButton>
+    </PageHeader>
 
-    <div class="table-controls">
-      <div class="search-wrap">
-        <Search class="search-icon" :size="16" />
-        <input type="text" v-model="searchQuery" placeholder="Tìm kiếm bài tập..." class="search-input" />
-      </div>
-      
-        <el-dropdown trigger="click" @command="handleSort" class="control-dropdown sort-dropdown">
-          <span class="el-dropdown-link">
-            <button class="control-btn sort-btn" :class="{ active: currentSortField, 'has-text': currentSortField }">
-              <ArrowUpDown v-if="!currentSortField" :size="16" />
-              <ArrowUpDown v-else-if="currentSortDirection === 'ASC'" :size="16" class="up-arrow" />
-              <ArrowUpDown v-else :size="16" />
-              <span v-if="currentSortField" class="sort-text">{{ currentSortField === 'difficulty' ? 'Độ khó' : 'Ngày tạo' }}</span>
-            </button>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu class="dark-dropdown custom-sort-menu">
-              <el-dropdown-item command="difficulty" :class="{ 'is-active': currentSortField === 'difficulty' }">
-                <div class="sort-menu-content">
-                  <span>Độ khó</span>
-                  <ArrowDownWideNarrow v-if="currentSortField === 'difficulty' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                  <ArrowUpNarrowWide v-if="currentSortField === 'difficulty' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
-                </div>
-              </el-dropdown-item>
-              <el-dropdown-item command="createdDate" :class="{ 'is-active': currentSortField === 'createdDate' }">
-                <div class="sort-menu-content">
-                  <span>Ngày tạo</span>
-                  <ArrowDownWideNarrow v-if="currentSortField === 'createdDate' && currentSortDirection === 'DESC'" :size="16" class="sort-indicator" />
-                  <ArrowUpNarrowWide v-if="currentSortField === 'createdDate' && currentSortDirection === 'ASC'" :size="16" class="sort-indicator" />
-                </div>
-              </el-dropdown-item>
-              <div class="filter-footer sort-footer">
-                <el-button link class="reset-filters" @click="resetSort">
-                  <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại sắp xếp
-                </el-button>
-              </div>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-
-      <el-popover
-        placement="bottom-start"
-        :width="450"
-        trigger="click"
-        popper-class="filter-popover"
-        :hide-after="0"
-        :persistent="true"
-      >
-        <template #reference>
-          <div style="display: inline-block;">
-            <el-tooltip content="Lọc bài tập" placement="top" effect="dark" :hide-after="0">
-              <button class="control-btn" :class="{ active: hasActiveFilters }">
-                <Filter :size="16" />
-              </button>
-            </el-tooltip>
-          </div>
-        </template>
-        <div class="filter-content">
-          <div class="filter-header">
-            <span>Bộ lọc bài tập</span>
-          </div>
-          
-          <div class="filter-list">
-             <div class="filter-row">
-               <el-checkbox v-model="filters.status.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.status.active }">
-                 <CheckCircle :size="14" /> Trạng thái
-               </span>
-               <el-select v-model="filters.status.operator" size="small" class="dark-select math-select" :disabled="!filters.status.active" popper-class="dark-select-dropdown">
-                 <el-option label="là" value="is" />
-               </el-select>
-               <el-select v-model="filters.status.value" size="small" class="dark-select value-select" :disabled="!filters.status.active" popper-class="dark-select-dropdown">
-                  <el-option label="Hoạt động" value="ACTIVE" />
-                  <el-option label="Đã xóa" value="DELETED" />
-               </el-select>
+    <TableControls
+      v-model="searchQuery"
+      search-placeholder="Tìm kiếm bài tập..."
+      :total-elements="problemStore.pagination.totalElements"
+      item-name="Bài tập"
+      :sort-options="[
+        { label: 'Độ khó', value: 'difficulty' },
+        { label: 'Ngày tạo', value: 'createdDate' }
+      ]"
+      :current-sort="currentSortField"
+      :current-sort-dir="currentSortDirection"
+      @sort="handleSort"
+      @reset-sort="resetSort"
+      :filter-config="filterConfig"
+      filter-title="Bộ lọc bài tập"
+      @filter-change="handleFilterChange"
+      @reset-filters="resetFilters"
+    >
+      <template #custom-filters>
+         <div class="filter-row" style="margin-top: 16px;">
+           <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
+           <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
+             <Tag :size="14" /> Chủ đề
+           </span>
+           <el-popover
+             placement="right-start"
+             :width="280"
+             trigger="click"
+             popper-class="topic-popover filter-popover"
+             :hide-after="0"
+             :persistent="true"
+             :teleported="false"
+           >
+             <template #reference>
+               <div class="topic-trigger custom-topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop style="flex: 1;">
+                 <span v-if="filters.topics.value.length === 0">Chọn</span>
+                 <span v-else class="selected-topics-text">{{ filters.topics.value.join(', ') }}</span>
+                 <ChevronDown :size="14" class="topic-trigger-icon" />
+               </div>
+             </template>
+             <div class="topic-selector-content" @click.stop>
+               <div class="popover-search">
+                 <Search class="search-icon" :size="14" />
+                 <input type="text" v-model="topicSearchQuery" placeholder="tìm kiếm..." class="search-input" />
+               </div>
+               <div class="topic-pills-container">
+                 <button
+                   v-for="topic in filteredTopicsList"
+                   :key="topic.id || topic.name"
+                   class="topic-pill"
+                   :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
+                   @click="handleTopicToggle(topic.name)"
+                 >
+                   {{ topic.name }}
+                 </button>
+                 <div v-if="filteredTopicsList.length === 0" class="no-topics">Không tìm thấy chủ đề nào</div>
+               </div>
+               <div class="topic-selector-footer">
+                 <el-button link class="reset-filters" @click="resetTopicFilter">
+                   <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
+                 </el-button>
+               </div>
              </div>
-
-             <div class="filter-row">
-               <el-checkbox v-model="filters.problemStatus.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.problemStatus.active }">
-                 <CheckCircle :size="14" /> Hiển thị
-               </span>
-               <el-select v-model="filters.problemStatus.operator" size="small" class="dark-select math-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
-                 <el-option label="là" value="is" />
-               </el-select>
-               <el-select v-model="filters.problemStatus.value" size="small" class="dark-select value-select" :disabled="!filters.problemStatus.active" popper-class="dark-select-dropdown">
-                  <el-option label="Công khai" value="PUBLISHED" />
-                  <el-option label="Bản nháp" value="DRAFT" />
-               </el-select>
-             </div>
-             
-             <div class="filter-row">
-               <el-checkbox v-model="filters.difficulty.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.difficulty.active }">
-                 <Gauge :size="14" /> Độ khó
-               </span>
-               <el-select v-model="filters.difficulty.operator" size="small" class="dark-select math-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                 <el-option label="là" value="is" />
-               </el-select>
-               <el-select v-model="filters.difficulty.value" size="small" class="dark-select value-select" :disabled="!filters.difficulty.active" popper-class="dark-select-dropdown">
-                  <el-option label="Dễ" value="EASY" />
-                  <el-option label="Trung bình" value="MEDIUM" />
-                  <el-option label="Khó" value="HARD" />
-               </el-select>
-             </div>
-
-             <div class="filter-row">
-               <el-checkbox v-model="filters.ruleType.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
-                 <LayoutGrid :size="14" /> Quy tắc
-               </span>
-               <el-select v-model="filters.ruleType.operator" size="small" class="dark-select math-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
-                 <el-option label="là" value="is" />
-               </el-select>
-               <el-select v-model="filters.ruleType.value" size="small" class="dark-select value-select" :disabled="!filters.ruleType.active" popper-class="dark-select-dropdown">
-                  <el-option label="ACM" value="ACM" />
-                  <el-option label="OI" value="OI" />
-               </el-select>
-             </div>
-             
-             <div class="filter-row">
-               <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
-               <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
-                 <Tag :size="14" /> Chủ đề
-               </span>
-               <el-select v-model="filters.topics.operator" size="small" class="dark-select math-select" :disabled="!filters.topics.active" popper-class="dark-select-dropdown">
-                 <el-option label="trong" value="in" />
-               </el-select>
-               <el-popover
-                 placement="right-start"
-                 :width="280"
-                 trigger="click"
-                 popper-class="topic-popover filter-popover"
-                 :hide-after="0"
-                 :persistent="true"
-                 :teleported="false"
-               >
-                 <template #reference>
-                   <div class="topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop>
-                     <span v-if="filters.topics.value.length === 0">Chọn</span>
-                     <span v-else class="selected-topics-text">{{ filters.topics.value.join(', ') }}</span>
-                     <ChevronDown :size="14" class="topic-trigger-icon" />
-                   </div>
-                 </template>
-                 <div class="topic-selector-content" @click.stop>
-                   <div class="popover-search">
-                     <Search class="search-icon" :size="14" />
-                     <input type="text" v-model="topicSearchQuery" placeholder="tìm kiếm..." class="search-input" />
-                   </div>
-                   <div class="topic-pills-container">
-                     <button
-                       v-for="topic in filteredTopicsList"
-                       :key="topic.id || topic.name"
-                       class="topic-pill"
-                       :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
-                       @click="handleTopicToggle(topic.name)"
-                     >
-                       {{ topic.name }}
-                     </button>
-                     <div v-if="filteredTopicsList.length === 0" class="no-topics">Không tìm thấy chủ đề nào</div>
-                   </div>
-                   <div class="topic-selector-footer">
-                     <el-button link class="reset-filters" @click="resetTopicFilter">
-                       <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-                     </el-button>
-                   </div>
-                 </div>
-               </el-popover>
-             </div>
-          </div>
-
-          <div class="filter-footer">
-            <div class="spacer"></div>
-            <el-button link class="reset-filters" @click="resetFilters">
-              <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại tất cả
-            </el-button>
-          </div>
-        </div>
-      </el-popover>
-      
-      <div class="spacer"></div>
-      <div class="solved-count">
-         <div class="circle-progress"></div>
-         <span>{{ problemStore.pagination.totalElements || 0 }} Problems</span>
-      </div>
-    </div>
+           </el-popover>
+         </div>
+      </template>
+    </TableControls>
 
     <TableSkeleton v-if="problemStore.loading && problems.length === 0" :columns="6" :rows="10" />
 
-    <el-table 
-      v-else 
+    <DataTable 
       :data="problems" 
-      class="dashboard-table leetcode-table" 
-      v-loading="problemStore.loading" 
-      :show-header="true"
+      :columns="[
+        { key: 'index', label: '#', width: 60, align: 'center' },
+        { key: 'id', label: 'ID', width: 350 },
+        { key: 'title', label: 'Tiêu đề', minWidth: 300 },
+        { key: 'createdDate', label: 'Ngày tạo', width: 120, align: 'center' },
+        { key: 'difficulty', label: 'Độ khó', width: 100, align: 'center' },
+        { key: 'status', label: 'Trạng thái', width: 100, align: 'center' },
+        { key: 'problemStatus', label: 'Hiển thị', width: 120, align: 'center' },
+        { key: 'actions', label: 'Hành động', width: 140, align: 'center', fixed: 'right' }
+      ]"
+      :loading="problemStore.loading" 
+      empty-text="Không tìm thấy bài tập nào"
     >
-      <template #empty>
-        <el-empty description="Không tìm thấy bài tập nào" />
+      <template #cell-index="{ index }">
+        <span class="cell-index">{{ (pagination.page - 1) * pagination.size + index + 1 }}</span>
       </template>
-
-      <el-table-column label="#" width="60" align="center">
-        <template #default="{ $index }">
-          <span class="cell-index">{{ (pagination.page - 1) * pagination.size + $index + 1 }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="ID" width="300">
-        <template #default="{ row }">
-          <span class="cell-id">{{ row.id }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Tiêu đề" min-width="300">
-        <template #default="{ row }">
-          <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Ngày tạo" width="120" align="center">
-        <template #default="{ row }">
-          <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Độ khó" width="100" align="center">
-        <template #default="{ row }">
-           <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Trạng thái" width="100" align="center">
-        <template #default="{ row }">
-          <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
-            {{ row.status }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Hiển thị" width="150" align="center">
-        <template #default="{ row }">
-          <span :class="['status-badge', row.problemStatus === 'PUBLISHED' ? 'status-active' : 'status-draft']">
-            {{ row.problemStatus }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Hành động" width="140" align="center" fixed="right">
-        <template #default="{ row }">
-          <div class="action-buttons" v-if="row.status === 'DELETED'">
-            <el-tooltip content="Khôi phục bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
-            </el-tooltip>
-          </div>
-          <div class="action-buttons" v-else>
-            <el-tooltip content="Xem chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Eye" @click="handleView(row)" class="action-btn action-view" />
-            </el-tooltip>
-            <el-tooltip content="Sửa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
-            </el-tooltip>
-            <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Công khai bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Send" @click="handlePublish(row)" class="action-btn action-publish" />
-            </el-tooltip>
-            <el-tooltip v-else content="Xóa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
-            </el-tooltip>
-          </div>
-        </template>
-      </el-table-column>
-    </el-table>
+      <template #cell-id="{ row }">
+        <span class="cell-id">{{ row.id }}</span>
+      </template>
+      <template #cell-title="{ row }">
+        <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
+      </template>
+      <template #cell-createdDate="{ row }">
+        <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
+      </template>
+      <template #cell-difficulty="{ row }">
+         <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+      </template>
+      <template #cell-status="{ row }">
+        <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
+          {{ row.status }}
+        </span>
+      </template>
+      <template #cell-problemStatus="{ row }">
+        <span :class="['status-badge', row.problemStatus === 'PUBLISHED' ? 'status-active' : 'status-draft']">
+          {{ row.problemStatus }}
+        </span>
+      </template>
+      <template #cell-actions="{ row }">
+        <div class="action-buttons" v-if="row.status === 'DELETED'">
+          <el-tooltip content="Khôi phục bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
+          </el-tooltip>
+        </div>
+        <div class="action-buttons" v-else>
+          <el-tooltip content="Xem chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Eye" @click="handleView(row)" class="action-btn action-view" />
+          </el-tooltip>
+          <el-tooltip content="Sửa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
+          </el-tooltip>
+          <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Công khai bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Send" @click="handlePublish(row)" class="action-btn action-publish" />
+          </el-tooltip>
+          <el-tooltip v-else content="Xóa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
+          </el-tooltip>
+        </div>
+      </template>
+    </DataTable>
 
     <!-- Generic Pagination -->
     <DarkPagination
@@ -566,33 +436,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
 /* Add Button */
 .add-button {
   background: var(--accent-primary) !important;
@@ -606,162 +449,16 @@ onMounted(async () => {
   border-color: #ff8800 !important;
 }
 
-/* Table Controls CSS */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.search-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: #8a8a8a;
-}
-.search-input {
-  background-color: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 240px;
-  outline: none;
-  transition: all 0.2s;
-}
-.search-input:focus {
-  border-color: #5c5c5c;
-  background-color: #333;
-}
-.search-input::placeholder {
-  color: #8a8a8a;
-}
-.control-btn {
-  background-color: #282828;
-  border: 1px solid transparent;
-  color: #8a8a8a;
-  border-radius: 20px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.control-btn:hover {
-  background-color: #333;
-  color: #eff2f6;
-}
-.control-btn.active {
-  background-color: rgba(255, 161, 22, 0.1);
-  color: var(--accent-primary);
-  border-color: rgba(255, 161, 22, 0.3);
-}
-.spacer {
-  flex: 1;
-}
-.solved-count {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8a8a8a;
-  font-size: 13px;
-  font-weight: 500;
-}
-.circle-progress {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #3e3e3e;
-  border-top-color: #00b8a3;
-  transform: rotate(-45deg);
-}
 
-.sort-btn.has-text {
-  width: auto;
-  padding: 0 16px;
-  gap: 8px;
-  border-radius: 20px;
-}
 
-.sort-text {
-  font-size: 13px;
-  font-weight: 500;
-}
 
-.custom-sort-menu .el-dropdown-menu__item {
-  padding: 0 12px;
-}
 
-.sort-footer {
-  padding: 8px 12px 4px 12px;
-  border-top: 1px solid #3e3e3e;
-  margin-top: 4px;
-}
-
-.sort-menu-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-width: 140px;
-  width: 100%;
-}
-.sort-indicator {
-  color: var(--accent-primary);
-  margin-left: 12px;
-}
-
-/* LeetCode Table CSS Override */
-:deep(.leetcode-table) {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-}
-:deep(.leetcode-table .el-table__inner-wrapper::before) {
-  display: none;
-}
-:deep(.leetcode-table .el-table__inner-wrapper),
-:deep(.leetcode-table .el-table__body-wrapper),
-:deep(.leetcode-table .el-scrollbar),
-:deep(.leetcode-table .el-scrollbar__wrap) {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
-}
-:deep(.leetcode-table th.el-table__cell) {
-  background: transparent !important;
-  border-bottom: 1px solid #3e3e3e !important;
-  color: #8a8a8a;
-  font-weight: 500;
-  font-size: 13px;
-}
-:deep(.leetcode-table td.el-table__cell) {
-  border-bottom: none !important;
-  padding: 12px 0;
-  background: transparent !important;
-}
-:deep(.leetcode-table tr) {
-  background: transparent !important;
-}
-/* Updated Zebra Backgrounds */
-:deep(.leetcode-table tr:nth-child(odd) td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-:deep(.leetcode-table tr:hover td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-:deep(.leetcode-table .cell-index) {
+.cell-index {
   font-weight: 500;
   color: #8a8a8a;
   font-size: 13px;
 }
-:deep(.leetcode-table .cell-id) {
+.cell-id {
   color: #8a8a8a;
   font-weight: 500;
   font-size: 13px;
@@ -770,29 +467,30 @@ onMounted(async () => {
   text-overflow: ellipsis;
   display: block;
 }
-:deep(.leetcode-table .cell-title) {
+.cell-title {
   font-size: 14px;
   font-weight: 500;
   color: #eff2f6;
   transition: color 0.2s;
   cursor: pointer;
 }
-:deep(.leetcode-table tr:hover .cell-title) {
+.cell-title:hover {
   color: var(--accent-primary);
+  text-decoration: underline;
 }
-:deep(.leetcode-table .cell-date) {
+.cell-date {
   font-size: 13px;
   color: #8a8a8a;
 }
-:deep(.leetcode-table .difficulty-text) {
+.difficulty-text {
   font-weight: 500;
   font-size: 13px;
   display: inline-block;
   white-space: nowrap;
 }
-:deep(.leetcode-table .difficulty-easy) { background: transparent !important; color: #00b8a3 !important; padding: 0; }
-:deep(.leetcode-table .difficulty-medium) { background: transparent !important; color: #ffc01e !important; padding: 0; }
-:deep(.leetcode-table .difficulty-hard) { background: transparent !important; color: #ef4743 !important; padding: 0; }
+.difficulty-easy { background: transparent !important; color: #00b8a3 !important; padding: 0; }
+.difficulty-medium { background: transparent !important; color: #ffc01e !important; padding: 0; }
+.difficulty-hard { background: transparent !important; color: #ef4743 !important; padding: 0; }
 
 .status-badge {
   padding: 4px 8px;
@@ -1113,6 +811,32 @@ onMounted(async () => {
 .topic-pills-container::-webkit-scrollbar-thumb {
   background-color: #444;
   border-radius: 3px;
+}
+/* Custom Topic Trigger matching TableControls dark-select */
+.custom-topic-trigger {
+  background-color: #333 !important;
+  box-shadow: 0 0 0 1px #3e3e3e inset !important;
+  border-radius: 6px;
+  color: #eff2f6 !important;
+  font-size: 13px;
+  min-height: 24px;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+}
+.custom-topic-trigger:hover {
+  box-shadow: 0 0 0 1px #5c5c5c inset !important;
+}
+.custom-topic-trigger.is-disabled {
+  background-color: #282828 !important;
+  box-shadow: 0 0 0 1px #333 inset !important;
+  color: #5c5c5c !important;
+  cursor: not-allowed;
 }
 .topic-pill {
   background: #3e3e3e;

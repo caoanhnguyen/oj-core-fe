@@ -6,8 +6,11 @@ import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 import TopicFormDialog from '@/components/topics/TopicFormDialog.vue'
-import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import TableControls from '@/components/common/TableControls.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import DataTable from '@/components/common/DataTable.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const topicStore = useTopicStore()
@@ -166,99 +169,80 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="content-section">
-    <div class="section-header">
-      <div>
-        <h1 class="section-title">Quản lý chủ đề</h1>
-        <p class="section-subtitle">Tạo và quản lý các danh mục bài tập</p>
-      </div>
-      <el-button type="primary" @click="openCreateDialog" class="add-button">
-        <Plus :size="16" style="margin-right: 8px;" />
+  <div class="admin-layout-container">
+    <PageHeader 
+      title="Quản lý chủ đề" 
+      subtitle="Tạo và quản lý các danh mục bài tập"
+    >
+      <AppButton variant="primary" :icon="Plus" @click="openCreateDialog">
         Thêm chủ đề
-      </el-button>
-    </div>
+      </AppButton>
+    </PageHeader>
 
-    <div class="table-controls">
-      <div class="search-wrap">
-        <Search class="search-icon" :size="16" />
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          @keyup.enter="handleSearch"
-          placeholder="Tìm kiếm chủ đề theo tên..." 
-          class="search-input" 
-        />
-      </div>
-    </div>
+    <TableControls
+      v-model="searchQuery"
+      @update:modelValue="handleSearch"
+      search-placeholder="Tìm kiếm chủ đề theo tên..." 
+      :total-elements="pagination.totalElements"
+      item-name="Chủ đề"
+      :sort-options="[]" 
+    />
 
-    <TableSkeleton v-if="loading && topics.length === 0" :columns="6" :rows="10" />
-    
-    <el-table 
-      v-else 
+    <DataTable 
       :data="topics" 
-      class="dashboard-table leetcode-table click-table" 
-      v-loading="loading" 
-      :show-header="true"
+      :columns="[
+        { key: 'index', label: '#', width: 60, align: 'center' },
+        { key: 'name', label: 'Tên', minWidth: 100 },
+        { key: 'slug', label: 'Đường dẫn', minWidth: 100 },
+        { key: 'createdBy', label: 'Người tạo', width: 200, align: 'center' },
+        { key: 'updatedDate', label: 'Ngày cập nhật', width: 200, align: 'center' },
+        { key: 'status', label: 'Trạng thái', width: 100, align: 'center' },
+        { key: 'actions', label: 'Hành động', width: 120, align: 'center', fixed: 'right' }
+      ]"
+      :loading="loading" 
+      empty-text="Không tìm thấy chủ đề nào"
       @row-click="handleRowClick"
     >
-      <template #empty>
-        <el-empty description="Không tìm thấy chủ đề nào" />
+      <template #cell-index="{ index }">
+        <span class="cell-index">{{ pagination.page * pagination.size + index + 1 }}</span>
       </template>
-
-      <el-table-column width="60" align="center">
-        <template #default="{ $index }">
-          <span class="cell-index">{{ pagination.page * pagination.size + $index + 1 }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Tên" min-width="100">
-        <template #default="{ row }">
-          <router-link :to="`/topics/${row.slug}`" class="cell-title topic-link" @click.stop>
-            {{ row.name }}
-          </router-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="Đường dẫn" min-width="100">
-        <template #default="{ row }">
-          <span class="cell-text">{{ row.slug }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Người tạo" width="200" align="center">
-        <template #default="{ row }">
-          <router-link :to="`/profile/${row.createdBy}`" class="cell-link" @click.stop>
-            {{ row.createdBy }}
-          </router-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="Ngày cập nhật" width="200" align="center">
-        <template #default="{ row }">
-          <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Trạng thái" width="100" align="center">
-        <template #default="{ row }">
-           <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
-             {{ row.status }}
-           </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Hành động" width="120" align="center" fixed="right">
-        <template #default="{ row }">
-          <div class="action-buttons">
-            <el-tooltip v-if="row.status === 'ACTIVE'" content="Sửa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Edit" @click.stop="openEditDialog(row)" class="action-btn" />
-            </el-tooltip>
-            
-            <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="Trash2" @click.stop="handleDelete(row)" class="action-btn action-danger" />
-            </el-tooltip>
-            
-            <el-tooltip v-else content="Khôi phục chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
-              <el-button link :icon="RotateCcw" @click.stop="handleRestore(row)" class="action-btn action-success" />
-            </el-tooltip>
-          </div>
-        </template>
-      </el-table-column>
-    </el-table>
+      <template #cell-name="{ row }">
+        <router-link :to="`/topics/${row.slug}`" class="cell-title topic-link" @click.stop>
+          {{ row.name }}
+        </router-link>
+      </template>
+      <template #cell-slug="{ row }">
+        <span class="cell-text">{{ row.slug }}</span>
+      </template>
+      <template #cell-createdBy="{ row }">
+        <router-link :to="`/profile/${row.createdBy}`" class="cell-link" @click.stop>
+          {{ row.createdBy }}
+        </router-link>
+      </template>
+      <template #cell-updatedDate="{ row }">
+        <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
+      </template>
+      <template #cell-status="{ row }">
+         <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
+           {{ row.status }}
+         </span>
+      </template>
+      <template #cell-actions="{ row }">
+        <div class="action-buttons">
+          <el-tooltip v-if="row.status === 'ACTIVE'" content="Sửa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Edit" @click.stop="openEditDialog(row)" class="action-btn" />
+          </el-tooltip>
+          
+          <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="Trash2" @click.stop="handleDelete(row)" class="action-btn action-danger" />
+          </el-tooltip>
+          
+          <el-tooltip v-else content="Khôi phục chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+            <el-button link :icon="RotateCcw" @click.stop="handleRestore(row)" class="action-btn action-success" />
+          </el-tooltip>
+        </div>
+      </template>
+    </DataTable>
 
     <DarkPagination
       v-if="pagination.totalElements > 0"
@@ -281,33 +265,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
 /* Add Button */
 .add-button {
   background: var(--accent-primary) !important;
@@ -321,128 +278,7 @@ onMounted(() => {
   border-color: #ff8800 !important;
 }
 
-/* Table Controls CSS */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.search-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: #8a8a8a;
-}
-.search-input {
-  background-color: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 280px;
-  outline: none;
-  transition: all 0.2s;
-}
-.search-input:focus {
-  border-color: #5c5c5c;
-  background-color: #333;
-}
-.search-input::placeholder {
-  color: #8a8a8a;
-}
-.spacer {
-  flex: 1;
-}
-.solved-count {
-  color: #8a8a8a;
-  font-size: 13px;
-  font-weight: 500;
-}
 
-/* LeetCode Table CSS Override */
-:deep(.leetcode-table) {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-}
-:deep(.leetcode-table .el-table__inner-wrapper::before) {
-  display: none;
-}
-:deep(.leetcode-table .el-table__inner-wrapper),
-:deep(.leetcode-table .el-table__body-wrapper),
-:deep(.leetcode-table .el-scrollbar),
-:deep(.leetcode-table .el-scrollbar__wrap) {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
-}
-:deep(.leetcode-table th.el-table__cell) {
-  background: transparent !important;
-  border-bottom: 1px solid #3e3e3e !important;
-  color: #8a8a8a;
-  font-weight: 500;
-  font-size: 13px;
-}
-:deep(.leetcode-table td.el-table__cell) {
-  border-bottom: none !important;
-  padding: 12px 0;
-  background: transparent !important;
-}
-:deep(.leetcode-table tr) {
-  background: transparent !important;
-}
-/* Updated Zebra Backgrounds */
-:deep(.leetcode-table tr:nth-child(odd) td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-:deep(.leetcode-table tr:hover td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-:deep(.leetcode-table.click-table tr) {
-  cursor: pointer;
-}
-.topic-link {
-  text-decoration: none;
-  transition: color 0.2s;
-  color: #eff2f6;
-  font-weight: 500;
-}
-.topic-link:hover {
-  color: var(--accent-primary) !important;
-  text-decoration: underline;
-}
-:deep(.leetcode-table .cell-index) {
-  font-weight: 500;
-  color: #8a8a8a;
-  font-size: 13px;
-}
-:deep(.leetcode-table .cell-title) {
-  font-size: 14px;
-  font-weight: 500;
-  color: #eff2f6;
-}
-:deep(.leetcode-table .cell-text) {
-  font-size: 13px;
-  color: #8a8a8a;
-}
-:deep(.leetcode-table .description-text) {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-:deep(.leetcode-table .cell-date) {
-  font-size: 13px;
-  color: #8a8a8a;
-}
 .cell-link {
   color: var(--text-secondary);
   text-decoration: none;

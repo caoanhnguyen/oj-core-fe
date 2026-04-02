@@ -97,6 +97,12 @@ export const contestsAPI = {
     return response.data.data
   },
 
+  /** Admin: Xem bảng xếp hạng */
+  adminGetLeaderboard: async (id, params) => {
+    const response = await axiosInstance.get(`/admin/contests/${id}/leaderboard`, { params })
+    return response.data.data
+  },
+
   // ====================================================
   // USER PUBLIC APIs
   // ====================================================

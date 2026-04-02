@@ -5,7 +5,6 @@ import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, C
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
 const isCollapsed = ref(false)
 
@@ -19,48 +18,21 @@ const allMenuItems = [
 ]
 
 const menuItems = computed(() => {
-  // If user is MOD but NOT ADMIN, show Problems, Topics, and Contests
   if (authStore.isModerator && !authStore.isAdmin) {
     return allMenuItems.filter(item => ['problems', 'topics', 'contests'].includes(item.id))
   }
   return allMenuItems
 })
 
-const activeTab = ref(route.query.tab || (menuItems.value[0]?.id || 'overview'))
-
-// Adjust activeTab if current tab is not in menuItems (e.g. MOD trying to access Overview via URL)
-watch(menuItems, (newItems) => {
-  if (!newItems.find(item => item.id === activeTab.value)) {
-    activeTab.value = newItems[0]?.id || ''
-  }
-}, { immediate: true })
-
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
 }
 
-// Handle tab click
-const handleTabClick = (tabId) => {
-  activeTab.value = tabId
-  router.push({ path: '/dashboard', query: { tab: tabId } })
+// Active state based on URL path instead of query
+const isSidebarActive = (id) => {
+  if (id === 'overview') return route.path === '/dashboard' || route.path === '/dashboard/'
+  return route.path.startsWith(`/dashboard/${id}`)
 }
-
-// Watch route and query changes
-watch(
-  () => [route.path, route.query.tab],
-  ([newPath, newTab]) => {
-    if (newPath === '/dashboard') {
-      const tab = newTab || menuItems.value[0]?.id || 'overview'
-      // Security check: if tab is not in menuItems, redirect to first valid tab
-      if (!menuItems.value.find(item => item.id === tab)) {
-        activeTab.value = menuItems.value[0]?.id
-        router.replace({ path: '/dashboard', query: { tab: activeTab.value } })
-      } else {
-        activeTab.value = tab
-      }
-    }
-  }
-)
 </script>
 
 <template>
@@ -73,17 +45,17 @@ watch(
       </div>
 
       <nav class="sidebar-nav">
-        <button
+        <router-link
           v-for="item in menuItems"
           :key="item.id"
           class="nav-item"
-          :class="{ 'is-active': activeTab === item.id }"
-          @click="handleTabClick(item.id)"
+          :class="{ 'is-active': isSidebarActive(item.id) }"
+          :to="item.id === 'overview' ? '/dashboard' : `/dashboard/${item.id}`"
           :title="isCollapsed ? item.label : ''"
         >
           <component :is="item.icon" :size="22" class="nav-icon" />
           <span class="nav-label" v-show="!isCollapsed">{{ item.label }}</span>
-        </button>
+        </router-link>
       </nav>
 
       <!-- Collapse Toggle -->
@@ -96,7 +68,7 @@ watch(
 
     <!-- Main Content -->
     <main class="dashboard-main">
-      <router-view :active-tab="activeTab" @update:active-tab="handleTabClick" />
+      <router-view />
     </main>
   </div>
 </template>
@@ -104,7 +76,7 @@ watch(
 <style scoped>
 .dashboard-layout {
   display: flex;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
   background: var(--bg-primary);
 }
 

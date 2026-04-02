@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { MessageSquare, Eye, Trash2 } from 'lucide-vue-next'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const discussions = ref([
   { id: 1, title: 'How to approach dynamic programming problems?', author: 'john_doe', replies: 45, views: 1234, category: 'General', createdAt: '2024-01-15' },
@@ -18,17 +19,16 @@ const handleDelete = (row) => {
 </script>
 
 <template>
-  <div class="content-section">
-    <div class="section-header">
-      <div>
-        <h1 class="section-title">Manage Discussions</h1>
-        <p class="section-subtitle">Monitor and moderate community discussions</p>
-      </div>
+  <div class="admin-layout-container">
+    <PageHeader 
+      title="Manage Discussions" 
+      subtitle="Monitor and moderate community discussions"
+    >
       <el-button type="primary" class="add-button">
         <MessageSquare :size="16" style="margin-right: 8px;" />
         New Discussion
       </el-button>
-    </div>
+    </PageHeader>
 
     <el-table :data="discussions" class="dashboard-table">
       <el-table-column prop="id" label="ID" width="80" align="center" />
@@ -56,33 +56,6 @@ const handleDelete = (row) => {
 </template>
 
 <style scoped>
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
 /* Add Button - Orange theme */
 .add-button {
   background: var(--accent-primary) !important;
@@ -181,15 +154,4 @@ const handleDelete = (row) => {
   background: rgba(239, 71, 67, 0.1);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .content-section {
-    padding: var(--spacing-lg);
-  }
-
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
 </style>

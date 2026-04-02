@@ -1,24 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { FileText, MessageSquare, Users, Trophy, TrendingUp, CheckCircle } from 'lucide-vue-next'
-
-import ProblemsList from './ProblemsList.vue'
-import TopicsList from './TopicsList.vue'
-import ContestsList from './ContestsList.vue'
-import DiscussionsList from './DiscussionsList.vue'
-import UsersList from './UsersList.vue'
-
-const props = defineProps({
-  activeTab: {
-    type: String,
-    default: 'overview'
-  }
-})
-
-const emit = defineEmits(['update:activeTab'])
-
-// Use activeTab from props
-const currentTab = computed(() => props.activeTab)
+import PageHeader from '@/components/common/PageHeader.vue'
 
 // Mock data for dashboard overview
 const stats = ref([
@@ -30,15 +13,13 @@ const stats = ref([
 </script>
 
 <template>
-  <div class="dashboard-content">
-    <!-- Overview Tab -->
-    <div v-if="currentTab === 'overview'" class="content-section">
-      <div class="section-header">
-        <h1 class="section-title">Dashboard Overview</h1>
-        <p class="section-subtitle">Welcome back! Here's what's happening with your platform.</p>
-      </div>
+  <div class="admin-layout-container">
+    <PageHeader 
+      title="Dashboard Overview" 
+      subtitle="Welcome back! Here's what's happening with your platform."
+    />
 
-      <!-- Stats Grid -->
+    <!-- Stats Grid -->
       <div class="stats-grid">
         <div v-for="stat in stats" :key="stat.label" class="stat-card">
           <div class="stat-icon">
@@ -78,71 +59,10 @@ const stats = ref([
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Users Tab -->
-    <UsersList v-if="activeTab === 'users'" />
-
-    <!-- Problems Tab -->
-    <ProblemsList v-if="activeTab === 'problems'" />
-
-    <!-- Topics Tab -->
-    <TopicsList v-if="activeTab === 'topics'" />
-
-    <!-- Contests Tab -->
-    <ContestsList v-if="activeTab === 'contests'" />
-
-    <!-- Discussions Tab -->
-    <DiscussionsList v-if="activeTab === 'discussions'" />
-
   </div>
 </template>
 
 <style scoped>
-.dashboard-content {
-  width: 100%;
-}
-
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
-  gap: var(--spacing-lg);
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs) 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* Add Button - Orange theme */
-.add-button {
-  background: var(--accent-primary) !important;
-  border-color: var(--accent-primary) !important;
-  color: #000 !important;
-  font-weight: 600;
-}
-
-.add-button:hover {
-  background: #ff8800 !important;
-  border-color: #ff8800 !important;
-}
-
 /* Stats Grid */
 .stats-grid {
   display: grid;

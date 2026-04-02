@@ -4,6 +4,7 @@ import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
 import { Shield } from 'lucide-vue-next'
 import { handleApiError } from '@/utils/errorHandler'
+import AppButton from '@/components/common/AppButton.vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -93,11 +94,8 @@ const handleUpdateRoles = async () => {
     
     <template #footer>
       <div class="role-dialog-footer">
-        <button class="dialog-btn cancel-btn" @click="handleClose">Hủy bỏ</button>
-        <button class="dialog-btn update-btn" :disabled="loading" @click="handleUpdateRoles">
-            <span v-if="loading">Đang cập nhật...</span>
-            <span v-else>Cập nhật</span>
-        </button>
+        <AppButton variant="info" @click="handleClose">Hủy bỏ</AppButton>
+        <AppButton variant="primary" :loading="loading" @click="handleUpdateRoles">Cập nhật</AppButton>
       </div>
     </template>
   </el-dialog>
@@ -179,39 +177,5 @@ const handleUpdateRoles = async () => {
   padding: 10px 0;
 }
 
-.dialog-btn {
-  height: 36px;
-  padding: 0 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
 
-.cancel-btn {
-  background: transparent;
-  border: 1px solid #3e3e3e;
-  color: #8a8a8a;
-}
-.cancel-btn:hover {
-  background: rgba(255,255,255,0.05);
-  color: #fff;
-  border-color: #666;
-}
-
-.update-btn {
-  background: var(--accent-primary);
-  border: none;
-  color: #000;
-}
-.update-btn:hover {
-  background: #ff8800;
-  transform: translateY(-1px);
-}
-.update-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
 </style>

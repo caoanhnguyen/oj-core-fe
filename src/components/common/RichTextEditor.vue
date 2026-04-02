@@ -9,7 +9,8 @@ import MathFormulaModal from './MathFormulaModal.vue'
 
 const props = defineProps({
   content: { type: String, default: '' },
-  placeholder: { type: String, default: 'Nhập nội dung vào đây...' }
+  placeholder: { type: String, default: 'Nhập nội dung vào đây...' },
+  readonly: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:content'])
@@ -95,12 +96,14 @@ const editorOptions = ref({
       contentType="html"
       :options="editorOptions"
       :placeholder="placeholder"
+      :readOnly="readonly"
       theme="snow"
       @ready="onEditorReady"
     />
 
     <!-- Formula button floats at top-right of toolbar -->
     <button
+      v-if="!readonly"
       class="formula-btn"
       type="button"
       title="Chèn công thức toán học (LaTeX)"
@@ -128,6 +131,14 @@ const editorOptions = ref({
   width: 100%;
   height: 100%;
   position: relative;
+}
+
+/* Style for readonly state */
+.quill-wrapper:has(.ql-disabled) {
+  opacity: 0.6;
+}
+.quill-wrapper:has(.ql-disabled) :deep(.ql-toolbar) {
+  display: none !important;
 }
 
 /* Formula button */
@@ -177,6 +188,12 @@ const editorOptions = ref({
 :deep(.ql-editor.ql-blank::before) {
   color: #a0a0a0 !important;
   font-style: italic;
+}
+
+/* Explicitly hide the placeholder when readonly (disabled) to avoid overlapping bugs */
+:deep(.ql-disabled .ql-editor::before) {
+  display: none !important;
+  content: none !important;
 }
 
 /* Style Quill formula blots inside editor */

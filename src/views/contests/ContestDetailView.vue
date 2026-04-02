@@ -292,8 +292,8 @@ onUnmounted(() => {})
     <div class="spin" />
   </div>
 
-  <div v-else-if="contest" class="detail-page">
-    <div class="content-section">
+  <div v-else-if="contest" class="public-layout-page">
+    <div class="public-layout-container">
 
       <!-- ===== BREADCRUMB ===== -->
       <div class="breadcrumb-row">
@@ -620,16 +620,6 @@ onUnmounted(() => {})
 
 <style scoped>
 /* ===== PAGE SHELL ===== */
-.detail-page {
-  min-height: 100vh;
-  background: var(--bg-primary, #141414);
-}
-
-.content-section {
-  padding: var(--spacing-2xl, 32px);
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .page-loading {
   display: flex; align-items: center; justify-content: center;

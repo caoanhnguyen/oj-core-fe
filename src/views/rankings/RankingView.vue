@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import { useRankingStore } from '@/stores/ranking'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import TableControls from '@/components/common/TableControls.vue'
 import { Trophy, User, Search, Medal } from 'lucide-vue-next'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -138,14 +140,12 @@ onMounted(fetchAll)
 </script>
 
 <template>
-  <div class="ranking-layout">
-    <div class="content-section">
-      <div class="section-header">
-      <div>
-        <h1 class="section-title">Bảng xếp hạng {{ type }}</h1>
-        <p class="section-subtitle">Vinh danh những thành viên xuất sắc nhất theo thể thức {{ type }}</p>
-      </div>
-    </div>
+  <div class="public-layout-page">
+    <div class="public-layout-container">
+      <PageHeader 
+        :title="`Bảng xếp hạng ${type}`" 
+        :subtitle="`Vinh danh những thành viên xuất sắc nhất theo thể thức ${type}`"
+      />
 
     <!-- Chart Section (Redesigned as a card matching system cards or flat) -->
     <div class="chart-container" v-loading="rankingStore.loading && topRankings.length === 0">
@@ -158,15 +158,11 @@ onMounted(fetchAll)
       </div>
     </div>
 
-    <div class="table-controls">
-      
-      <div class="spacer"></div>
-      
-      <div class="solved-count">
-        <div class="circle-progress"></div>
-        <span>{{ rankingStore.pagination.totalElements }} Members</span>
-      </div>
-    </div>
+    <TableControls 
+      hideSearch 
+      :total-elements="rankingStore.pagination.totalElements" 
+      item-name="Members" 
+    />
 
     <TableSkeleton v-if="rankingStore.loading && rankings.length === 0" :columns="6" :rows="12" />
 
@@ -245,33 +241,6 @@ onMounted(fetchAll)
   </template>
 
 <style scoped>
-.ranking-layout {
-  min-height: calc(100vh - 56px);
-  background: var(--bg-primary);
-}
-
-.content-section {
-  padding: 32px 40px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.section-header {
-  margin-bottom: 28px;
-}
-
-.section-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 4px 0;
-}
-
-.section-subtitle {
-  font-size: 14px;
-  color: #8a8a8a;
-  margin: 0;
-}
 
 /* Chart Card Styling */
 .chart-container {
@@ -298,56 +267,6 @@ onMounted(fetchAll)
 .chart-wrapper {
   height: 340px;
   padding: 10px 20px;
-}
-
-/* Table Controls - Consistent with SubmissionsList */
-.table-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.search-wrap {
-  position: relative;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #8a8a8a;
-}
-
-.search-input {
-  background: #282828;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 8px 16px 8px 40px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 240px;
-  outline: none;
-}
-
-.spacer { flex: 1; }
-
-.solved-count {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8a8a8a;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.circle-progress {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #3e3e3e;
-  border-top-color: #ffa116;
 }
 
 /* Table Design - Exact from SubmissionsList */

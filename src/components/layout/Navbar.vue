@@ -111,10 +111,7 @@ const handleLogout = async () => {
           <span>Home</span>
         </RouterLink>
 
-        <RouterLink v-if="authStore.isAdminOrMod" to="/dashboard" class="nav-link" :class="{ 'is-active': route.path.startsWith('/dashboard') }">
-          <LayoutDashboard :size="16" style="margin-right: 6px;" />
-          <span>Dashboard</span>
-        </RouterLink>
+
 
         <RouterLink :to="getProblemsLink" class="nav-link" :class="{ 'is-active': isProblemsActive }">
           <BookOpen :size="16" style="margin-right: 6px;" />
@@ -171,11 +168,17 @@ const handleLogout = async () => {
             </button>
             <template #dropdown>
               <el-dropdown-menu class="user-dropdown">
-                <el-dropdown-item>
-                  <RouterLink to="/profile" class="dropdown-link">
+                <el-dropdown-item v-if="authStore.isAdminOrMod" @click="router.push('/dashboard')">
+                  <div class="dropdown-link">
+                    <LayoutDashboard :size="16" />
+                    <span>Dashboard</span>
+                  </div>
+                </el-dropdown-item>
+                <el-dropdown-item :divided="authStore.isAdminOrMod" @click="router.push('/profile')">
+                  <div class="dropdown-link">
                     <User :size="16" />
                     <span>Profile</span>
-                  </RouterLink>
+                  </div>
                 </el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">
                   <div class="dropdown-link">
@@ -231,8 +234,8 @@ const handleLogout = async () => {
 
 .exam-bar-content {
   width: 100%;
-  max-width: 1280px;
-  padding: 0 20px;
+  max-width: 1400px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -288,9 +291,9 @@ const handleLogout = async () => {
 
 .navbar-content {
   height: 56px;
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -482,6 +485,7 @@ const handleLogout = async () => {
 .dropdown-link {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   color: inherit;
   width: 100%;

@@ -32,7 +32,10 @@ const props = defineProps({
   currentSort:       { type: String, default: '' },
   currentSortDir:    { type: String, default: 'DESC' },
   filterConfig:      { type: Array,  default: () => [] },
-  totalLabel:        { type: String, default: '' },
+  totalElements:     { type: Number, default: undefined },
+  itemName:          { type: String, default: 'records' },
+  totalLabel:        { type: String, default: '' }, // Legacy support
+  hideSearch:        { type: Boolean, default: false },
   searchPlaceholder: { type: String, default: 'Tìm kiếm...' },
   filterTitle:       { type: String, default: 'Bộ lọc' }
 })
@@ -81,7 +84,7 @@ const sortLabel = computed(() => {
   <div class="tc-bar">
 
     <!-- Search -->
-    <div class="tc-search-wrap">
+    <div v-if="!hideSearch" class="tc-search-wrap">
       <Search class="tc-search-icon" :size="16" />
       <input
         type="text"
@@ -183,6 +186,7 @@ const sortLabel = computed(() => {
               />
             </el-select>
           </div>
+          <slot name="custom-filters"></slot>
         </div>
 
         <div class="filter-footer">
@@ -197,7 +201,19 @@ const sortLabel = computed(() => {
     <!-- Spacer -->
     <div class="spacer" />
 
-    <!-- Total label -->
+    <!-- Total Elements Badge Native -->
+    <div v-if="totalElements !== undefined" class="tc-total-badge">
+      <div class="tc-circle-progress"></div>
+      <span>{{ totalElements }} {{ itemName }}</span>
+    </div>
+    
+    <!-- Custom Layout Space for overriding total badge -->
+    <slot name="custom-total"></slot>
+
+    <!-- Actions at the end -->
+    <slot name="custom-actions"></slot>
+
+    <!-- Legacy Total label -->
     <span v-if="totalLabel" class="tc-total">{{ totalLabel }}</span>
   </div>
 </template>
@@ -226,7 +242,8 @@ const sortLabel = computed(() => {
   background-color: #282828;
   border: 1px solid transparent;
   border-radius: 20px;
-  padding: 8px 16px 8px 40px;
+  height: 36px;
+  padding: 0 16px 0 40px;
   color: #eff2f6;
   font-size: 13px;
   width: 240px;
@@ -254,9 +271,28 @@ const sortLabel = computed(() => {
 }
 .control-btn:hover { background-color: #333; color: #eff2f6; }
 .control-btn.active {
-  background-color: rgba(255,161,22,0.1);
-  color: var(--accent-primary, #ffa116);
-  border-color: rgba(255,161,22,0.3);
+  background-color: rgba(255, 161, 22, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(255, 161, 22, 0.3);
+}
+
+/* Total Badge Support */
+.tc-total-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+.tc-circle-progress {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #3e3e3e;
+  border-top-color: #00b8a3;
+  transform: rotate(-45deg);
 }
 
 /* Sort button with text */

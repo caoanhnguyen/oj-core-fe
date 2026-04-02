@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 const props = defineProps({
   variant: {
-    type: String, // 'primary', 'secondary', 'danger', 'outline', 'text'
+    type: String, // 'primary', 'secondary', 'danger', 'outline', 'text', 'info', 'success', 'warning'
     default: 'primary'
   },
   size: {
@@ -11,7 +11,7 @@ const props = defineProps({
     default: 'default'
   },
   type: {
-    type: String,
+    type: String, // The native HTML button type: 'button', 'submit', 'reset'
     default: 'button'
   },
   loading: {
@@ -93,14 +93,18 @@ const buttonClass = computed(() => {
 
 /* Variants */
 .btn-primary {
-  background-color: var(--accent-primary);
-  color: #000000;
-  border-color: var(--accent-primary);
+  background-color: rgba(255, 161, 22, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(255, 161, 22, 0.3);
+  transition: all 0.3s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background-color: rgba(255, 161, 22, 0.2);
+  border-color: var(--accent-primary);
+  color: var(--accent-hover);
+  box-shadow: 0 0 16px rgba(255, 161, 22, 0.4);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -117,11 +121,61 @@ const buttonClass = computed(() => {
 .btn-danger {
   background-color: rgba(239, 71, 67, 0.1);
   color: var(--error);
-  border-color: transparent;
+  border-color: rgba(239, 71, 67, 0.3);
+  transition: all 0.3s ease;
 }
 
 .btn-danger:hover:not(:disabled) {
   background-color: rgba(239, 71, 67, 0.2);
+  border-color: var(--error);
+  color: #ff6864;
+  box-shadow: 0 0 16px rgba(239, 71, 67, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background-color: rgba(44, 187, 93, 0.1);
+  color: #2cbb5d;
+  border-color: rgba(44, 187, 93, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: rgba(44, 187, 93, 0.2);
+  border-color: #2cbb5d;
+  color: #3fe076;
+  box-shadow: 0 0 16px rgba(44, 187, 93, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background-color: rgba(255, 192, 30, 0.1);
+  color: #ffc01e;
+  border-color: rgba(255, 192, 30, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background-color: rgba(255, 192, 30, 0.2);
+  border-color: #ffc01e;
+  color: #ffd04f;
+  box-shadow: 0 0 16px rgba(255, 192, 30, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-info {
+  background-color: rgba(138, 138, 138, 0.1);
+  color: #8a8a8a;
+  border-color: rgba(138, 138, 138, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-info:hover:not(:disabled) {
+  background-color: rgba(138, 138, 138, 0.2);
+  border-color: #8a8a8a;
+  color: #b0b0b0;
+  box-shadow: 0 0 16px rgba(138, 138, 138, 0.4);
+  transform: translateY(-1px);
 }
 
 .btn-outline {

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useContestSessionStore } from '@/stores/contestSession'
 import { handleApiError } from '@/utils/errorHandler'
 import TableControls from '@/components/common/TableControls.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const router = useRouter()
 
@@ -166,23 +167,21 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
 </script>
 
 <template>
-  <div class="contests-page">
-    <div class="content-section">
+  <div class="public-layout-page">
+    <div class="public-layout-container">
 
       <!-- Header -->
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Contests</h1>
-          <p class="page-subtitle">Tham gia các cuộc thi lập trình và thách thức bản thân!</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Contests" 
+        subtitle="Tham gia các cuộc thi lập trình và thách thức bản thân!"
+      />
 
-      <!-- Controls -->
       <TableControls
         v-model="searchQuery"
         search-placeholder="Tìm kiếm contest..."
         :filter-config="contestFilterConfig"
-        :total-label="totalFiltered ? `${totalFiltered} contest` : ''"
+        :total-elements="totalFiltered"
+        item-name="Contests"
         @filter-change="handleFilterChange"
         @reset-filters="handleResetFilters"
       />
@@ -382,69 +381,6 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
 </template>
 
 <style scoped>
-.contests-page {
-  min-height: 100vh;
-  background: var(--bg-primary);
-}
-
-.content-section {
-  padding: var(--spacing-2xl);
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-/* ===== HEADER ===== */
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text-primary, #eff2f6);
-  margin: 0 0 6px;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: #8a8a8a;
-  margin: 0;
-}
-
-/* Search */
-.header-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: #5c5c5c;
-  pointer-events: none;
-}
-
-.search-input {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 9px 16px 9px 38px;
-  color: #eff2f6;
-  font-size: 14px;
-  width: 260px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.search-input:focus { border-color: #555; }
-.search-input::placeholder { color: #5c5c5c; }
-
 /* ===== ACTIVE SESSIONS BANNER ===== */
 .active-sessions-banner {
   background: linear-gradient(135deg, rgba(255,161,22,0.07), rgba(255,161,22,0.02));
