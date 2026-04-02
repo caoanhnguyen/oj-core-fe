@@ -15,7 +15,6 @@ const contestStore = useContestStore()
 const problemStore = useProblemStore()
 const router = useRouter()
 
-// ====================
 // Main List State
 // ====================
 const searchQuery = ref('')
@@ -165,12 +164,21 @@ const openEditForm = async (row) => {
   try {
     const detail = row.description !== undefined ? row : await contestStore.getAdminContestById(row.id)
     formMode.value = 'edit'
+
+    // Parse UTC strings from server into local Date objects so el-date-picker
+    // displays the correct LOCAL time for the admin
+    const parseUTC = (str) => {
+      if (!str) return null
+      const s = str.includes('Z') || str.includes('+') ? str : str + 'Z'
+      return new Date(s)
+    }
+
     form.value = {
       id: detail.id,
       title: detail.title,
       description: detail.description || '',
-      startTime: detail.startTime || null,
-      endTime: detail.endTime || null,
+      startTime: parseUTC(detail.startTime),
+      endTime: parseUTC(detail.endTime),
       ruleType: detail.ruleType || 'ACM',
       visibility: detail.visibility || 'PUBLIC',
       password: detail.password || '',
@@ -187,9 +195,16 @@ const submitForm = async () => {
     try {
       formLoading.value = true
       const payload = { ...form.value }
-      // Convert datetime to ISO
-      if (payload.startTime instanceof Date) payload.startTime = payload.startTime.toISOString().slice(0, 19)
-      if (payload.endTime instanceof Date) payload.endTime = payload.endTime.toISOString().slice(0, 19)
+
+      // Admin picks local time → convert to UTC before sending to BE
+      // el-date-picker (without value-format) returns a Date object in local time
+      const toUTCString = (val) => {
+        if (!val) return null
+        const d = val instanceof Date ? val : new Date(val)
+        return d.toISOString().slice(0, 19) // "2026-04-02T02:00:00" (UTC, no Z)
+      }
+      payload.startTime = toUTCString(payload.startTime)
+      payload.endTime   = toUTCString(payload.endTime)
       if (payload.visibility !== 'PRIVATE') delete payload.password
 
       if (formMode.value === 'create') {
@@ -452,15 +467,23 @@ const openSubmissionsView = (row) => {
 // ====================
 // Helpers
 // ====================
-const formatDateTime = (dt) => {
-  if (!dt) return ''
-  return new Date(dt).toLocaleString('vi-VN')
+const parseServerDate = (str) => {
+  if (!str) return null
+  // Append 'Z' if no timezone info — backend returns LocalDateTime without offset
+  const s = (str.includes('Z') || str.includes('+')) ? str : str + 'Z'
+  return new Date(s)
 }
 
-const formatDate = (dt) => {
-  if (!dt) return ''
-  return new Date(dt).toLocaleDateString('vi-VN')
+const formatDateTime = (dt) => {
+  const d = parseServerDate(dt)
+  if (!d) return '—'
+  return d.toLocaleString(undefined, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  })
 }
+
+const formatDate = formatDateTime  // alias — same precision for table column
 
 const getContestStatusClass = (s) => ({
   ONGOING: 'status-ongoing',
@@ -937,10 +960,11 @@ onMounted(loadContests)
 
         <div class="form-row-2">
           <el-form-item label="Thời gian bắt đầu" prop="startTime">
-            <el-date-picker v-model="form.startTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" value-format="YYYY-MM-DDTHH:mm:ss" />
+            <!-- No value-format: returns Date object so we can convert local→UTC in submitForm -->
+            <el-date-picker v-model="form.startTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" />
           </el-form-item>
           <el-form-item label="Thời gian kết thúc" prop="endTime">
-            <el-date-picker v-model="form.endTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" value-format="YYYY-MM-DDTHH:mm:ss" />
+            <el-date-picker v-model="form.endTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" />
           </el-form-item>
         </div>
 
