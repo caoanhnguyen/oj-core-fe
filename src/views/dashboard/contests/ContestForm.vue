@@ -31,7 +31,8 @@ const toUTCString = (val) => { if (!val) return null; const d = val instanceof D
 const formRef = ref(null)
 const form = ref({
   title: '', description: '', timeRange: null,
-  ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null
+  ruleType: 'ACM', visibility: 'PUBLIC', password: '', 
+  durationMinutes: null, format: 'STRICT', allowLateRegistration: true
 })
 const rules = {
   title:     [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
@@ -45,7 +46,8 @@ watch(() => props.contest, (c) => {
     title: c.title || '', description: c.description || '',
     timeRange: [parseUTC(c.startTime), parseUTC(c.endTime)],
     ruleType: c.ruleType || 'ACM', visibility: c.visibility || 'PUBLIC',
-    password: c.password || '', durationMinutes: c.durationMinutes || null
+    password: c.password || '', durationMinutes: c.durationMinutes || null,
+    format: c.format || 'STRICT', allowLateRegistration: c.allowLateRegistration !== false
   }
 }, { immediate: true })
 
@@ -58,7 +60,8 @@ const handleSubmit = async () => {
     title: form.value.title, description: form.value.description,
     startTime: toUTCString(start), endTime: toUTCString(end),
     ruleType: form.value.ruleType, visibility: form.value.visibility,
-    durationMinutes: form.value.durationMinutes || null,
+    durationMinutes: form.value.format === 'WINDOWED' ? (form.value.durationMinutes || null) : null,
+    format: form.value.format, allowLateRegistration: form.value.allowLateRegistration,
     ...(form.value.visibility === 'PRIVATE' ? { password: form.value.password } : {})
   })
 }
@@ -88,14 +91,42 @@ const handleSubmit = async () => {
             <el-option label="Public" value="PUBLIC" /><el-option label="Private" value="PRIVATE" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Thời hạn làm bài (phút)">
-          <el-input-number v-model="form.durationMinutes" :min="1" :max="1440" controls-position="right" style="width:100%" />
+        <el-form-item label="Định dạng Contest (Format)">
+          <el-select v-model="form.format" style="width:100%" popper-class="dark-select-dropdown">
+            <el-option label="Cố định (Strict)" value="STRICT" />
+            <el-option label="Khung giờ linh hoạt (Windowed)" value="WINDOWED" />
+          </el-select>
         </el-form-item>
       </div>
 
-      <el-form-item v-if="form.visibility === 'PRIVATE'" label="Mật khẩu">
-        <el-input v-model="form.password" show-password placeholder="Mật khẩu tham gia..." />
-      </el-form-item>
+      <!-- Row 2: Aligned exactly under Rule Type | Visibility | Format -->
+      <div class="form-row-3">
+        <!-- Col 1 (under Rule Type): Late Registration switch -->
+        <el-form-item label="Tham gia trễ (Late Registration)">
+          <div class="switch-wrapper">
+            <el-switch
+              v-model="form.allowLateRegistration"
+              :disabled="readonly"
+              style="--el-switch-on-color: #ffa116; --el-switch-off-color: #3e3e3e;"
+            />
+            <span class="switch-label" :class="{ active: form.allowLateRegistration }">
+              {{ form.allowLateRegistration ? 'Cho phép tham gia muộn' : 'Chỉ đăng ký trước' }}
+            </span>
+          </div>
+        </el-form-item>
+
+        <!-- Col 2 (under Visibility): Password if PRIVATE, else empty spacer -->
+        <el-form-item v-if="form.visibility === 'PRIVATE'" label="Mật khẩu">
+          <el-input v-model="form.password" show-password placeholder="Mật khẩu tham gia..." />
+        </el-form-item>
+        <div v-else />
+
+        <!-- Col 3 (under Format): Duration if WINDOWED, else empty spacer -->
+        <el-form-item v-if="form.format === 'WINDOWED'" label="Thời hạn làm bài (phút)">
+          <el-input-number v-model="form.durationMinutes" :min="1" :max="1440" controls-position="right" style="width: 100%" />
+        </el-form-item>
+        <div v-else />
+      </div>
 
       <el-form-item label="Mô tả">
         <RichTextEditor :readonly="readonly" :content="form.description" placeholder="Mô tả contest..." style="height:320px" @update:content="form.description = $event" />
@@ -114,7 +145,24 @@ const handleSubmit = async () => {
 <style scoped>
 .contest-form { width: 100%; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; }
+
+/* Switch inside grid cell */
+.switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 32px;
+}
+.switch-label {
+  font-size: 13px;
+  color: #5c5c5c;
+  transition: color 0.2s;
+}
+.switch-label.active {
+  color: #eff2f6;
+}
 
 /* Dark form controls */
 :deep(.el-form-item__label) { color: #8a8a8a; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -140,4 +188,9 @@ const handleSubmit = async () => {
 :deep(.el-form.is-disabled .el-select__wrapper),
 :deep(.el-date-editor.is-disabled) { opacity: 0.6 !important; cursor: not-allowed !important; background: #282828 !important; box-shadow: 0 0 0 1px #3e3e3e inset !important; }
 :deep(.el-date-editor.is-disabled input) { background: transparent !important; color: #8a8a8a !important; cursor: not-allowed !important; }
+
+/* Switch dark theme */
+:deep(.el-switch__label) { color: #5c5c5c !important; font-size: 13px; }
+:deep(.el-switch__label.is-active) { color: #eff2f6 !important; }
+:deep(.el-switch.is-checked .el-switch__core) { border-color: #ffa116 !important; background-color: #ffa116 !important; }
 </style>

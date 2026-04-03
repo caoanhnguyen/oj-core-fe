@@ -51,15 +51,12 @@ const dialogVisible = ref(false)
 const adding        = ref(false)
 const addedIds = computed(() => new Set(contestProblems.value.map(p => p.problemId)))
 
-const handleAddProblems = async (selectedToAdd) => {
+const handleAddProblems = async (payload) => {
   try {
     adding.value = true
-    const payload = selectedToAdd.map((p, i) => ({
-      problemId: p.id, displayId: String.fromCharCode(65 + (contestProblems.value.length + i)),
-      points: 100, sortOrder: contestProblems.value.length + i + 1
-    }))
     await contestsAPI.adminAddProblems(props.contestId, payload)
-    dialogVisible.value = false; await loadContestProblems()
+    dialogVisible.value = false
+    await loadContestProblems()
     ElMessage.success(`Đã thêm ${payload.length} bài vào cuộc thi`)
   } catch { ElMessage.error('Thêm bài thất bại') }
   finally { adding.value = false }
@@ -120,6 +117,7 @@ const tableActions = computed(() => {
       :contest-id="contestId"
       :added-ids="addedIds"
       :adding="adding"
+      :existing-count="contestProblems.length"
       @add="handleAddProblems"
     />
   </div>

@@ -261,7 +261,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />
@@ -311,7 +311,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />
@@ -361,7 +361,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.id}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.durationMinutes" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />

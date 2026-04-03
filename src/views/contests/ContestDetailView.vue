@@ -54,7 +54,7 @@ const getDuration = (start, end) => {
 // =====================
 const isRegistered = computed(() => !!contest.value?.isRegistered || !!contest.value?.registered)
 const isFinished   = computed(() => contest.value?.contestStatus === 'ENDED')
-const isWindowed   = computed(() => (contest.value?.durationMinutes || 0) > 0)
+const isWindowed   = computed(() => contest.value?.format === 'WINDOWED')
 const hasJoined    = computed(() => !!contest.value?.contestParticipation?.startTime)
 
 const isStarted = computed(() => {
@@ -383,14 +383,21 @@ onUnmounted(() => {})
           </template>
           <!-- Chưa đăng ký -->
           <template v-else-if="!isRegistered && !isFinished">
-            <div v-if="showPasswordInput" class="password-inline">
-              <Key :size="14" />
-              <input v-model="registerPassword" type="password" placeholder="Nhập mật khẩu" class="pw-input" />
-            </div>
-            <button class="btn-primary" :disabled="registerLoading" @click="handleRegister">
-              <Shield :size="14" />
-              {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
-            </button>
+            <template v-if="!isStarted || contest.allowLateRegistration">
+              <div v-if="showPasswordInput" class="password-inline">
+                <Key :size="14" />
+                <input v-model="registerPassword" type="password" placeholder="Nhập mật khẩu" class="pw-input" />
+              </div>
+              <button class="btn-primary" :disabled="registerLoading" @click="handleRegister">
+                <Shield :size="14" />
+                {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
+              </button>
+            </template>
+            <template v-else>
+              <button class="btn-secondary" disabled>
+                <Lock :size="14" /> Đã quá hạn đăng ký
+              </button>
+            </template>
           </template>
           <!-- Fixed đã đăng ký, đang diễn ra, chưa thi -->
           <template v-else-if="!isWindowed && isRegistered && isStarted && !hasJoined && !isFinished">

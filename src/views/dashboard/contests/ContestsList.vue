@@ -160,9 +160,9 @@ const handleToggleVisibility = async (row) => {
           <span :class="['rule-badge', value === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ value }}</span>
         </template>
 
-        <template #cell-durationMinutes="{ value }">
-          <span v-if="value" class="cell-date highlight-dur">{{ value }}m</span>
-          <span v-else class="cell-date mute">—</span>
+        <template #cell-durationMinutes="{ row }">
+          <span v-if="row.format === 'STRICT' || !row.durationMinutes" class="cell-date mute">Cố định</span>
+          <span v-else class="cell-date highlight-dur">{{ row.durationMinutes }}m</span>
         </template>
 
         <template #cell-contestStatus="{ value }">

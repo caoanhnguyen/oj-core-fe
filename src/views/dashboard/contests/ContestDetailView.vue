@@ -55,7 +55,7 @@ const getEntityStatusClass = (s) => ({ ACTIVE: 'status-active', INACTIVE: 'statu
 const handleUpdate = async (payload) => {
   try {
     saving.value = true
-    await contestsAPI.adminUpdate(props.contestId, payload)
+    await contestsAPI.adminUpdate(id.value, payload)
     ElMessage.success('Đã lưu thay đổi')
     await load()
     emit('updated')
