@@ -617,6 +617,201 @@ button {
   color: var(--text-secondary) !important;
 }
 
+.dark-dialog {
+  background-color: var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.dark-dialog .el-dialog__title {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.dark-form .el-form-item__label {
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  padding-bottom: 4px !important;
+}
+
+/* Global Loading Spinner & Mask Dark Theme */
+.el-loading-mask {
+  background-color: var(--bg-primary) !important;
+  transition: opacity 0.3s;
+}
+
+.el-loading-spinner .path {
+  stroke: var(--accent-primary) !important;
+  stroke-width: 3 !important;
+}
+
+.el-loading-spinner .el-loading-text {
+  color: var(--accent-primary) !important;
+}
+
+/* Global Skeleton Dark Theme & Animation Gradient */
+@keyframes el-skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.el-skeleton {
+  --el-skeleton-color: #282828 !important;
+  --el-skeleton-to-color: #3e3e3e !important;
+}
+
+.el-skeleton.is-animated .el-skeleton__item {
+  background: linear-gradient(90deg, #282828 25%, #3e3e3e 37%, #282828 63%) !important;
+  background-size: 400% 100% !important;
+  animation: el-skeleton-loading 1.4s ease infinite !important;
+}
+
+/* Global Empty State Dark Theme Variables */
+:root {
+  --el-empty-fill-color-0: var(--bg-primary);
+  --el-empty-fill-color-1: #3e3e3e;
+  --el-empty-fill-color-2: #333333;
+  --el-empty-fill-color-3: #1f1f1f;
+  --el-empty-fill-color-4: #2d2d2d;
+  --el-empty-fill-color-5: #262626;
+  --el-empty-fill-color-6: #282828;
+  --el-empty-fill-color-7: #1a1a1a;
+  --el-empty-fill-color-8: #212121;
+  --el-empty-fill-color-9: #151515;
+}
+
+.el-empty {
+  --el-empty-fill-color-0: var(--bg-primary) !important;
+  --el-empty-fill-color-1: #3e3e3e !important;
+  --el-empty-fill-color-2: #333333 !important;
+  --el-empty-fill-color-3: #1f1f1f !important;
+  --el-empty-fill-color-4: #2d2d2d !important;
+  --el-empty-fill-color-5: #262626 !important;
+  --el-empty-fill-color-6: #282828 !important;
+  --el-empty-fill-color-7: #1a1a1a !important;
+  --el-empty-fill-color-8: #212121 !important;
+  --el-empty-fill-color-9: #151515 !important;
+}
+
+.el-empty__description p {
+  color: var(--text-secondary) !important;
+}
+
+/* ===== GLOBAL FIXED COLUMN FIX FOR EL-TABLE ===== */
+/* Fixed columns need a solid background so they don't appear transparent during horizontal scroll */
+.el-table .el-table-fixed-column--left,
+.el-table .el-table-fixed-column--right {
+  background-color: var(--bg-primary) !important;
+}
+
+.el-table tr:nth-child(odd) .el-table-fixed-column--left,
+.el-table tr:nth-child(odd) .el-table-fixed-column--right {
+  background-color: #111111 !important; /* slightly differentiated for zebra */
+}
+
+.el-table tr:hover .el-table-fixed-column--left,
+.el-table tr:hover .el-table-fixed-column--right {
+  background-color: #1e1e1e !important;
+}
+
+.el-table__fixed-right {
+  border-left: 1px solid var(--border-primary) !important;
+  background-color: var(--bg-primary) !important;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.el-table__fixed {
+  background-color: var(--bg-primary) !important;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ===== FILTER POPOVER DARK THEME ===== */
+.filter-popover.el-popper {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+  color: #eff2f6 !important;
+  min-width: 310px !important;
+}
+
+.filter-popover.el-popper .el-popper__arrow::before {
+  background: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+}
+
+.filter-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #3e3e3e;
+  font-size: 14px;
+  font-weight: 600;
+  color: #eff2f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-list {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 0 !important;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 110px;
+  color: #8a8a8a;
+  font-size: 13px;
+  transition: color 0.2s;
+}
+
+.filter-label.is-active {
+  color: var(--accent-primary) !important;
+}
+
+.filter-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #3e3e3e;
+  padding: 12px 16px;
+}
+
+.reset-filters { color: #eff2f6 !important; font-size: 13px; }
+.reset-filters:hover { color: #fff !important; }
+
+/* Keep existing dark-popper classes just in case */
+.dark-popper {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  padding: 0 !important;
+}
+
+.dark-popper-dropdown {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.dark-popper-dropdown .el-select-dropdown__item {
+  color: var(--text-secondary) !important;
+}
+
 .dark-popper-dropdown .el-select-dropdown__item.selected {
   color: var(--accent-primary) !important;
   background-color: rgba(255, 161, 22, 0.08) !important;
@@ -625,4 +820,113 @@ button {
 .dark-popper-dropdown .el-select-dropdown__item:hover {
   background-color: rgba(255, 255, 255, 0.04) !important;
   color: var(--text-primary) !important;
+}
+
+/* Custom Dark Date Picker */
+.dark-date-picker {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.dark-date-picker .el-picker-panel__body {
+  background-color: var(--bg-secondary) !important;
+}
+.dark-date-picker .el-date-range-picker__header,
+.dark-date-picker .el-date-range-picker__content-header,
+.dark-date-picker .el-time-panel__title {
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-date-table th {
+  color: var(--text-secondary) !important;
+  border-bottom-color: var(--border-primary) !important;
+}
+.dark-date-picker .el-date-table td.in-range .el-date-table-cell {
+  background-color: rgba(255, 161, 22, 0.1) !important;
+}
+.dark-date-picker .el-date-table td.start-date .el-date-table-cell__text,
+.dark-date-picker .el-date-table td.end-date .el-date-table-cell__text {
+  background-color: var(--accent-primary) !important;
+  color: #000 !important;
+}
+.dark-date-picker .el-date-table td .el-date-table-cell:hover {
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker .el-date-table td .el-date-table-cell__text {
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-date-table td.out-month .el-date-table-cell__text {
+  color: var(--text-tertiary) !important;
+}
+.dark-date-picker .el-date-table td.next-month .el-date-table-cell__text,
+.dark-date-picker .el-date-table td.prev-month .el-date-table-cell__text {
+  color: var(--text-tertiary) !important;
+}
+.dark-date-picker .el-picker-panel__icon-btn {
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-picker-panel__icon-btn:hover {
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker .el-date-range-picker__time-header {
+  border-bottom: 1px solid var(--border-primary) !important;
+}
+.dark-date-picker .el-input__wrapper {
+  background: var(--bg-tertiary) !important;
+  box-shadow: 0 0 0 1px var(--border-primary) inset !important;
+}
+.dark-date-picker .el-input__inner {
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-time-panel {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.dark-date-picker .el-time-spinner__item {
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-time-spinner__item:hover:not(.disabled):not(.active) {
+  background-color: rgba(255, 161, 22, 0.1) !important;
+}
+.dark-date-picker .el-time-spinner__item.is-active {
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker.el-popper .el-popper__arrow::before {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+.dark-date-picker .el-picker-panel__footer {
+  background-color: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border-primary) !important;
+}
+.dark-date-picker .el-button.is-text {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+.dark-date-picker .el-button.is-text:hover {
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker .el-button.is-plain {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+.dark-date-picker .el-button.is-plain:hover {
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker .el-button.is-disabled {
+  color: var(--text-tertiary) !important;
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-primary) !important;
+}
+.dark-date-picker .el-time-panel__btn.confirm {
+  color: var(--accent-primary) !important;
+}
+.dark-date-picker .el-time-panel__btn.cancel {
+  color: var(--text-secondary) !important;
+}
+.dark-date-picker .el-date-range-picker__content.is-left {
+  border-right: 1px solid var(--border-primary) !important;
 }

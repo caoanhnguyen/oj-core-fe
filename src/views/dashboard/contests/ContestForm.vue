@@ -77,7 +77,7 @@ const handleSubmit = async () => {
       <el-form-item label="Thời gian bắt đầu – Kết thúc" prop="timeRange">
         <el-date-picker v-model="form.timeRange" type="datetimerange" range-separator="→"
           :disabled="readonly"
-          start-placeholder="Bắt đầu" end-placeholder="Kết thúc" style="width:100%" />
+          start-placeholder="Bắt đầu" end-placeholder="Kết thúc" style="width:100%" popper-class="dark-date-picker" />
       </el-form-item>
 
       <div class="form-row-3">

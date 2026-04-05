@@ -62,6 +62,13 @@ export const contestsAPI = {
     return response.data
   },
 
+  /** Admin: Update bulk problems trong contest */
+  adminUpdateProblems: async (id, problems) => {
+    // problems: [{ problemId, displayId, points, sortOrder }]
+    const response = await axiosInstance.put(`/admin/contests/${id}/problems/bulk-update`, problems)
+    return response.data
+  },
+
   /** Admin: Xóa bulk problems khỏi contest */
   adminRemoveProblems: async (id, problemIds) => {
     // problemIds: [UUID, ...]
