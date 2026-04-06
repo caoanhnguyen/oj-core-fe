@@ -178,12 +178,6 @@ const filterConfig = computed(() => {
       label: 'Ngôn ngữ',
       icon: Code2,
       options: languageOptions.value
-    },
-    {
-      key: 'dateRange',
-      label: 'Thời gian',
-      icon: Calendar,
-      type: 'daterange'
     }
   ]
   
@@ -198,6 +192,13 @@ const filterConfig = computed(() => {
       ]
     })
   }
+
+  config.push({
+    key: 'dateRange',
+    label: 'Thời gian',
+    icon: Calendar,
+    type: 'daterange'
+  })
   
   return config
 })

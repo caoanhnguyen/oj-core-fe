@@ -190,7 +190,7 @@ const sortLabel = computed(() => {
               {{ f.label }}
             </span>
 
-            <!-- Date range: hai input native để kiểm soát dark theme hoàn toàn -->
+            <!-- Date range: two compact inputs filling the flex space like el-select -->
             <div v-if="f.type === 'daterange'" class="native-daterange-wrap">
               <input
                 type="date"
@@ -457,50 +457,59 @@ const sortLabel = computed(() => {
 .math-select { width: 65px; flex-shrink: 0; }
 .value-select { flex: 1; min-width: 0; }
 
-/* Filter row full-width for date range */
+/* Date range — full-width inputs in same row, no wrapping */
 .filter-row--full {
-  flex-wrap: wrap;
-  align-items: flex-start;
-  row-gap: 6px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 .filter-row--full .native-daterange-wrap {
-  width: 100%;
-  margin-left: 30px; /* indent to align with non-full rows */
+  flex: 1;
+  min-width: 0;
 }
 
-/* Native date range inputs */
+/* Native date range inputs — match el-select small size exactly */
 .native-daterange-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex: 1;
-}
-.native-date-input {
-  background-color: #2c2c2c;
-  border: 1px solid #3e3e3e;
-  border-radius: 6px;
-  color: #eff2f6;
-  font-size: 12px;
-  padding: 4px 8px;
-  height: 28px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
+}
+.native-date-input {
+  background-color: #333;
+  box-shadow: 0 0 0 1px #3e3e3e inset;
+  border: none;
+  border-radius: 6px;
+  color: #eff2f6;
+  font-size: 13px;
+  padding: 0 6px;
+  height: 24px;             /* matches el-select small */
+  flex: 1;
+  min-width: 0;
+  width: 0;                 /* allow flex to shrink equally */
   outline: none;
   cursor: pointer;
   color-scheme: dark;
-  transition: border-color 0.2s;
+  transition: box-shadow 0.2s;
+}
+.native-date-input:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px #5c5c5c inset;
 }
 .native-date-input:focus {
-  border-color: var(--accent-primary, #ffa116);
+  box-shadow: 0 0 0 1px var(--accent-primary, #ffa116) inset;
 }
 .native-date-input:disabled {
-  opacity: 0.4;
+  background-color: #282828;
+  box-shadow: 0 0 0 1px #333 inset;
+  color: #5c5c5c;
   cursor: not-allowed;
+  -webkit-text-fill-color: #5c5c5c;
 }
 .date-sep {
   color: #5c5c5c;
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
+  user-select: none;
 }
 
 /* Select dropdown */

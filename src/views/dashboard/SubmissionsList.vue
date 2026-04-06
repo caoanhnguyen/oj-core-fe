@@ -297,7 +297,8 @@ const columns = [
   { key: 'executionMemoryMb', label: 'Memory', width: 100, align: 'center' },
   { key: 'verdict', label: 'Kết quả', width: 140, align: 'center' },
   { key: 'score', label: 'Điểm', width: 80, align: 'center' },
-  { key: 'languageKey', label: 'Ngôn ngữ', width: 100, align: 'center' }
+  { key: 'languageKey', label: 'Ngôn ngữ', width: 120, align: 'center' },
+  { key: 'status', label: 'Trạng thái', width: 120, align: 'center' }
 ]
 
 const handleRowClick = (row) => {
@@ -393,18 +394,20 @@ const handleRowClick = (row) => {
          <span class="score-text">{{ value != null ? value + ' KB' : '—' }}</span>
       </template>
 
-      <template #cell-verdict="{ value, row }">
+      <template #cell-verdict="{ value }">
         <div class="verdict-col">
-           <div v-if="value === 'PENDING' || row.status === 'INACTIVE' || row.status === 'DELETED'" class="pending-spinner-wrapper">
-             <div class="spin-small" v-if="value === 'PENDING'"></div>
-             <span class="verdict-text" :style="{ color: value === 'PENDING' ? '#8a8a8a' : (row.status === 'INACTIVE' ? '#5c5c5c' : '#ff0000') }">
-               {{ row.status === 'INACTIVE' ? 'VOIDED' : (row.status === 'DELETED' ? 'DELETED' : value) }}
-             </span>
+           <div v-if="value === 'PENDING'" class="pending-spinner-wrapper">
+             <div class="spin-small"></div>
+             <span class="verdict-text" style="color: #8a8a8a">PENDING</span>
            </div>
            <span v-else class="verdict-text" :style="{ color: verdictColor(value) }">
              {{ value }}
            </span>
         </div>
+      </template>
+
+      <template #cell-status="{ value }">
+        <span class="state" :class="value?.toLowerCase()">{{ value || 'ACTIVE' }}</span>
       </template>
       
       <template #cell-score="{ value }">
@@ -479,8 +482,13 @@ const handleRowClick = (row) => {
 .prob-title:hover { color: var(--accent-primary); }
 .badge-contest { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(0, 184, 163, 0.1); color: #00b8a3; font-weight: 700; text-transform: uppercase; }
 
-.verdict-col { display: flex; justify-content: center; }
+.verdict-col { display: flex; justify-content: center; align-items: center; }
 .verdict-text { font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+.state { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+.state.active { background: rgba(0, 184, 163, 0.1); color: #00b8a3; }
+.state.inactive { background: rgba(138, 138, 138, 0.1); color: #8a8a8a; }
+.state.deleted { background: rgba(239, 71, 67, 0.1); color: #ef4743; }
 .pending-spinner-wrapper {
   display: flex; align-items: center; gap: 6px; justify-content: center;
 }
