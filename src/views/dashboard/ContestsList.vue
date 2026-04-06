@@ -1510,15 +1510,7 @@ onMounted(loadContests)
 </style>
 
 <style>
-/* Global Popover Styles for UI components appended to body */
-.filter-popover.el-popper {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-  padding: 0 !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-  color: #eff2f6 !important;
-}
+/* Global styles - filter helpers for Contests page (popover width handled by TableControls) */
 
 .filter-header {
   padding: 12px 16px;

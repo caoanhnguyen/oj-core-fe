@@ -3,8 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
+import { systemAPI } from '@/api/system'
 import { handleApiError } from '@/utils/errorHandler'
-import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, RotateCcw, ChevronDown, CheckCircle, Eye } from 'lucide-vue-next'
+import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, RotateCcw, ChevronDown, CheckCircle, Eye, Calendar, Code2 } from 'lucide-vue-next'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import TableControls from '@/components/common/TableControls.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -25,14 +26,18 @@ const pagination = ref({
   size: 20
 })
 
+const languageOptions = ref([])
+
 // Search, Sort, Filter state
 const searchQuery = ref('')
 const currentSortField = ref('')
 const currentSortDirection = ref('DESC')
 
 const filters = ref({
-  verdict: { active: false, operator: 'is', value: '' },
-  viewMode: { active: false, operator: 'is', value: 'all' }
+  verdict: { active: false, value: '' },
+  viewMode: { active: false, value: 'all' },
+  language: { active: false, value: '' },
+  dateRange: { active: false, value: null }
 })
 
 const hasActiveFilters = computed(() => {
@@ -91,6 +96,18 @@ const loadSubmissions = async () => {
       params.submissionVerdict = filters.value.verdict.value
     }
 
+    if (filters.value.language?.active && filters.value.language?.value) {
+      params.languageKey = filters.value.language.value
+    }
+    
+    if (filters.value.dateRange?.active && filters.value.dateRange?.value) {
+      const dates = filters.value.dateRange.value
+      if (dates && dates.length === 2) {
+        params.fromDate = dates[0].toISOString()
+        params.toDate = dates[1].toISOString()
+      }
+    }
+
     if (searchQuery.value) {
       params.keyword = searchQuery.value
     }
@@ -141,8 +158,10 @@ const resetSort = () => {
 }
 
 const resetFilters = () => {
-  filters.value.verdict = { active: false, operator: 'is', value: '' }
-  filters.value.viewMode = { active: false, operator: 'is', value: 'all' }
+  filters.value.verdict = { active: false, value: '' }
+  filters.value.viewMode = { active: false, value: 'all' }
+  filters.value.language = { active: false, value: '' }
+  filters.value.dateRange = { active: false, value: null }
   searchQuery.value = ''
 }
 
@@ -153,6 +172,18 @@ const filterConfig = computed(() => {
       label: 'Verdict',
       icon: CheckCircle,
       options: verdictOptions.value
+    },
+    {
+      key: 'language',
+      label: 'Ngôn ngữ',
+      icon: Code2,
+      options: languageOptions.value
+    },
+    {
+      key: 'dateRange',
+      label: 'Thời gian',
+      icon: Calendar,
+      type: 'daterange'
     }
   ]
   
@@ -226,7 +257,13 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleString('vi-VN')
 }
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const langs = await systemAPI.getLanguages()
+    languageOptions.value = langs.map(l => ({ label: l.name, value: l.languageKey }))
+  } catch (error) {
+    console.warn('Lỗi lấy danh sách ngôn ngữ:', error)
+  }
   loadSubmissions()
 })
 </script>
@@ -267,7 +304,8 @@ onMounted(() => {
         { key: 'index', label: '#', width: 60, resizable: false },
         { key: 'createdDate', label: 'Thời gian nộp', minWidth: 165 },
         { key: 'username', label: 'Người nộp', minWidth: 130 },
-        { key: 'problem', label: 'Problem', minWidth: 200 },
+        { key: 'problem', label: 'Bài tập', minWidth: 200 },
+        { key: 'contest', label: 'Kỳ thi', minWidth: 180 },
         { key: 'verdict', label: 'Kết quả', width: 130 },
         { key: 'score', label: 'Điểm', width: 80 },
         { key: 'runtime', label: 'Runtime', width: 100 },
@@ -298,6 +336,13 @@ onMounted(() => {
         <RouterLink class="cell-link" :to="`/problems/${row.problemSlug}`" @click.stop>
           {{ row.problemTitle }}
         </RouterLink>
+      </template>
+
+      <template #cell-contest="{ row }">
+        <RouterLink v-if="row.contestId" class="cell-link" :to="`/contests/${row.contestId}`" @click.stop>
+           {{ row.contestTitle || 'Bài thi vòng loại' }}
+        </RouterLink>
+        <span v-else class="cell-date">—</span>
       </template>
 
       <template #cell-verdict="{ row }">
@@ -399,6 +444,16 @@ onMounted(() => {
   font-size: 12px;
   color: #ccc;
   font-family: monospace;
+}
+
+.badge-contest {
+  background: rgba(255,161,22,0.15);
+  color: #ffa116;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 6px;
 }
 </style>
 

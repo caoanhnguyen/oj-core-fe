@@ -10,6 +10,7 @@ import TableControls from '@/components/common/TableControls.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import DataTable from '@/components/common/DataTable.vue'
+import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
 import { debounce } from 'lodash'
 
 const router = useRouter()
@@ -298,70 +299,14 @@ onMounted(async () => {
         @filter-change="handleFilterChange"
         @reset-filters="resetFilters"
       >
-        <template #custom-filters>
-           <div class="filter-row">
-             <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
-             <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
-               <Tag :size="14" /> Topics
-             </span>
-             <el-popover
-               placement="right-start"
-               :width="280"
-               trigger="click"
-               popper-class="topic-popover filter-popover"
-               :hide-after="0"
-               :persistent="true"
-               :teleported="false"
-               :disabled="!filters.topics.active"
-               @show="onTopicPopoverShow"
-             >
-               <template #reference>
-                  <div style="position: relative; flex: 1; min-width: 0;">
-                    <el-select
-                      size="small"
-                      class="dark-select value-select"
-                      :disabled="!filters.topics.active"
-                      :model-value="filters.topics.value.length ? (filters.topics.value.length === 1 ? filters.topics.value[0] : `${filters.topics.value[0]} +${filters.topics.value.length - 1}`) : ''"
-                      placeholder="Select"
-                      style="width: 100%; pointer-events: none;"
-                    />
-                    <div 
-                      :style="{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: filters.topics.active ? 'pointer' : 'not-allowed' }"
-                    ></div>
-                  </div>
-                </template>
-               <div class="topic-selector-content" @click.stop>
-                 <div class="popover-search">
-                   <Search class="search-icon" :size="14" />
-                   <input 
-                     ref="topicSearchInput"
-                     type="text" 
-                     v-model="topicSearchQuery" 
-                     placeholder="search" 
-                     class="search-input" 
-                   />
-                 </div>
-                 <div class="topic-pills-container">
-                   <button
-                     v-for="topic in filteredTopicsList"
-                     :key="topic.id || topic.name"
-                     class="topic-pill"
-                     :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
-                     @click="handleTopicToggle(topic.name)"
-                   >
-                     {{ topic.name }}
-                   </button>
-                   <div v-if="filteredTopicsList.length === 0" class="no-topics">No topics found</div>
-                 </div>
-                 <div class="topic-selector-footer">
-                   <el-button link class="reset-filters" @click="resetTopicFilter">
-                     <RotateCcw :size="14" style="margin-right: 6px;" /> Reset
-                   </el-button>
-                 </div>
-               </div>
-             </el-popover>
-           </div>
-        </template>
+      <template #custom-filters>
+        <TopicFilterPicker
+          v-model="filters.topics.value"
+          v-model:active="filters.topics.active"
+          :topics="topics"
+          label="Topics"
+        />
+      </template>
         <template #custom-total>
           <div class="solved-count-container" v-if="authStore.isAuthenticated">
             <!-- Normal state: No filters -> Show progress ring -->
@@ -557,112 +502,6 @@ onMounted(async () => {
 </style>
 
 <style>
-
-/* Custom Topic Selector UI */
-
-.selected-topics-text {
-  color: var(--accent-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 105px;
-}
-.more-count {
-  font-size: 11px;
-  background: rgba(255, 161, 22, 0.2);
-  padding: 0 4px;
-  border-radius: 4px;
-  color: var(--accent-primary);
-}
-
-.topic-popover {
-  padding: 0 !important; /* Managed by topic-selector-content */
-}
-.topic-selector-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px; /* Consistency with other filters */
-}
-.popover-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.popover-search .search-icon {
-  position: absolute;
-  left: 12px;
-  color: #8a8a8a;
-}
-.popover-search .search-input {
-  background-color: #333;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 6px 12px 6px 32px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 100%;
-  outline: none;
-  transition: all 0.2s;
-}
-.popover-search .search-input:focus {
-  border-color: #5c5c5c;
-}
-.popover-search .search-input::placeholder {
-  color: #8a8a8a;
-}
-.topic-pills-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-/* Scrollbar for pills */
-.topic-pills-container::-webkit-scrollbar {
-  width: 6px;
-}
-.topic-pills-container::-webkit-scrollbar-thumb {
-  background-color: #444;
-  border-radius: 3px;
-}
-.topic-pill {
-  background: #3e3e3e;
-  border: 1px solid transparent;
-  color: #eff2f6;
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.topic-pill:hover {
-  background: #4a4a4a;
-}
-.topic-pill.is-active {
-  background: rgba(255, 161, 22, 0.1);
-  color: var(--accent-primary);
-  border-color: rgba(255, 161, 22, 0.3);
-}
-.no-topics {
-  color: #8a8a8a;
-  font-size: 12px;
-  padding: 8px 4px;
-  font-style: italic;
-  width: 100%;
-  text-align: center;
-}
-.topic-selector-footer {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #3e3e3e;
-  padding-top: 8px;
-}
-
 /* Topics Row Above Table */
 .topics-row-outer {
   margin-bottom: 24px;
@@ -674,22 +513,19 @@ onMounted(async () => {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
-
 .topics-row-container {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  height: 34px; /* Default one row */
+  height: 34px;
   overflow: hidden;
   transition: height 0.3s ease-in-out;
 }
-
 .topics-row-container.expanded {
   height: auto;
   max-height: 200px;
   overflow-y: auto;
 }
-
 .topic-pill-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -701,13 +537,11 @@ onMounted(async () => {
   transition: all 0.2s;
   white-space: nowrap;
 }
-
 .topic-pill-btn:hover {
   background: rgba(255, 161, 22, 0.1);
   color: var(--accent-primary);
   border-color: rgba(255, 161, 22, 0.3);
 }
-
 .topics-expand-btn {
   background: transparent;
   border: none;
@@ -720,10 +554,7 @@ onMounted(async () => {
   padding: 0;
   width: fit-content;
 }
-
-.topics-expand-btn:hover {
-  color: #fff;
-}
+.topics-expand-btn:hover { color: #fff; }
 
 .results-badge {
   display: flex;
@@ -734,12 +565,6 @@ onMounted(async () => {
   border-radius: 20px;
   border: 1px solid rgba(255, 161, 22, 0.2);
 }
-.search-indicator {
-  color: var(--accent-primary);
-}
-.results-count {
-  color: #eff2f6;
-  font-size: 13px;
-  font-weight: 500;
-}
+.search-indicator { color: var(--accent-primary); }
+.results-count { color: #eff2f6; font-size: 13px; font-weight: 500; }
 </style>

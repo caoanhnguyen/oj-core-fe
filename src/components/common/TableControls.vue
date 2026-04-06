@@ -57,8 +57,9 @@ const hasActiveFilters = computed(() =>
 
 const onActiveChange = (key, active) => {
   if (!active) {
-    filterState.value[key].value = ''
-    emit('filter-change', { key, value: '' })
+    const config = props.filterConfig.find(f => f.key === key)
+    filterState.value[key].value = config?.type === 'daterange' ? null : ''
+    emit('filter-change', { key, value: null })
   }
 }
 
@@ -68,9 +69,28 @@ const onValueChange = (key, value) => {
 
 const resetAllFilters = () => {
   props.filterConfig.forEach(f => {
-    filterState.value[f.key] = { active: false, value: '' }
+    filterState.value[f.key] = { active: false, value: f.type === 'daterange' ? null : '' }
   })
   emit('reset-filters')
+}
+
+// ── Date range helpers
+const toDateInputVal = (d) => {
+  if (!d) return ''
+  const date = d instanceof Date ? d : new Date(d)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const onDateRangeChange = (key, idx, val) => {
+  const current = filterState.value[key].value ? [...filterState.value[key].value] : [null, null]
+  current[idx] = val ? new Date(val + 'T00:00:00') : null
+  filterState.value[key].value = current
+  if (current[0] && current[1]) {
+    emit('filter-change', { key, value: current })
+  }
 }
 
 // ── Sort
@@ -137,7 +157,7 @@ const sortLabel = computed(() => {
     <el-popover
       v-if="filterConfig.length"
       placement="bottom-start"
-      :width="350"
+      :width="420"
       trigger="click"
       popper-class="filter-popover"
       :hide-after="0"
@@ -159,7 +179,7 @@ const sortLabel = computed(() => {
         </div>
 
         <div class="filter-list">
-          <div v-for="f in filterConfig" :key="f.key" class="filter-row">
+          <div v-for="f in filterConfig" :key="f.key" class="filter-row" :class="{ 'filter-row--full': f.type === 'daterange' }">
             <el-checkbox
               v-model="filterState[f.key].active"
               class="dark-checkbox"
@@ -170,11 +190,32 @@ const sortLabel = computed(() => {
               {{ f.label }}
             </span>
 
+            <!-- Date range: hai input native để kiểm soát dark theme hoàn toàn -->
+            <div v-if="f.type === 'daterange'" class="native-daterange-wrap">
+              <input
+                type="date"
+                class="native-date-input"
+                :disabled="!filterState[f.key].active"
+                :value="filterState[f.key].value?.[0] ? toDateInputVal(filterState[f.key].value[0]) : ''"
+                @change="(e) => onDateRangeChange(f.key, 0, e.target.value)"
+              />
+              <span class="date-sep">—</span>
+              <input
+                type="date"
+                class="native-date-input"
+                :disabled="!filterState[f.key].active"
+                :value="filterState[f.key].value?.[1] ? toDateInputVal(filterState[f.key].value[1]) : ''"
+                @change="(e) => onDateRangeChange(f.key, 1, e.target.value)"
+              />
+            </div>
+
             <el-select
+              v-else
               v-model="filterState[f.key].value"
               size="small"
               class="dark-select value-select"
               :disabled="!filterState[f.key].active"
+              :teleported="false"
               popper-class="dark-select-dropdown"
               @change="(v) => onValueChange(f.key, v)"
             >
@@ -340,8 +381,8 @@ const sortLabel = computed(() => {
   border-radius: 8px !important;
   color: #eff2f6 !important;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-  width: 350px !important;
-  min-width: 310px !important;
+  width: 420px !important;
+  min-width: 380px !important;
 }
 .filter-popover.el-popper .el-popper__arrow::before {
   background: #282828 !important;
@@ -416,6 +457,52 @@ const sortLabel = computed(() => {
 .math-select { width: 65px; flex-shrink: 0; }
 .value-select { flex: 1; min-width: 0; }
 
+/* Filter row full-width for date range */
+.filter-row--full {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 6px;
+}
+.filter-row--full .native-daterange-wrap {
+  width: 100%;
+  margin-left: 30px; /* indent to align with non-full rows */
+}
+
+/* Native date range inputs */
+.native-daterange-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.native-date-input {
+  background-color: #2c2c2c;
+  border: 1px solid #3e3e3e;
+  border-radius: 6px;
+  color: #eff2f6;
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 28px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.2s;
+}
+.native-date-input:focus {
+  border-color: var(--accent-primary, #ffa116);
+}
+.native-date-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.date-sep {
+  color: #5c5c5c;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
 /* Select dropdown */
 .dark-select-dropdown {
   background-color: #282828 !important;
@@ -458,5 +545,35 @@ const sortLabel = computed(() => {
 .dark-dropdown.el-popper .el-popper__arrow::before {
   background: #282828 !important;
   border: 1px solid #3e3e3e !important;
+}
+
+:deep(.filter-row .el-range-editor.dark-date-picker) {
+  background-color: #282828 !important;
+  border: 1px solid #3e3e3e !important;
+  box-shadow: none !important;
+}
+:deep(.filter-row .el-range-editor.dark-date-picker .el-range-input) {
+  background-color: transparent !important;
+  color: #eff2f6 !important;
+}
+:deep(.filter-row .el-range-editor.dark-date-picker .el-range-separator) {
+  color: #8a8a8a !important;
+}
+</style>
+
+<style>
+/* Global styles for date picker popovers */
+.el-picker-panel.dark-date-picker-popper {
+  background-color: #1e1e1e !important;
+  border-color: #3e3e3e !important;
+  color: #eff2f6 !important;
+}
+.el-picker-panel.dark-date-picker-popper .el-date-table td.in-range div {
+  background-color: rgba(255, 136, 0, 0.1) !important;
+}
+.el-picker-panel.dark-date-picker-popper .el-date-table td.start-date span,
+.el-picker-panel.dark-date-picker-popper .el-date-table td.end-date span {
+  background-color: var(--accent-primary) !important;
+  color: #000 !important;
 }
 </style>

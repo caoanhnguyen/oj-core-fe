@@ -101,5 +101,34 @@ export const submissionAPI = {
     getLatestSubmissionSourceCode: async (problemId, languageKey) => {
         const response = await axiosInstance.get(`/submissions/latest_source_code/${problemId}/${languageKey}`)
         return response.data.data
+    },
+
+    // ==========================================
+    // ADMIN APIs
+    // ==========================================
+    adminRejudge: async (payload) => {
+        // payload: { submissionIds, problemId, contestId }
+        const response = await axiosInstance.post('/admin/submissions/rejudge', payload)
+        return response.data
+    },
+
+    adminSoftDelete: async (ids) => {
+        const response = await axiosInstance.patch('/admin/submissions/soft-delete', ids)
+        return response.data
+    },
+
+    adminVoid: async (ids) => {
+        const response = await axiosInstance.patch('/admin/submissions/void', ids)
+        return response.data
+    },
+
+    adminRestore: async (ids) => {
+        const response = await axiosInstance.patch('/admin/submissions/restore', ids)
+        return response.data
+    },
+
+    adminCheckStatuses: async (ids) => {
+        const response = await axiosInstance.post('/admin/submissions/status-check', ids)
+        return response.data.data
     }
 }

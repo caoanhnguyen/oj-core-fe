@@ -41,7 +41,7 @@ const router = createRouter({
       component: () => import('../views/contests/ContestsListView.vue')
     },
     {
-      path: '/contests/:id',
+      path: '/contests/:id/:tab?',
       name: 'contest-detail',
       component: () => import('../views/contests/ContestDetailView.vue')
     },
@@ -156,6 +156,11 @@ const router = createRouter({
           path: 'discussions',
           name: 'admin-discussions',
           component: () => import('../views/dashboard/DiscussionsList.vue')
+        },
+        {
+          path: 'submissions',
+          name: 'admin-submissions',
+          component: () => import('../views/dashboard/SubmissionsList.vue')
         }
       ]
     },

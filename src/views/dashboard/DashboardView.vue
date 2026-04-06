@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight, Tag } from 'lucide-vue-next'
+import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight, Tag, Activity } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
@@ -14,12 +14,13 @@ const allMenuItems = [
   { id: 'problems', label: 'Problems', icon: FileText },
   { id: 'topics', label: 'Topics', icon: Tag },
   { id: 'contests', label: 'Contests', icon: Trophy },
+  { id: 'submissions', label: 'Submissions', icon: Activity },
   { id: 'discussions', label: 'Discussions', icon: MessageSquare },
 ]
 
 const menuItems = computed(() => {
   if (authStore.isModerator && !authStore.isAdmin) {
-    return allMenuItems.filter(item => ['problems', 'topics', 'contests'].includes(item.id))
+    return allMenuItems.filter(item => ['problems', 'topics', 'contests', 'submissions'].includes(item.id))
   }
   return allMenuItems
 })
@@ -212,7 +213,7 @@ const isSidebarActive = (id) => {
 /* Main Content */
 .dashboard-main {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   min-width: 0;
 }
 

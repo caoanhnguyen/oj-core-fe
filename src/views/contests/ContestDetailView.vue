@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useContestStore } from '@/stores/contest'
@@ -22,7 +22,7 @@ const contestStore = useContestStore()
 const sessionStore = useContestSessionStore()
 
 const contestId = computed(() => route.params.id)
-const activeTab  = ref('info')
+const activeTab  = ref(route.params.tab || 'info')
 const contest    = ref(null)
 const loading    = ref(false)
 
@@ -147,14 +147,13 @@ const handleStartContest = async () => {
     await sessionStore.startSession(contest.value.id)
     await loadContest()
     ElMessage.success('Bắt đầu thi thành công!')
-    activeTab.value = 'problems'
-    loadProblems()
+    router.push(`/contests/${contestId.value}/problems`)
   } catch (err) {
     if (err !== 'cancel') handleApiError(err)
   } finally { startLoading.value = false }
 }
 
-const handleEnterExam = () => { activeTab.value = 'problems'; loadProblems() }
+const handleEnterExam = () => { router.push(`/contests/${contestId.value}/problems`) }
 
 // =====================
 // Problems tab
@@ -265,12 +264,18 @@ const submissionColumns = [
 // =====================
 const switchTab = (tab) => {
   if (isTabDisabled(tab)) return
-  activeTab.value = tab
-  if (tab === 'problems'     && !problems.value.length)      loadProblems()
-  if (tab === 'participants' && !participants.value.length)   loadParticipants()
-  if (tab === 'leaderboard'  && !leaderboard.value.length)   loadLeaderboard()
-  if (tab === 'submissions'  && !mySubmissions.value.length)  loadMySubmissions()
+  if (tab === 'info') router.push(`/contests/${contestId.value}`)
+  else router.push(`/contests/${contestId.value}/${tab}`)
 }
+
+watch(() => route.params.tab, (newTab) => {
+  const targetTab = newTab || 'info'
+  activeTab.value = targetTab
+  if (targetTab === 'problems'     && !problems.value.length)      loadProblems()
+  if (targetTab === 'participants' && !participants.value.length)   loadParticipants()
+  if (targetTab === 'leaderboard'  && !leaderboard.value.length)   loadLeaderboard()
+  if (targetTab === 'submissions'  && !mySubmissions.value.length)  loadMySubmissions()
+}, { immediate: true })
 
 // =====================
 // Verdict styling

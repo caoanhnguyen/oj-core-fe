@@ -13,6 +13,7 @@ import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 import { handleApiError } from '@/utils/errorHandler'
 import AppButton from '@/components/common/AppButton.vue'
+import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
 
 const router = useRouter()
 const problemStore = useProblemStore()
@@ -142,6 +143,21 @@ watch(searchQuery, () => {
   pagination.value.page = 1
   debouncedFetchProblems()
 })
+
+watch([currentSortField, currentSortDirection], () => {
+  pagination.value.page = 1
+  fetchProblemsData()
+})
+
+watch(filters, () => {
+  // Skip fetch if an active filter has no value yet
+  const hasIncomplete = Object.values(filters.value).some(f =>
+    f.active && (!f.value || (Array.isArray(f.value) ? f.value.length === 0 : f.value === ''))
+  )
+  if (hasIncomplete) return
+  pagination.value.page = 1
+  debouncedFetchProblems()
+}, { deep: true })
 
 watch(() => pagination.value.page, () => {
   fetchProblemsData()
@@ -309,52 +325,12 @@ onMounted(async () => {
       @reset-filters="resetFilters"
     >
       <template #custom-filters>
-         <div class="filter-row" style="margin-top: 16px;">
-           <el-checkbox v-model="filters.topics.active" class="dark-checkbox" />
-           <span class="filter-label" :class="{ 'is-active': filters.topics.active }">
-             <Tag :size="14" /> Chủ đề
-           </span>
-           <el-popover
-             placement="right-start"
-             :width="280"
-             trigger="click"
-             popper-class="topic-popover filter-popover"
-             :hide-after="0"
-             :persistent="true"
-             :teleported="false"
-           >
-             <template #reference>
-               <div class="topic-trigger custom-topic-trigger" :class="{ 'is-disabled': !filters.topics.active }" @click.stop style="flex: 1;">
-                 <span v-if="filters.topics.value.length === 0">Chọn</span>
-                 <span v-else class="selected-topics-text">{{ filters.topics.value.join(', ') }}</span>
-                 <ChevronDown :size="14" class="topic-trigger-icon" />
-               </div>
-             </template>
-             <div class="topic-selector-content" @click.stop>
-               <div class="popover-search">
-                 <Search class="search-icon" :size="14" />
-                 <input type="text" v-model="topicSearchQuery" placeholder="tìm kiếm..." class="search-input" />
-               </div>
-               <div class="topic-pills-container">
-                 <button
-                   v-for="topic in filteredTopicsList"
-                   :key="topic.id || topic.name"
-                   class="topic-pill"
-                   :class="{ 'is-active': filters.topics.value.includes(topic.name) }"
-                   @click="handleTopicToggle(topic.name)"
-                 >
-                   {{ topic.name }}
-                 </button>
-                 <div v-if="filteredTopicsList.length === 0" class="no-topics">Không tìm thấy chủ đề nào</div>
-               </div>
-               <div class="topic-selector-footer">
-                 <el-button link class="reset-filters" @click="resetTopicFilter">
-                   <RotateCcw :size="14" style="margin-right: 6px;" /> Đặt lại
-                 </el-button>
-               </div>
-             </div>
-           </el-popover>
-         </div>
+        <TopicFilterPicker
+          v-model="filters.topics.value"
+          v-model:active="filters.topics.active"
+          :topics="topics"
+          label="Chủ đề"
+        />
       </template>
     </TableControls>
 
@@ -563,311 +539,5 @@ onMounted(async () => {
 :deep(.action-btn.action-restore:hover) {
   color: #10b981;
   background: rgba(16, 185, 129, 0.1);
-}
-</style>
-
-<style>
-/* Global Popover Styles placed here to apply globally for UI components appended to body */
-.filter-popover.el-popper {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-  padding: 0 !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-  color: #eff2f6 !important;
-  width: 450px !important;
-  min-width: 310px !important;
-}
-.filter-popover.el-popper .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-.filter-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #3e3e3e;
-  font-size: 14px;
-  font-weight: 600;
-  color: #eff2f6;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.filter-list {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 0 !important;
-}
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.filter-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 110px;
-  color: #8a8a8a;
-  font-size: 13px;
-  transition: color 0.2s;
-}
-.filter-label.is-active {
-  color: var(--accent-primary) !important;
-}
-.remove-filter {
-  color: #5c5c5c;
-  cursor: pointer;
-}
-.remove-filter:hover { color: #eff2f6; }
-.add-filter-row {
-  display: flex;
-  padding-top: 4px;
-}
-.add-filter-icon {
-  color: #8a8a8a;
-  cursor: pointer;
-}
-.add-filter-icon:hover { color: #eff2f6; }
-.filter-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #3e3e3e;
-  padding-top: 12px;
-  margin-top: 16px;
-}
-.save-smart-list { color: #a470cd !important; font-size: 13px; }
-.save-smart-list:hover { color: #c090e5 !important; }
-.reset-filters { color: #eff2f6 !important; font-size: 13px; }
-.reset-filters:hover { color: #fff !important; }
-
-.dark-select.match-select { width: 80px; }
-.dark-select.math-select { width: 75px; }
-.dark-select.value-select { width: 110px; flex: 1; }
-/* V2 style wrappers */
-.dark-select .el-input__wrapper,
-.dark-select .el-select__wrapper {
-  background-color: #333 !important;
-  box-shadow: 0 0 0 1px #3e3e3e inset !important;
-  border-radius: 6px;
-}
-.dark-select .el-input__inner,
-.dark-select .el-select__placeholder { color: #eff2f6 !important; }
-.dark-select.el-select:hover:not(.is-disabled) .el-input__wrapper,
-.dark-select.el-select:hover:not(.is-disabled) .el-select__wrapper { box-shadow: 0 0 0 1px #5c5c5c inset !important; }
-.dark-select.el-select .el-input.is-focus .el-input__wrapper,
-.dark-select.el-select .el-select__wrapper.is-focused,
-.dark-select.el-select:has(.el-select__wrapper.is-focused) .el-select__wrapper { box-shadow: 0 0 0 1px var(--accent-primary) inset !important; }
-
-/* Disabled states */
-.dark-select .el-input.is-disabled .el-input__wrapper,
-.dark-select .el-select__wrapper.is-disabled {
-  background-color: #282828 !important;
-  box-shadow: 0 0 0 1px #333 inset !important;
-}
-.dark-select .el-input.is-disabled .el-input__inner,
-.dark-select .el-select__wrapper.is-disabled .el-select__placeholder {
-  color: #5c5c5c !important;
-  -webkit-text-fill-color: #5c5c5c !important;
-}
-.dark-checkbox .el-checkbox__inner {
-  background-color: transparent !important;
-  border-color: #5c5c5c !important;
-  border-radius: 4px;
-}
-.dark-checkbox.is-checked .el-checkbox__inner { background-color: transparent !important; border-color: #5c5c5c !important; }
-.dark-checkbox.is-checked .el-checkbox__inner::after { border-color: #8a8a8a !important; }
-
-.dark-dropdown {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-.dark-dropdown .el-dropdown-menu__item {
-  color: #eff2f6 !important;
-}
-.dark-dropdown .el-dropdown-menu__item:hover,
-.dark-dropdown .el-dropdown-menu__item.is-active {
-  background-color: #333 !important;
-  color: var(--accent-primary) !important;
-}
-.dark-dropdown.el-popper .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-/* Combobox (Select) Dropdowns */
-.dark-select-dropdown.el-popper {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-.dark-select-dropdown .el-select-dropdown__item {
-  color: #eff2f6 !important;
-}
-.dark-select-dropdown .el-select-dropdown__item.hover, 
-.dark-select-dropdown .el-select-dropdown__item:hover {
-  background-color: #333 !important;
-  color: var(--accent-primary) !important;
-}
-.dark-select-dropdown .el-select-dropdown__item.selected {
-  color: var(--accent-primary) !important;
-  background-color: transparent !important;
-  font-weight: 600;
-}
-.dark-select-dropdown.el-popper .el-popper__arrow::before {
-  background: #282828 !important;
-  border: 1px solid #3e3e3e !important;
-}
-
-/* Custom Topic Selector UI */
-.topic-trigger {
-  width: 110px;
-  flex: 1;
-  background-color: #333;
-  box-shadow: 0 0 0 1px #3e3e3e inset;
-  border-radius: 6px;
-  height: 24px; /* match el-select small size */
-  display: flex;
-  align-items: center;
-  padding: 0 8px; /* Slightly reduced padding */
-  color: #eff2f6;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.topic-trigger .topic-trigger-icon {
-  margin-left: auto;
-  color: #8a8a8a;
-  flex-shrink: 0;
-}
-.topic-trigger:not(.is-disabled):hover {
-  box-shadow: 0 0 0 1px #5c5c5c inset;
-}
-.topic-trigger.is-disabled {
-  background-color: #282828;
-  box-shadow: 0 0 0 1px #333 inset;
-  color: #5c5c5c;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.selected-topics-text {
-  color: var(--accent-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.topic-popover {
-  padding: 12px !important;
-}
-.topic-selector-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.popover-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.popover-search .search-icon {
-  position: absolute;
-  left: 12px;
-  color: #8a8a8a;
-}
-.popover-search .search-input {
-  background-color: #333;
-  border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 6px 12px 6px 32px;
-  color: #eff2f6;
-  font-size: 13px;
-  width: 100%;
-  outline: none;
-  transition: all 0.2s;
-}
-.popover-search .search-input:focus {
-  border-color: #5c5c5c;
-}
-.popover-search .search-input::placeholder {
-  color: #8a8a8a;
-}
-.topic-pills-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-/* Scrollbar for pills */
-.topic-pills-container::-webkit-scrollbar {
-  width: 6px;
-}
-.topic-pills-container::-webkit-scrollbar-thumb {
-  background-color: #444;
-  border-radius: 3px;
-}
-/* Custom Topic Trigger matching TableControls dark-select */
-.custom-topic-trigger {
-  background-color: #333 !important;
-  box-shadow: 0 0 0 1px #3e3e3e inset !important;
-  border-radius: 6px;
-  color: #eff2f6 !important;
-  font-size: 13px;
-  min-height: 24px;
-  transition: all 0.2s;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  cursor: pointer;
-}
-.custom-topic-trigger:hover {
-  box-shadow: 0 0 0 1px #5c5c5c inset !important;
-}
-.custom-topic-trigger.is-disabled {
-  background-color: #282828 !important;
-  box-shadow: 0 0 0 1px #333 inset !important;
-  color: #5c5c5c !important;
-  cursor: not-allowed;
-}
-.topic-pill {
-  background: #3e3e3e;
-  border: 1px solid transparent;
-  color: #eff2f6;
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.topic-pill:hover {
-  background: #5c5c5c;
-}
-.topic-pill.is-active {
-  background: rgba(255, 161, 22, 0.1);
-  color: var(--accent-primary);
-  border-color: rgba(255, 161, 22, 0.3);
-}
-.no-topics {
-  color: #8a8a8a;
-  font-size: 12px;
-  padding: 8px 0;
-  text-align: center;
-  width: 100%;
-}
-.topic-selector-footer {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #3e3e3e;
-  padding-top: 8px;
-  margin-top: 4px;
 }
 </style>
