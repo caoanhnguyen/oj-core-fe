@@ -86,6 +86,7 @@ const getActionClass = (type) => {
       :data="data" 
       v-loading="loading"
       class="dashboard-table leetcode-table sticky-table" 
+      :class="{ 'is-empty': !data || data.length === 0 }"
       border
       style="width: 100%"
       :row-class-name="rowClassName"
@@ -170,13 +171,14 @@ const getActionClass = (type) => {
   font-size: 13px;
 }
 
-/* Force table to always fill container, distributing extra space automatically to prevent fixed-right tearing */
-:deep(.el-table__header-wrapper table),
-:deep(.el-table__body-wrapper table),
-:deep(.el-scrollbar__view) {
+/* Force inner tables and scroll containers to fill 100% to prevent fixed-right tearing */
+/* BUT only when it has data, to prevent infinite resize loop when rendering el-empty */
+:deep(.el-table:not(.is-empty) .el-table__header-wrapper table),
+:deep(.el-table:not(.is-empty) .el-table__body-wrapper table),
+:deep(.el-table:not(.is-empty) .el-scrollbar__view) {
   min-width: 100% !important;
 }
-:deep(.el-scrollbar__view) {
+:deep(.el-table:not(.is-empty) .el-scrollbar__view) {
   display: block !important;
 }
 

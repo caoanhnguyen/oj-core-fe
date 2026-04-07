@@ -14,56 +14,10 @@ const route = useRoute()
 const authStore = useAuthStore()
 const sessionStore = useContestSessionStore()
 
-// Timer logic
-const targetTime = computed(() => sessionStore.activeSession?.endTime)
-const { formattedTime } = useSyncedTimer(targetTime, async () => {
-    // Tự động kết thúc khi hết giờ
-    if (sessionStore.activeSession) {
-      const contestId = sessionStore.activeSession.contestId
-      await sessionStore.finishSession(contestId)
-      ElMessageBox.alert('Thời gian thi đấu của bạn đã kết thúc. Hệ thống đã tự động ghi nhận kết quả.', 'Hết giờ!', {
-        confirmButtonText: 'Xem bảng xếp hạng',
-        type: 'warning',
-        callback: () => {
-          router.push(`/contests/${contestId}?tab=leaderboard`)
-        }
-      })
-    }
-})
-
 // Active state theo route
 const isProblemsActive = computed(() => route.path.startsWith('/problems'))
 
-const handleFinishContest = async () => {
-  try {
-    await ElMessageBox.confirm(
-      'Bạn có chắc chắn muốn nộp bài sớm và kết thúc kỳ thi này không? Hành động này không thể hoàn tác.',
-      'Kết thúc kỳ thi',
-      {
-        confirmButtonText: 'Xác nhận kết thúc',
-        cancelButtonText: 'Tiếp tục làm bài',
-        type: 'warning'
-      }
-    )
-    const contestId = sessionStore.activeSession.contestId
-    await sessionStore.finishSession(contestId)
-    ElMessage.success('Kỳ thi đã kết thúc thành công.')
-    router.push(`/contests/${contestId}?tab=leaderboard`)
-  } catch (err) {
-    if (err !== 'cancel') handleApiError(err)
-  }
-}
-
-// Redirect helpers for context-aware links
-const getProblemsLink = computed(() => {
-  if (sessionStore.isExamMode) return `/contests/${sessionStore.activeSession.contestId}?tab=problems`
-  return '/problems'
-})
-
-const getSubmissionsLink = computed(() => {
-  if (sessionStore.isExamMode) return `/contests/${sessionStore.activeSession.contestId}?tab=submissions`
-  return '/submissions'
-})
+// Removed context-aware links because user wants normal navigation
 
 const handleLogout = async () => {
   try {
@@ -77,27 +31,7 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <nav class="navbar" :class="{ 'exam-navbar': sessionStore.isExamMode }">
-    <!-- Sticky Exam Bar -->
-    <div v-if="sessionStore.isExamMode" class="exam-sticky-bar">
-      <div class="exam-bar-content">
-        <div class="exam-info">
-          <ShieldAlert :size="16" class="pulse-icon" />
-          <span class="exam-label">ĐANG TRONG PHIÊN THI</span>
-          <span class="exam-id">#{{ sessionStore.activeSession.contestId.slice(0,8) }}</span>
-        </div>
-        
-        <div class="exam-timer">
-          <Clock :size="16" />
-          <span class="timer-countdown">{{ formattedTime }}</span>
-        </div>
-
-        <el-button type="danger" size="small" class="finish-btn" @click="handleFinishContest">
-          Kết thúc bài thi
-        </el-button>
-      </div>
-    </div>
-
+  <nav class="navbar">
     <div class="navbar-content">
       <RouterLink to="/" class="logo">
         <Code2 :size="20" />
@@ -113,12 +47,12 @@ const handleLogout = async () => {
 
 
 
-        <RouterLink :to="getProblemsLink" class="nav-link" :class="{ 'is-active': isProblemsActive }">
+        <RouterLink to="/problems" class="nav-link" :class="{ 'is-active': isProblemsActive }">
           <BookOpen :size="16" style="margin-right: 6px;" />
           <span>Problems</span>
         </RouterLink>
 
-        <RouterLink :to="getSubmissionsLink" class="nav-link" :class="{ 'is-active': route.path.startsWith('/submissions') }">
+        <RouterLink to="/submissions" class="nav-link" :class="{ 'is-active': route.path.startsWith('/submissions') }">
           <Send :size="16" style="margin-right: 6px;" />
           <span>Submissions</span>
         </RouterLink>
@@ -214,79 +148,6 @@ const handleLogout = async () => {
   top: 0;
   z-index: 100;
   transition: height 0.3s ease;
-}
-
-.navbar.exam-navbar {
-  height: 96px; /* 56px + 40px bar */
-}
-
-.exam-sticky-bar {
-  height: 40px;
-  background: linear-gradient(90deg, #ef4743 0%, #ff6b6b 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(239, 71, 67, 0.3);
-}
-
-.exam-bar-content {
-  width: 100%;
-  max-width: 1400px;
-  padding: 0 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.exam-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.exam-timer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0,0,0,0.2);
-  padding: 4px 12px;
-  border-radius: 6px;
-}
-
-.timer-countdown {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-}
-
-.pulse-icon {
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.2); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.finish-btn {
-  background: white !important;
-  border: none !important;
-  color: #ef4743 !important;
-  font-weight: 700 !important;
-  padding: 6px 16px !important;
-  height: 30px !important;
-  border-radius: 6px !important;
-}
-
-.finish-btn:hover {
-  background: #f8f8f8 !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .navbar-content {

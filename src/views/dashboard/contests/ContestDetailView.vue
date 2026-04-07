@@ -81,6 +81,9 @@ const handleUpdate = async (payload) => {
           <span :class="['rule-badge', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ contest.ruleType }}</span>
           <span :class="['status-badge', getStatusClass(contest.contestStatus)]">{{ getStatusLabel(contest.contestStatus) }}</span>
           <span :class="['status-badge', getEntityStatusClass(contest.status)]">{{ contest.status }}</span>
+          <span :class="['sb-badge', contest.scoreboardVisibility === 'VISIBLE' ? 'sb-visible' : 'sb-hidden']">
+            XH: {{ contest.scoreboardVisibility === 'VISIBLE' ? 'VISIBLE' : (contest.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
+          </span>
         </div>
       </div>
       <div class="detail-meta-grid">
@@ -152,6 +155,10 @@ const handleUpdate = async (payload) => {
 .status-ended    { background: rgba(255,255,255,0.08); color: #8a8a8a; }
 .status-active   { background: rgba(0,184,163,0.1); color: #00b8a3; }
 .status-deleted  { background: rgba(239,71,67,0.1); color: #ef4743; }
+
+.sb-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 2px; }
+.sb-visible { background: rgba(0, 184, 163, 0.1); color: #00b8a3; border: 1px solid rgba(0, 184, 163, 0.2); }
+.sb-hidden { background: rgba(239, 71, 67, 0.1); color: #ef4743; border: 1px solid rgba(239, 71, 67, 0.2); }
 
 /* Tabs */
 .detail-tabs { margin-top: 4px; }

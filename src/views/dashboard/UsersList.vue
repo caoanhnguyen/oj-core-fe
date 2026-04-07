@@ -227,6 +227,19 @@ const resetFilter = () => {
 }
 
 onMounted(fetchUsers)
+
+const tableColumns = [
+  { type: 'selection', width: '55', align: 'center', fixed: 'left' },
+  { key: '_index', label: '#', width: '60', align: 'center' },
+  { key: 'id', label: 'ID', minWidth: '300', align: 'center' },
+  { key: 'username', label: 'Người dùng', minWidth: '220', align: 'center' },
+  { key: 'fullName', label: 'Họ tên', minWidth: '220', align: 'center' },
+  { key: 'email', label: 'Email', minWidth: '320', align: 'center' },
+  { key: 'roles', label: 'Vai trò', minWidth: '200', align: 'center' },
+  { key: 'status', label: 'Trạng thái', width: '140', align: 'center' },
+  { key: 'createdDate', label: 'Ngày gia nhập', width: '160', align: 'center' },
+  { key: 'updatedDate', label: 'Ngày cập nhật', width: '160', align: 'center' }
+]
 </script>
 
 <template>
@@ -282,110 +295,84 @@ onMounted(fetchUsers)
     <div class="table-container">
       <TableSkeleton v-if="loading && users.length === 0" :columns="8" :rows="10" />
       
-      <el-table 
+      <DataTable 
         v-else 
-        :data="users" 
-        class="dashboard-table leetcode-table sticky-table" 
+        :data="users"
+        :columns="tableColumns"
         v-loading="loading"
         @selection-change="handleSelectionChange"
-        border
-        style="width: 100%"
+        empty-text="Không tìm thấy người dùng nào"
       >
-        <template #empty>
-          <el-empty description="Không tìm thấy người dùng nào" />
+        <template #cell-_index="{ index }">
+          <span class="cell-index">{{ filter.page * filter.size + index + 1 }}</span>
         </template>
-        <el-table-column type="selection" width="55" align="center" fixed="left" />
-        
-        <el-table-column label="#" width="60" align="center">
-          <template #default="{ $index }">
-            <span class="cell-index">{{ filter.page * filter.size + $index + 1 }}</span>
-          </template>
-        </el-table-column>
 
-        <el-table-column label="ID" min-width="300" align="center">
-          <template #default="{ row }">
-            <span class="cell-text">{{ row.id || '-' }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-id="{ row }">
+          <span class="cell-text">{{ row.id || '-' }}</span>
+        </template>
 
-        <el-table-column label="Người dùng" min-width="220" align="center">
-          <template #default="{ row }">
-            <div class="user-cell">
-               <router-link :to="`/profile/${row.username}`" class="cell-username">{{ row.username }}</router-link>
-            </div>
-          </template>
-        </el-table-column>
+        <template #cell-username="{ row }">
+          <div class="user-cell">
+             <router-link :to="`/profile/${row.username}`" class="cell-username">{{ row.username }}</router-link>
+          </div>
+        </template>
 
-        <el-table-column prop="fullName" label="Họ tên" min-width="220" align="center">
-            <template #default="{ row }">
-              <span class="cell-text">{{ row.fullName || '-' }}</span>
-            </template>
-        </el-table-column>
+        <template #cell-fullName="{ row }">
+          <span class="cell-text">{{ row.fullName || '-' }}</span>
+        </template>
 
-        <el-table-column prop="email" label="Email" min-width="320" align="center">
-            <template #default="{ row }">
-              <span class="cell-email">{{ row.email }}</span>
-            </template>
-        </el-table-column>
+        <template #cell-email="{ row }">
+          <span class="cell-email">{{ row.email }}</span>
+        </template>
 
-        <el-table-column label="Vai trò" min-width="200" align="center">
-          <template #default="{ row }">
-            <div class="role-tags">
-              <span 
-                v-for="role in row.roles" 
-                :key="role" 
-                :class="['role-pill', `role-${role.replace('ROLE_', '').toLowerCase()}`]"
-              >
-                {{ role.replace('ROLE_', '') }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
+        <template #cell-roles="{ row }">
+          <div class="role-tags">
+            <span 
+              v-for="role in row.roles" 
+              :key="role" 
+              :class="['role-pill', `role-${role.replace('ROLE_', '').toLowerCase()}`]"
+            >
+              {{ role.replace('ROLE_', '') }}
+            </span>
+          </div>
+        </template>
 
-        <el-table-column label="Trạng thái" width="140" align="center">
-          <template #default="{ row }">
-            <span v-if="row.accountNonLocked === false" class="status-badge status-locked">BỊ KHÓA</span>
-            <span v-else class="status-badge status-active">HOẠT ĐỘNG</span>
-          </template>
-        </el-table-column>
+        <template #cell-status="{ row }">
+          <span v-if="row.accountNonLocked === false" class="status-badge status-locked">BỊ KHÓA</span>
+          <span v-else class="status-badge status-active">HOẠT ĐỘNG</span>
+        </template>
 
-        <el-table-column label="Ngày gia nhập" width="160" align="center">
-          <template #default="{ row }">
-            <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-createdDate="{ row }">
+          <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
+        </template>
 
-        <el-table-column label="Ngày cập nhật" width="160" align="center">
-          <template #default="{ row }">
-            <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-updatedDate="{ row }">
+          <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
+        </template>
 
-        <el-table-column label="Hành động" width="150" align="center" fixed="right">
-          <template #default="{ row }">
-            <div class="action-btns">
-               <el-tooltip content="Chi tiết" placement="top">
-                 <button class="action-btn action-btn-info" @click="router.push(`/profile/${row.username}`)">
-                   <Info :size="16" />
-                 </button>
-               </el-tooltip>
-               <el-tooltip content="Quản lý vai trò" placement="top">
-                 <button class="action-btn action-btn-shield" @click="showRoleDialog(row)">
-                   <Shield :size="16" />
-                 </button>
-               </el-tooltip>
-               <el-tooltip :content="row.accountNonLocked === false ? 'Mở khóa' : 'Khóa'" placement="top" :hide-after="0">
-                 <button 
-                   :class="['action-btn', row.accountNonLocked === false ? 'action-btn-unlock' : 'action-btn-lock']"
-                   @click="handleToggleLock(row)"
-                 >
-                   <component :is="row.accountNonLocked === false ? Unlock : Lock" :size="16" />
-                 </button>
-               </el-tooltip>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+        <template #actions="{ row }">
+          <div class="action-btns">
+             <el-tooltip content="Chi tiết" placement="top">
+               <button class="action-btn action-btn-info" @click="router.push(`/profile/${row.username}`)">
+                 <Info :size="16" />
+               </button>
+             </el-tooltip>
+             <el-tooltip content="Quản lý vai trò" placement="top">
+               <button class="action-btn action-btn-shield" @click="showRoleDialog(row)">
+                 <Shield :size="16" />
+               </button>
+             </el-tooltip>
+             <el-tooltip :content="row.accountNonLocked === false ? 'Mở khóa' : 'Khóa'" placement="top" :hide-after="0">
+               <button 
+                 :class="['action-btn', row.accountNonLocked === false ? 'action-btn-unlock' : 'action-btn-lock']"
+                 @click="handleToggleLock(row)"
+               >
+                 <component :is="row.accountNonLocked === false ? Unlock : Lock" :size="16" />
+               </button>
+             </el-tooltip>
+          </div>
+        </template>
+      </DataTable>
 
       <div class="pagination-footer">
         <DarkPagination
@@ -480,64 +467,6 @@ onMounted(fetchUsers)
   border: 2px solid #3e3e3e;
   border-top-color: var(--accent-primary);
   transform: rotate(-45deg);
-}
-
-/* LeetCode Table Style */
-:deep(.leetcode-table) {
-  background: var(--bg-primary) !important;
-  --el-table-border-color: #2a2a2a !important; /* Subtle dark color for cell borders */
-}
-
-:deep(.leetcode-table.el-table--border) {
-  border-left: 1px solid #2a2a2a !important;
-  border-top: 1px solid #2a2a2a !important;
-}
-
-/* Fix Element Plus wrappers */
-:deep(.leetcode-table .el-table__inner-wrapper::after),
-:deep(.leetcode-table .el-table__inner-wrapper::before) {
-  background-color: #2a2a2a !important;
-}
-
-:deep(.leetcode-table th.el-table__cell) {
-  background: var(--bg-primary) !important; /* Opaque header */
-  border-bottom: 1px solid #2a2a2a !important;
-  border-right: 1px solid #2a2a2a !important;
-  color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 13px;
-  padding: 12px 0;
-  text-transform: uppercase;
-}
-
-:deep(.leetcode-table td.el-table__cell) {
-  border-bottom: 1px solid #2a2a2a !important;
-  border-right: 1px solid #2a2a2a !important;
-  padding: 12px 0;
-  background-color: var(--bg-primary) !important; /* Opaque even rows */
-}
-
-:deep(.leetcode-table tr) {
-  background-color: var(--bg-primary) !important;
-}
-
-:deep(.leetcode-table tr:nth-child(odd) td.el-table__cell) {
-  background-color: #111111 !important; /* Opaque odd rows */
-}
-
-:deep(.leetcode-table tr:hover td.el-table__cell) {
-  background-color: #1e1e1e !important; /* Opaque hover */
-}
-
-/* Checkbox Style - accent color handled by global style.css */
-:deep(.el-checkbox__inner) {
-    background-color: var(--bg-secondary) !important;
-    border-color: var(--border-primary) !important;
-}
-
-:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background-color: var(--accent-primary) !important;
-    border-color: var(--accent-primary) !important;
 }
 
 /* SELECT BOXES FIX */

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Trophy, Plus, Edit, Trash2, RotateCcw, Eye, EyeOff, Search, BookOpen, Users, FileText, X, Check, MoreVertical, Filter, Clock, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { Trophy, Plus, Edit, Trash2, RotateCcw, Eye, EyeOff, Search, BookOpen, Users, FileText, X, Check, MoreVertical, Filter, Clock, ChevronDown, ChevronUp, BarChart2 } from 'lucide-vue-next'
 import { useContestStore } from '@/stores/contest'
 import { useProblemStore } from '@/stores/problem'
 import { contestsAPI } from '@/api/contests'
@@ -23,6 +23,7 @@ const filters = ref({
   status: { active: false, value: '' },
   contestStatus: { active: false, value: '' },
   visibility: { active: false, value: '' },
+  scoreboardVisibility: { active: false, value: '' },
   ruleType: { active: false, value: '' }
 })
 const pagination = ref({ page: 1, size: 20 })
@@ -50,6 +51,9 @@ const loadContests = async () => {
   if (filters.value.ruleType.active && filters.value.ruleType.value) {
     params.ruleType = filters.value.ruleType.value
   }
+  if (filters.value.scoreboardVisibility.active && filters.value.scoreboardVisibility.value) {
+    params.scoreboardVisibility = filters.value.scoreboardVisibility.value
+  }
   
   await contestStore.fetchAdminContests(params)
 }
@@ -67,6 +71,7 @@ const resetFilters = () => {
     status: { active: false, value: '' },
     contestStatus: { active: false, value: '' },
     visibility: { active: false, value: '' },
+    scoreboardVisibility: { active: false, value: '' },
     ruleType: { active: false, value: '' }
   }
   handleSearch()
@@ -139,6 +144,7 @@ const defaultForm = () => ({
   endTime: null,
   ruleType: 'ACM',
   visibility: 'PUBLIC',
+  scoreboardVisibility: 'VISIBLE',
   password: '',
   durationMinutes: null
 })
@@ -153,6 +159,7 @@ const formRules = {
   endTime: [{ required: true, message: 'Vui lòng chọn thời gian kết thúc', trigger: 'change' }],
   ruleType: [{ required: true, message: 'Vui lòng chọn loại', trigger: 'change' }],
   visibility: [{ required: true, message: 'Vui lòng chọn visibility', trigger: 'change' }],
+  scoreboardVisibility: [{ required: true, message: 'Vui lòng chọn chế độ Xếp hạng', trigger: 'change' }],
 }
 
 const openCreateForm = () => {
@@ -182,6 +189,7 @@ const openEditForm = async (row) => {
       endTime: parseUTC(detail.endTime),
       ruleType: detail.ruleType || 'ACM',
       visibility: detail.visibility || 'PUBLIC',
+      scoreboardVisibility: detail.scoreboardVisibility || 'VISIBLE',
       password: detail.password || '',
       durationMinutes: detail.durationMinutes || null
     }
@@ -503,6 +511,41 @@ const getVerdictClass = (v) => ({
   RE: 'verdict-wa', CE: 'verdict-info', PENDING: 'verdict-info', SE: 'verdict-wa'
 }[v] || '')
 
+const mainColumns = [
+  { key: 'index', label: '#', width: 50 },
+  { key: 'title', label: 'Tiêu đề', minWidth: 220 },
+  { key: 'ruleType', label: 'Rule', width: 100 },
+  { key: 'contestStatus', label: 'Trạng thái', width: 150 },
+  { key: 'visibility', label: 'Visibility', width: 100 },
+  { key: 'scoreboardVisibility', label: 'Scoreboard', width: 120 },
+  { key: 'startTime', label: 'Ngày bắt đầu', width: 160 },
+  { key: 'endTime', label: 'Ngày kết thúc', width: 160 },
+  { key: 'participantCount', label: 'Thí sinh', width: 80 },
+  { key: 'status', label: 'Trạng thái bản ghi', width: 150 }
+]
+
+const problemColumns = [
+  { type: 'selection', width: 50 },
+  { key: 'displayId', label: 'ID', width: 90 },
+  { key: 'originalTitle', label: 'Tiêu đề bài tập', minWidth: 200 },
+  { key: 'points', label: 'Điểm', width: 90 },
+  { key: 'sortOrder', label: 'Thứ tự', width: 90 }
+]
+
+const participantColumns = [
+  { type: 'selection', width: 50 },
+  { key: 'username', label: 'Người dùng', minWidth: 150 },
+  { key: 'status', label: 'Trạng thái', width: 140 }
+]
+
+const submissionColumns = [
+  { key: 'time', label: 'Thời gian', minWidth: 160 },
+  { key: 'user', label: 'User', minWidth: 140 },
+  { key: 'problem', label: 'Bài', minWidth: 160 },
+  { key: 'verdict', label: 'Kết quả', width: 120 },
+  { key: 'language', label: 'Lang', width: 90 }
+]
+
 onMounted(loadContests)
 </script>
 
@@ -596,6 +639,26 @@ onMounted(loadContests)
                 </el-select>
               </div>
 
+              <!-- Scoreboard Visibility -->
+              <div class="filter-row">
+                <el-checkbox v-model="filters.scoreboardVisibility.active" @change="handleFilterChange" class="dark-checkbox" />
+                <span class="filter-label" :class="{ 'is-active': filters.scoreboardVisibility.active }">
+                  <BarChart2 :size="14" /> Xếp hạng
+                </span>
+                <el-select 
+                  v-model="filters.scoreboardVisibility.value" 
+                  size="small" 
+                  class="dark-select value-select" 
+                  :disabled="!filters.scoreboardVisibility.active"
+                  @change="handleFilterChange"
+                  popper-class="dark-select-dropdown"
+                >
+                  <el-option label="Hiện toàn thời gian" value="VISIBLE" />
+                  <el-option label="Đóng băng lúc thi" value="HIDDEN_DURING_CONTEST" />
+                  <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
+                </el-select>
+              </div>
+
               <!-- Rule Type -->
               <div class="filter-row">
                 <el-checkbox v-model="filters.ruleType.active" @change="handleFilterChange" class="dark-checkbox" />
@@ -649,79 +712,72 @@ onMounted(loadContests)
 
       <TableSkeleton v-if="contestStore.loading && contests.length === 0" :columns="6" :rows="10" />
 
-      <el-table v-else :data="contests" class="dashboard-table leetcode-table" v-loading="contestStore.loading">
-        <template #empty>
-          <el-empty description="Không tìm thấy contest nào" />
+      <DataTable 
+        v-else 
+        :data="contests" 
+        :columns="mainColumns"
+        v-loading="contestStore.loading"
+        empty-text="Không tìm thấy contest nào"
+        action-width="170"
+      >
+        <template #cell-index="{ index }">
+          <span class="cell-index">{{ (pagination.page - 1) * pagination.size + index + 1 }}</span>
         </template>
 
-        <el-table-column label="#" width="50" align="center">
-          <template #default="{ $index }">
-            <span class="cell-index">{{ (pagination.page - 1) * pagination.size + $index + 1 }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-title="{ row }">
+          <span class="cell-title" @click="openDetail(row)">{{ row.title }}</span>
+        </template>
 
-        <el-table-column label="Tiêu đề" min-width="220">
-          <template #default="{ row }">
-            <span class="cell-title" @click="openDetail(row)">{{ row.title }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-ruleType="{ row }">
+          <span :class="['rule-type-text', row.ruleType === 'ACM' ? 'rule-type-acm' : 'rule-type-oi']">{{ row.ruleType }}</span>
+        </template>
 
-        <el-table-column label="Rule" width="100" align="center">
-          <template #default="{ row }">
-            <span :class="['rule-badge', row.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ row.ruleType }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-contestStatus="{ row }">
+          <span :class="['status-badge', getContestStatusClass(row.contestStatus)]">{{ getContestStatusLabel(row.contestStatus) }}</span>
+        </template>
 
-        <el-table-column label="Trạng thái" width="150" align="center">
-          <template #default="{ row }">
-            <span :class="['status-badge', getContestStatusClass(row.contestStatus)]">{{ getContestStatusLabel(row.contestStatus) }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-visibility="{ row }">
+          <span :class="['visibility-badge', row.visibility === 'PUBLIC' ? 'vis-public' : 'vis-private']">{{ row.visibility }}</span>
+        </template>
 
-        <el-table-column label="Visibility" width="100" align="center">
-          <template #default="{ row }">
-            <span :class="['visibility-badge', row.visibility === 'PUBLIC' ? 'vis-public' : 'vis-private']">{{ row.visibility }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-scoreboardVisibility="{ row }">
+          <el-tooltip :content="row.scoreboardVisibility === 'VISIBLE' ? 'Hiện toàn thời gian' : (row.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'Ẩn vĩnh viễn' : 'Đóng băng lúc thi')" placement="top" effect="dark">
+            <span :class="['sb-badge', row.scoreboardVisibility === 'VISIBLE' ? 'sb-visible' : 'sb-hidden']">
+              {{ row.scoreboardVisibility === 'VISIBLE' ? 'VISIBLE' : (row.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
+            </span>
+          </el-tooltip>
+        </template>
 
-        <el-table-column label="Ngày bắt đầu" width="160" align="center">
-          <template #default="{ row }">
-            <span class="cell-date">{{ formatDate(row.startTime) }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-startTime="{ row }">
+          <span class="cell-date">{{ formatDate(row.startTime) }}</span>
+        </template>
 
-        <el-table-column label="Ngày kết thúc" width="160" align="center">
-          <template #default="{ row }">
-            <span class="cell-date">{{ formatDate(row.endTime) }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-endTime="{ row }">
+          <span class="cell-date">{{ formatDate(row.endTime) }}</span>
+        </template>
 
-        <el-table-column label="Thí sinh" width="80" align="center">
-          <template #default="{ row }">
-            <span class="cell-date">{{ row.participantCount || 0 }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-participantCount="{ row }">
+          <span class="cell-date">{{ row.participantCount || 0 }}</span>
+        </template>
 
-        <el-table-column label="Trạng thái bản ghi" width="150" align="center">
-          <template #default="{ row }">
-            <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">{{ row.status }}</span>
-          </template>
-        </el-table-column>
+        <template #cell-status="{ row }">
+          <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">{{ row.status }}</span>
+        </template>
 
-        <el-table-column label="Hành động" width="170" align="center" fixed="right">
-          <template #default="{ row }">
+        <template #actions="{ row }">
+          <div class="action-buttons" style="display: flex; gap: 4px; justify-content: center;">
             <!-- DELETED: chỉ hiển thị Chi tiết + Khôi phục -->
-            <div v-if="row.status === 'DELETED'" class="action-buttons">
+            <template v-if="row.status === 'DELETED'">
               <el-tooltip content="Chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="Eye" @click="openDetail(row)" class="action-btn" />
               </el-tooltip>
               <el-tooltip content="Khôi phục" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
               </el-tooltip>
-            </div>
+            </template>
 
             <!-- ACTIVE: 3 primary + dropdown 3 chấm -->
-            <div v-else class="action-buttons">
+            <template v-else>
               <el-tooltip content="Chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="Eye" @click="openDetail(row)" class="action-btn" />
               </el-tooltip>
@@ -734,7 +790,7 @@ onMounted(loadContests)
 
               <!-- Dropdown 3 chấm -->
               <el-dropdown trigger="hover" placement="bottom-end" :show-timeout="80" :hide-timeout="120" popper-class="action-dropdown">
-                <el-button link class="action-btn more-btn">
+                <el-button link class="action-btn more-btn" style="margin-left: 0;">
                   <MoreVertical :size="16" />
                 </el-button>
                 <template #dropdown>
@@ -755,10 +811,10 @@ onMounted(loadContests)
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
+            </template>
+          </div>
+        </template>
+      </DataTable>
 
       <DarkPagination
         v-if="totalElements > 0"
@@ -796,6 +852,9 @@ onMounted(loadContests)
                 <span :class="['rule-badge', selectedContest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ selectedContest.ruleType }}</span>
                 <span :class="['status-badge', getContestStatusClass(selectedContest.contestStatus)]">{{ getContestStatusLabel(selectedContest.contestStatus) }}</span>
                 <span :class="['visibility-badge', selectedContest.visibility === 'PUBLIC' ? 'vis-public' : 'vis-private']">{{ selectedContest.visibility }}</span>
+                <span :class="['sb-badge', selectedContest.scoreboardVisibility === 'VISIBLE' ? 'sb-visible' : 'sb-hidden']">
+                  XH: {{ selectedContest.scoreboardVisibility === 'VISIBLE' ? 'VISIBLE' : (selectedContest.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
+                </span>
               </div>
             </div>
             <div class="header-toggle-icon">
@@ -836,24 +895,26 @@ onMounted(loadContests)
                     <Trash2 :size="14" style="margin-right:6px;" /> Xóa ({{ selectedProblemIds.length }})
                   </el-button>
                 </div>
-                <el-table :data="contestProblems" class="dashboard-table leetcode-table" v-loading="problemsLoading" @selection-change="(val) => selectedProblemIds = val.map(r => r.id)">
-                  <el-table-column type="selection" width="50" />
-                  <el-table-column label="ID" width="90" align="center">
-                    <template #default="{ row }"><span class="cell-date">{{ row.displayId }}</span></template>
-                  </el-table-column>
-                  <el-table-column label="Tiêu đề bài tập" min-width="200">
-                    <template #default="{ row }">
-                      <span class="cell-title clickable-link" @click="router.push(`/problems/${row.problemSlug}`)">{{ row.originalTitle }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Điểm" width="90" align="center">
-                    <template #default="{ row }"><span class="cell-points">{{ row.points }}</span></template>
-                  </el-table-column>
-                  <el-table-column label="Thứ tự" width="90" align="center">
-                    <template #default="{ row }"><span class="cell-date">{{ row.sortOrder }}</span></template>
-                  </el-table-column>
-                  <template #empty><el-empty description="Chưa có bài tập nào" /></template>
-                </el-table>
+                <DataTable 
+                  :data="contestProblems" 
+                  :columns="problemColumns"
+                  v-loading="problemsLoading" 
+                  @selection-change="(val) => selectedProblemIds = val.map(r => r.id)"
+                  empty-text="Chưa có bài tập nào"
+                >
+                  <template #cell-displayId="{ row }">
+                    <span class="cell-date">{{ row.displayId }}</span>
+                  </template>
+                  <template #cell-originalTitle="{ row }">
+                    <span class="cell-title clickable-link" @click="router.push(`/problems/${row.problemSlug}`)">{{ row.originalTitle }}</span>
+                  </template>
+                  <template #cell-points="{ row }">
+                    <span class="cell-points score-text">{{ row.points }}</span>
+                  </template>
+                  <template #cell-sortOrder="{ row }">
+                    <span class="cell-date">{{ row.sortOrder }}</span>
+                  </template>
+                </DataTable>
               </div>
             </el-tab-pane>
 
@@ -878,25 +939,25 @@ onMounted(loadContests)
                     <Check :size="14" style="margin-right:4px;" /> Bỏ cấm
                   </el-button>
                 </div>
-                <el-table :data="participants" class="dashboard-table leetcode-table" v-loading="participantsLoading" @selection-change="(val) => selectedParticipantRows = val">
-                  <el-table-column type="selection" width="50" />
-                  <el-table-column label="Người dùng" min-width="150">
-                    <template #default="{ row }">
-                      <div class="user-cell">
-                        <span class="cell-title clickable-link" @click="router.push(`/profile/${row.username}`)">{{ row.username }}</span>
-                        <span class="cell-subtext">{{ row.email }}</span>
-                      </div>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Trạng thái" width="140" align="center">
-                    <template #default="{ row }">
-                      <span :class="['status-badge', row.isDisqualified ? 'status-deleted' : 'status-active']">
-                        {{ row.isDisqualified ? 'Đã bị cấm' : 'Đang tham gia' }}
-                      </span>
-                    </template>
-                  </el-table-column>
-                  <template #empty><el-empty description="Chưa có thí sinh nào" /></template>
-                </el-table>
+                <DataTable 
+                  :data="participants" 
+                  :columns="participantColumns"
+                  v-loading="participantsLoading" 
+                  @selection-change="(val) => selectedParticipantRows = val"
+                  empty-text="Chưa có thí sinh nào"
+                >
+                  <template #cell-username="{ row }">
+                    <div class="user-cell">
+                      <span class="cell-title clickable-link" @click="router.push(`/profile/${row.username}`)">{{ row.username }}</span>
+                      <span class="cell-subtext">{{ row.email }}</span>
+                    </div>
+                  </template>
+                  <template #cell-status="{ row }">
+                    <span :class="['status-badge', row.isDisqualified ? 'status-deleted' : 'status-active']">
+                      {{ row.isDisqualified ? 'Đã bị cấm' : 'Đang tham gia' }}
+                    </span>
+                  </template>
+                </DataTable>
                 <div class="table-pagination-footer">
                   <DarkPagination
                     v-if="participantsPagination.totalElements > 0"
@@ -913,28 +974,22 @@ onMounted(loadContests)
             <el-tab-pane name="submissions">
               <template #label><span class="tab-label-custom"><FileText :size="14" /> Submissions</span></template>
               <div class="tab-pane-content">
-                <el-table :data="contestSubmissions" class="dashboard-table leetcode-table" v-loading="submissionsLoading">
-                  <el-table-column label="Thời gian" min-width="160">
-                    <template #default="{ row }"><span class="cell-date">{{ new Date(row.createdDate).toLocaleString('vi-VN') }}</span></template>
-                  </el-table-column>
-                  <el-table-column label="User" min-width="140">
-                    <template #default="{ row }">
-                      <span class="cell-title clickable-link" @click="router.push(`/profile/${row.username}`)">{{ row.username }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Bài" min-width="160">
-                    <template #default="{ row }">
-                      <span class="cell-title clickable-link" @click="router.push(`/problems/${row.problemSlug}`)">{{ row.problemTitle || row.problemId }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="Kết quả" width="120" align="center">
-                    <template #default="{ row }"><span :class="['verdict-badge', getVerdictClass(row.verdict)]">{{ row.verdict || 'PENDING' }}</span></template>
-                  </el-table-column>
-                  <el-table-column label="Lang" width="90" align="center">
-                    <template #default="{ row }"><el-tag type="info" size="small" effect="dark">{{ row.languageKey }}</el-tag></template>
-                  </el-table-column>
-                  <template #empty><el-empty description="Chưa có submission nào" /></template>
-                </el-table>
+                <DataTable 
+                  :data="contestSubmissions" 
+                  :columns="submissionColumns"
+                  v-loading="submissionsLoading"
+                  empty-text="Chưa có submission nào"
+                >
+                  <template #cell-time="{ row }"><span class="cell-date">{{ new Date(row.createdDate).toLocaleString('vi-VN') }}</span></template>
+                  <template #cell-user="{ row }">
+                    <span class="cell-title clickable-link" @click="router.push(`/profile/${row.username}`)">{{ row.username }}</span>
+                  </template>
+                  <template #cell-problem="{ row }">
+                    <span class="cell-title clickable-link" @click="router.push(`/problems/${row.problemSlug}`)">{{ row.problemTitle || row.problemId }}</span>
+                  </template>
+                  <template #cell-verdict="{ row }"><span :class="['verdict-badge', getVerdictClass(row.verdict)]">{{ row.verdict || 'PENDING' }}</span></template>
+                  <template #cell-language="{ row }"><el-tag type="info" size="small" effect="dark">{{ row.languageKey }}</el-tag></template>
+                </DataTable>
                 <div class="table-pagination-footer">
                   <DarkPagination
                     v-if="submissionsPagination.totalElements > 0"
@@ -981,11 +1036,18 @@ onMounted(loadContests)
           </el-form-item>
         </div>
 
-        <div class="form-row-1">
-          <el-form-item label="Visibility" prop="visibility">
+        <div class="form-row-2">
+          <el-form-item label="Quyền truy cập" prop="visibility">
             <el-select v-model="form.visibility" style="width: 100%;" popper-class="dark-select-dropdown">
               <el-option label="Public" value="PUBLIC" />
               <el-option label="Private" value="PRIVATE" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Chế độ Xếp hạng" prop="scoreboardVisibility">
+            <el-select v-model="form.scoreboardVisibility" style="width: 100%;" popper-class="dark-select-dropdown">
+              <el-option label="Hiện toàn thời gian" value="VISIBLE" />
+              <el-option label="Đóng băng lúc thi" value="HIDDEN_DURING_CONTEST" />
+              <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
             </el-select>
           </el-form-item>
         </div>
@@ -1171,55 +1233,7 @@ onMounted(loadContests)
   font-weight: 500;
 }
 
-/* LeetCode Table Overrides */
-:deep(.leetcode-table) {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-}
-
-:deep(.leetcode-table .el-table__inner-wrapper::before) {
-  display: none;
-}
-
-:deep(.leetcode-table .el-table__inner-wrapper),
-:deep(.leetcode-table .el-table__body-wrapper),
-:deep(.leetcode-table .el-scrollbar),
-:deep(.leetcode-table .el-scrollbar__wrap) {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
-}
-
-:deep(.leetcode-table th.el-table__cell) {
-  background: transparent !important;
-  border-bottom: 1px solid #3e3e3e !important;
-  color: #8a8a8a;
-  font-weight: 500;
-  font-size: 13px;
-}
-
-:deep(.leetcode-table td.el-table__cell) {
-  border-bottom: none !important;
-  padding: 10px 0;
-  background: transparent !important;
-}
-
-:deep(.leetcode-table tr) {
-  background: transparent !important;
-}
-
-:deep(.leetcode-table tr:nth-child(odd) td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-
-:deep(.leetcode-table tr:hover td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.07) !important;
-}
-
-.cell-index { color: #8a8a8a; font-size: 13px; }
-.cell-title { font-size: 14px; font-weight: 500; color: #eff2f6; cursor: pointer; transition: color 0.2s; }
-.cell-title:hover { color: var(--accent-primary); }
+/* Cell styling kept for specific columns not in style.css */
 .cell-date { font-size: 13px; color: #8a8a8a; }
 
 /* Badges */
@@ -2291,5 +2305,24 @@ onMounted(loadContests)
   color: #5c5c5c;
   font-size: 14px;
   min-height: 200px;
+}
+
+.sb-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sb-visible {
+  background: rgba(0, 184, 163, 0.1);
+  color: #00b8a3;
+  border: 1px solid rgba(0, 184, 163, 0.2);
+}
+.sb-hidden {
+  background: rgba(239, 71, 67, 0.1);
+  color: #ef4743;
+  border: 1px solid rgba(239, 71, 67, 0.2);
 }
 </style>

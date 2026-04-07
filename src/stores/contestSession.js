@@ -34,12 +34,13 @@ export const useContestSessionStore = defineStore('contestSession', () => {
     return new Date(lastSyncServerTime.value + elapsed)
   }
 
-  const setSession = (contestId, endTime) => {
+  const setSession = (contestId, endTime, title = 'Cuộc thi') => {
     // Thêm Z nếu thiếu để đảm bảo parse đúng UTC (backend dùng LocalDateTime không có Z)
     const cleanEndTime = endTime && !(endTime.includes('Z') || endTime.includes('+')) ? endTime + 'Z' : endTime
     const session = { 
       contestId, 
-      endTime: new Date(cleanEndTime).getTime() 
+      endTime: new Date(cleanEndTime).getTime(),
+      title 
     }
     activeSession.value = session
     localStorage.setItem('activeContestSession', JSON.stringify(session))
@@ -51,10 +52,10 @@ export const useContestSessionStore = defineStore('contestSession', () => {
   }
 
   /** Bắt đầu phiên thi mới */
-  const startSession = async (contestId) => {
+  const startSession = async (contestId, title = 'Cuộc thi') => {
     try {
       const participation = await contestsAPI.start(contestId)
-      setSession(contestId, participation.endTime)
+      setSession(contestId, participation.endTime, title)
       return participation
     } catch (error) {
       handleApiError(error, 'Không thể bắt đầu phiên thi')

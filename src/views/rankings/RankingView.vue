@@ -2,10 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRankingStore } from '@/stores/ranking'
-import DarkPagination from '@/components/common/DarkPagination.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import TableControls from '@/components/common/TableControls.vue'
+import DataTable from '@/components/common/DataTable.vue'
 import { Trophy, User, Search, Medal } from 'lucide-vue-next'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -137,6 +137,21 @@ watch(type, () => {
 })
 
 onMounted(fetchAll)
+
+const tableColumns = computed(() => {
+  const baseCols = [
+    { key: '_rank', label: '#', width: '70', align: 'center' },
+    { key: 'user', label: 'User', minWidth: '200', align: 'left' },
+    { key: 'solved', label: 'Solved', width: '100', align: 'center' },
+    { key: 'ac', label: 'AC', width: '100', align: 'center' },
+    { key: 'submissions', label: 'Total Submissions', width: '180', align: 'center' }
+  ]
+  if (type.value === 'OI') {
+    baseCols.push({ key: 'score', label: 'Score', width: '130', align: 'center' })
+  }
+  baseCols.push({ key: 'rating', label: 'Acceptance Rating', width: '180', align: 'center' })
+  return baseCols
+})
 </script>
 
 <template>
@@ -166,67 +181,52 @@ onMounted(fetchAll)
 
     <TableSkeleton v-if="rankingStore.loading && rankings.length === 0" :columns="6" :rows="12" />
 
-    <el-table 
+    <DataTable
       v-else
-      :data="rankings" 
-      class="dashboard-table leetcode-table"
-      v-loading="rankingStore.loading"
-      :show-header="true"
+      :data="rankings"
+      :columns="tableColumns"
+      :loading="rankingStore.loading"
     >
-      <el-table-column label="#" width="70" align="center">
-        <template #default="{ $index }">
-          <div class="rank-badge" :class="{ 'top-1': (page - 1) * size + $index + 1 === 1, 'top-2': (page - 1) * size + $index + 1 === 2, 'top-3': (page - 1) * size + $index + 1 === 3 }">
-             {{ (page - 1) * size + $index + 1 }}
-          </div>
-        </template>
-      </el-table-column>
+      <template #cell-_rank="{ index }">
+        <div class="rank-badge" :class="{ 'top-1': (page - 1) * size + index + 1 === 1, 'top-2': (page - 1) * size + index + 1 === 2, 'top-3': (page - 1) * size + index + 1 === 3 }">
+           {{ (page - 1) * size + index + 1 }}
+        </div>
+      </template>
 
-      <el-table-column label="User" min-width="200" align="center">
-        <template #default="{ row }">
-          <div class="user-cell centered">
-             <div class="user-avatar-wrap">
-               <img v-if="row.avatarUrl" :src="row.avatarUrl" class="user-avatar-img" />
-               <div v-else class="user-avatar-placeholder">
-                 <User :size="14" />
-               </div>
+      <template #cell-user="{ row }">
+        <div class="user-cell centered">
+           <div class="user-avatar-wrap">
+             <img v-if="row.avatarUrl" :src="row.avatarUrl" class="user-avatar-img" />
+             <div v-else class="user-avatar-placeholder">
+               <User :size="14" />
              </div>
-             <RouterLink :to="`/profile/${row.username}`" class="cell-link username" @click.stop>
-               {{ row.username }}
-             </RouterLink>
-          </div>
-        </template>
-      </el-table-column>
+           </div>
+           <RouterLink :to="`/profile/${row.username}`" class="cell-link username" @click.stop>
+             {{ row.username }}
+           </RouterLink>
+        </div>
+      </template>
 
-      <el-table-column label="Solved" width="100" align="center">
-         <template #default="{ row }">
-           <span class="stat-solved">{{ row.solvedCount }}</span>
-         </template>
-      </el-table-column>
+      <template #cell-solved="{ row }">
+        <span class="stat-solved">{{ row.solvedCount }}</span>
+      </template>
 
-      <el-table-column label="AC" width="100" align="center">
-         <template #default="{ row }">
-           <span class="stat-ac">{{ row.acCount }}</span>
-         </template>
-      </el-table-column>
+      <template #cell-ac="{ row }">
+        <span class="stat-ac">{{ row.acCount }}</span>
+      </template>
 
-      <el-table-column label="Total Submissions" width="180" align="center">
-         <template #default="{ row }">
-           <span class="stat-submissions">{{ row.submissionCount }}</span>
-         </template>
-      </el-table-column>
+      <template #cell-submissions="{ row }">
+        <span class="stat-submissions">{{ row.submissionCount }}</span>
+      </template>
 
-      <el-table-column v-if="type === 'OI'" label="Score" width="130" align="center">
-         <template #default="{ row }">
-           <span class="stat-score">{{ row.totalScore }}</span>
-         </template>
-      </el-table-column>
+      <template #cell-score="{ row }">
+        <span class="stat-score">{{ row.totalScore }}</span>
+      </template>
 
-      <el-table-column label="Acceptance Rating" width="180" align="center">
-         <template #default="{ row }">
-           <span class="stat-rating">{{ getAcceptanceRating(row) }}</span>
-         </template>
-      </el-table-column>
-    </el-table>
+      <template #cell-rating="{ row }">
+        <span class="stat-rating">{{ getAcceptanceRating(row) }}</span>
+      </template>
+    </DataTable>
 
     <DarkPagination
       v-if="rankingStore.pagination.totalElements > 0"
@@ -267,53 +267,6 @@ onMounted(fetchAll)
 .chart-wrapper {
   height: 340px;
   padding: 10px 20px;
-}
-
-/* Table Design - Exact from SubmissionsList */
-:deep(.el-table) {
-  background-color: transparent !important;
-  --el-table-bg-color: transparent !important;
-  --el-table-tr-bg-color: transparent !important;
-  --el-table-header-bg-color: transparent !important;
-}
-
-:deep(.el-table__inner-wrapper),
-:deep(.el-table__body-wrapper),
-:deep(.el-table__header-wrapper) {
-  background-color: transparent !important;
-}
-
-:deep(.el-table__inner-wrapper::before),
-:deep(.el-table__inner-wrapper::after),
-:deep(.el-table::before),
-:deep(.el-table::after) {
-  display: none !important;
-}
-
-:deep(.el-table th.el-table__cell) {
-  background-color: transparent !important;
-  border-bottom: 1px solid #3e3e3e !important;
-  color: #8a8a8a !important;
-  font-weight: 500;
-  font-size: 13px;
-}
-
-:deep(.el-table td.el-table__cell) {
-  border-bottom: none !important;
-  padding: 12px 0;
-  background-color: transparent !important;
-}
-
-:deep(.el-table tr) {
-  background-color: transparent !important;
-}
-
-:deep(.el-table tr:nth-child(odd) td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-
-:deep(.el-table tr:hover td.el-table__cell) {
-  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* User & Rank Specifics */

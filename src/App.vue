@@ -4,6 +4,7 @@ import { RouterView, useRoute } from 'vue-router'
 import Navbar from './components/layout/Navbar.vue'
 import Footer from './components/layout/Footer.vue'
 import EmailVerificationBanner from './components/auth/EmailVerificationBanner.vue'
+import ContestGlobalTimer from './components/contests/ContestGlobalTimer.vue'
 import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
@@ -33,6 +34,7 @@ onMounted(async () => {
 <template>
   <div class="app-layout">
     <Navbar />
+    <ContestGlobalTimer />
     <main class="main-content">
       <RouterView />
     </main>

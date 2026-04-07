@@ -88,6 +88,12 @@ axiosInstance.interceptors.response.use(
 
       const authStore = useAuthStore()
 
+      // 🚨 CHỐT CHẶN 0.5: Nếu user chưa login (guest) thì bỏ qua hoàn toàn, KHÔNG refresh, KHÔNG redirect
+      // Đây là trường hợp guest gọi API public nhưng server trả về 401 vì lý do nào đó
+      if (!authStore.user) {
+        return Promise.reject(error)
+      }
+
       // 🚨 CHỐT CHẶN 1: Nếu chính API refresh hoặc login bị lỗi 401 -> Dọn dẹp và văng ra Login
       // Kiểm tra kỹ hơn URL
       const isAuthRequest = originalRequest.url.includes('/auth/refresh') || originalRequest.url.includes('/auth/login')

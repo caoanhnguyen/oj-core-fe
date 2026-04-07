@@ -798,3 +798,64 @@ button {
 .dark-date-picker .el-date-range-picker__content.is-left {
   border-right: 1px solid var(--border-primary) !important;
 }
+
+/* =========================================================
+   Unified DataTable Cell Classes
+   ========================================================= */
+.leetcode-table .cell-index {
+  font-weight: 500;
+  color: #8a8a8a;
+  font-size: 13px;
+}
+
+.leetcode-table .cell-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #eff2f6;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+
+.leetcode-table tr:hover .cell-title {
+  color: var(--accent-primary);
+}
+
+.leetcode-table .difficulty-text {
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.leetcode-table .difficulty-easy { background: transparent !important; color: #00b8a3 !important; padding: 0; }
+.leetcode-table .difficulty-medium { background: transparent !important; color: #ffc01e !important; padding: 0; }
+.leetcode-table .difficulty-hard { background: transparent !important; color: #ef4743 !important; padding: 0; }
+
+.leetcode-table .score-text {
+  font-weight: 500;
+  font-size: 13px;
+  display: inline-block;
+  white-space: nowrap;
+  background: transparent !important; 
+  color: #07c511 !important; 
+  padding: 0;
+}
+
+.leetcode-table .rule-type-text {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.leetcode-table .rule-type-oi {
+  color: #00b8a3 !important;
+  background: rgba(0, 184, 163, 0.1) !important;
+}
+
+.leetcode-table .rule-type-acm {
+  color: #ffc01e !important;
+  background: rgba(255, 192, 30, 0.1) !important;
+}

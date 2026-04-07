@@ -9,11 +9,12 @@ import { contestsAPI } from '@/api/contests'
 import { handleApiError } from '@/utils/errorHandler'
 import {
   Trophy, Clock, Users, BookOpen, BarChart2, List, ChevronLeft,
-  Lock, Key, RefreshCw, Zap, Check, ChevronRight, Calendar, Shield
+  Lock, Key, RefreshCw, Zap, Check, ChevronRight, Calendar, Shield, LogOut
 } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppButton from '@/components/common/AppButton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
-import ContestTable from '@/components/common/ContestTable.vue'
+import DataTable from '@/components/common/DataTable.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -62,6 +63,14 @@ const isStarted = computed(() => {
   return sessionStore.getServerNow() >= parseServerDate(contest.value.startTime)
 })
 
+const isLeaderboardHidden = computed(() => {
+  if (!contest.value) return false
+  const visibility = contest.value.scoreboardVisibility
+  if (visibility === 'HIDDEN_PERMANENTLY') return true
+  if (visibility === 'HIDDEN_DURING_CONTEST' && !isFinished.value) return true
+  return false
+})
+
 const isPersonalSessionActive = computed(() => {
   if (!hasJoined.value || !contest.value?.contestParticipation?.endTime) return false
   const end = parseServerDate(contest.value.contestParticipation.endTime)
@@ -69,9 +78,11 @@ const isPersonalSessionActive = computed(() => {
 })
 
 const isTabDisabled = (id) => {
-  if (id === 'info' || id === 'participants' || id === 'leaderboard') return false
+  if (id === 'leaderboard') return isLeaderboardHidden.value
+  if (id === 'info') return false
   if (isFinished.value) return false
   if (id === 'problems' || id === 'submissions') {
+    if (!sessionStore.isExamMode || sessionStore.activeSession?.contestId !== contest.value?.id) return true
     return isWindowed.value ? !hasJoined.value : (!isRegistered.value || !isStarted.value)
   }
   return false
@@ -144,7 +155,7 @@ const handleStartContest = async () => {
       { confirmButtonText: 'Bắt đầu ngay', cancelButtonText: 'Để sau', type: 'warning' }
     )
     startLoading.value = true
-    await sessionStore.startSession(contest.value.id)
+    await sessionStore.startSession(contest.value.id, contest.value.title)
     await loadContest()
     ElMessage.success('Bắt đầu thi thành công!')
     router.push(`/contests/${contestId.value}/problems`)
@@ -154,6 +165,22 @@ const handleStartContest = async () => {
 }
 
 const handleEnterExam = () => { router.push(`/contests/${contestId.value}/problems`) }
+
+const handleRejoinContest = () => {
+  sessionStore.setSession(contestId.value, contest.value.contestParticipation.endTime, contest.value.title)
+  router.push(`/contests/${contestId.value}/problems`)
+}
+
+const handleLeaveContest = () => {
+  ElMessageBox.confirm(
+    'Đồng hồ vẫn sẽ tiếp tục chạy ngầm phía Server. Lần tới quay lại bạn sẽ mất đi thời gian đã trôi qua. Bạn có chắc chắn muốn rời phòng thi không?',
+    'Rời phòng thi',
+    { confirmButtonText: 'Rời đi', cancelButtonText: 'Ở lại', type: 'warning' }
+  ).then(() => {
+    sessionStore.clearSession()
+    router.push('/contests')
+  }).catch(() => {})
+}
 
 // =====================
 // Problems tab
@@ -176,32 +203,6 @@ const problemColumns = [
   { key: 'points',        label: 'Điểm',      width: '100', align: 'right' }
 ]
 
-// =====================
-// Participants tab
-// =====================
-const participants          = ref([])
-const participantsLoading   = ref(false)
-const participantSearch     = ref('')
-const participantsPagination = ref({ page: 0, size: 20, total: 0 })
-
-const loadParticipants = async () => {
-  try {
-    participantsLoading.value = true
-    const data = await contestsAPI.getPublicParticipants(contestId.value, {
-      keyword: participantSearch.value || undefined,
-      page: participantsPagination.value.page,
-      size: participantsPagination.value.size
-    })
-    participants.value = data.content || []
-    participantsPagination.value.total = data.totalElements || 0
-  } catch (err) { handleApiError(err, 'Không thể tải danh sách thí sinh') }
-  finally { participantsLoading.value = false }
-}
-
-const participantColumns = [
-  { key: '_rank',    label: '#',        width: '60',  align: 'center' },
-  { key: 'username', label: 'Thí sinh', minWidth: '200' }
-]
 
 // =====================
 // Leaderboard tab
@@ -211,6 +212,8 @@ const leaderboardLoading   = ref(false)
 const leaderboardPagination = ref({ page: 0, size: 20, total: 0 })
 
 const loadLeaderboard = async () => {
+  if (isLeaderboardHidden.value) return
+  
   try {
     leaderboardLoading.value = true
     const data = await contestsAPI.getLeaderboard(contestId.value, {
@@ -272,7 +275,6 @@ watch(() => route.params.tab, (newTab) => {
   const targetTab = newTab || 'info'
   activeTab.value = targetTab
   if (targetTab === 'problems'     && !problems.value.length)      loadProblems()
-  if (targetTab === 'participants' && !participants.value.length)   loadParticipants()
   if (targetTab === 'leaderboard'  && !leaderboard.value.length)   loadLeaderboard()
   if (targetTab === 'submissions'  && !mySubmissions.value.length)  loadMySubmissions()
 }, { immediate: true })
@@ -335,14 +337,6 @@ onUnmounted(() => {})
           </div>
         </div>
 
-        <!-- Countdown chip -->
-        <div v-if="timeLeft && timeLeft !== '00:00:00'" class="countdown-chip">
-          <Clock :size="14" />
-          <div>
-            <div class="cd-label">{{ countdownLabel }}</div>
-            <div class="cd-time">{{ timeLeft }}</div>
-          </div>
-        </div>
       </div>
 
       <!-- ===== TAB NAV ===== -->
@@ -352,7 +346,6 @@ onUnmounted(() => {})
             v-for="tab in [
               { id: 'info',         label: 'Thông tin',       icon: Trophy },
               { id: 'problems',     label: 'Bài tập',         icon: BookOpen },
-              { id: 'participants', label: 'Thí sinh',         icon: Users },
               { id: 'leaderboard',  label: 'Xếp hạng',        icon: BarChart2 },
               ...(isRegistered ? [{ id: 'submissions', label: 'Kết quả của tôi', icon: List }] : [])
             ]"
@@ -365,7 +358,6 @@ onUnmounted(() => {})
             <component :is="tab.icon" :size="15" />
             {{ tab.label }}
             <span v-if="tab.id === 'problems' && problems.length" class="tab-count">{{ problems.length }}</span>
-            <span v-if="tab.id === 'participants'" class="tab-count">{{ contest.participantCount || 0 }}</span>
           </button>
         </div>
 
@@ -373,18 +365,25 @@ onUnmounted(() => {})
         <div class="tab-action">
           <!-- Windowed: Chưa join -->
           <template v-if="isWindowed && isRegistered && !hasJoined && !isFinished && isStarted">
-            <button class="btn-primary" :disabled="startLoading" @click="handleStartContest">
-              <Zap :size="14" /> Bắt đầu thi
-            </button>
+            <AppButton variant="primary" :disabled="startLoading" @click="handleStartContest">
+              <template #icon><Zap :size="14" /></template>
+              Bắt đầu thi
+            </AppButton>
           </template>
           <!-- Fixed/Windowed: Đang thi -->
           <template v-else-if="hasJoined && isPersonalSessionActive">
-            <div class="session-live-badge">
-              <span class="pulse-dot" /> Đang trong giờ thi
-            </div>
-            <button class="btn-secondary" @click="handleEnterExam">
-              <BookOpen :size="14" /> Vào phòng thi
-            </button>
+            <template v-if="sessionStore.isExamMode && sessionStore.activeSession?.contestId === contestId">
+              <AppButton variant="outline" @click="handleLeaveContest">
+                <template #icon><LogOut :size="14" /></template>
+                Rời phòng
+              </AppButton>
+            </template>
+            <template v-else>
+              <AppButton variant="primary" @click="handleRejoinContest">
+                <template #icon><Zap :size="14" /></template>
+                Vào phòng thi
+              </AppButton>
+            </template>
           </template>
           <!-- Chưa đăng ký -->
           <template v-else-if="!isRegistered && !isFinished">
@@ -393,22 +392,24 @@ onUnmounted(() => {})
                 <Key :size="14" />
                 <input v-model="registerPassword" type="password" placeholder="Nhập mật khẩu" class="pw-input" />
               </div>
-              <button class="btn-primary" :disabled="registerLoading" @click="handleRegister">
-                <Shield :size="14" />
+              <AppButton variant="primary" :disabled="registerLoading" @click="handleRegister">
+                <template #icon><Shield :size="14" /></template>
                 {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
-              </button>
+              </AppButton>
             </template>
             <template v-else>
-              <button class="btn-secondary" disabled>
-                <Lock :size="14" /> Đã quá hạn đăng ký
-              </button>
+              <AppButton variant="secondary" disabled>
+                <template #icon><Lock :size="14" /></template>
+                Đã quá hạn đăng ký
+              </AppButton>
             </template>
           </template>
           <!-- Fixed đã đăng ký, đang diễn ra, chưa thi -->
           <template v-else-if="!isWindowed && isRegistered && isStarted && !hasJoined && !isFinished">
-            <button class="btn-secondary" @click="handleEnterExam">
-              <BookOpen :size="14" /> Vào phòng thi
-            </button>
+            <AppButton variant="primary" :disabled="startLoading" @click="handleStartContest">
+              <template #icon><Zap :size="14" /></template>
+              Bắt đầu thi
+            </AppButton>
           </template>
         </div>
       </div>
@@ -493,7 +494,7 @@ onUnmounted(() => {})
 
       <!-- PROBLEMS TAB -->
       <div v-if="activeTab === 'problems'" class="full-tab">
-        <ContestTable
+        <DataTable
           :columns="problemColumns"
           :data="problems"
           :loading="problemsLoading"
@@ -516,85 +517,64 @@ onUnmounted(() => {})
           <template #cell-points="{ row }">
             <span class="prob-points">{{ row.points }}</span>
           </template>
-        </ContestTable>
+        </DataTable>
       </div>
 
-      <!-- PARTICIPANTS TAB -->
-      <div v-if="activeTab === 'participants'" class="full-tab">
-        <div class="tab-toolbar">
-          <input
-            v-model="participantSearch"
-            type="text"
-            placeholder="Tìm thí sinh..."
-            class="tab-search"
-            @keyup.enter="() => { participantsPagination.page = 0; loadParticipants() }"
-          />
-          <span class="tab-count-badge">{{ participantsPagination.total }} thí sinh</span>
-        </div>
-
-        <ContestTable
-          :columns="participantColumns"
-          :data="participants"
-          :loading="participantsLoading"
-          empty-text="Chưa có thí sinh nào."
-          :clickable="false"
-        >
-          <template #cell-_rank="{ index }">
-            <span class="rank-num">{{ participantsPagination.page * participantsPagination.size + index + 1 }}</span>
-          </template>
-          <template #cell-username="{ row }">
-            <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
-          </template>
-        </ContestTable>
-
-        <DarkPagination
-          v-if="participantsPagination.total > participantsPagination.size"
-          :current-page="participantsPagination.page + 1"
-          :page-size="participantsPagination.size"
-          :total="participantsPagination.total"
-          @current-change="(p) => { participantsPagination.page = p - 1; loadParticipants() }"
-        />
-      </div>
 
       <!-- LEADERBOARD TAB -->
       <div v-if="activeTab === 'leaderboard'" class="full-tab">
-        <ContestTable
-          :columns="lbColumns"
-          :data="leaderboard"
-          :loading="leaderboardLoading"
-          empty-text="Chưa có dữ liệu xếp hạng."
-          :clickable="false"
-        >
-          <template #cell-_rank="{ index }">
-            <span class="lb-rank">{{ getMedal(leaderboardPagination.page * leaderboardPagination.size + index + 1) }}</span>
-          </template>
-          <template #cell-username="{ row }">
-            <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
-          </template>
-          <template #cell-score="{ row }">
-            <span class="lb-score">{{ row.score }}</span>
-          </template>
-          <template #cell-penalty="{ row }">
-            <span class="lb-penalty">{{ row.penalty }}s</span>
-          </template>
-        </ContestTable>
+        <template v-if="isLeaderboardHidden">
+          <div class="lb-locked-container">
+            <Lock :size="48" class="lb-locked-icon" />
+            <h3 class="lb-locked-title">Bảng xếp hạng bị ẩn</h3>
+            <p class="lb-locked-desc">
+              {{ contest?.scoreboardVisibility === 'HIDDEN_PERMANENTLY' 
+                  ? 'Ban tổ chức đã ẩn bảng xếp hạng của kỳ thi này vĩnh viễn.' 
+                  : 'Bảng xếp hạng đang bị đóng băng trong thời gian diễn ra cuộc thi.' 
+              }}
+            </p>
+          </div>
+        </template>
+        
+        <template v-else>
+          <DataTable
+            :columns="lbColumns"
+            :data="leaderboard"
+            :loading="leaderboardLoading"
+            empty-text="Chưa có dữ liệu xếp hạng."
+          >
+            <template #cell-_rank="{ index }">
+              <span class="lb-rank">{{ getMedal(leaderboardPagination.page * leaderboardPagination.size + index + 1) }}</span>
+            </template>
+            <template #cell-username="{ row }">
+              <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
+            </template>
+            <template #cell-score="{ row }">
+              <span class="lb-score">{{ row.score }}</span>
+            </template>
+            <template #cell-penalty="{ row }">
+              <span class="lb-penalty">{{ row.penalty }}s</span>
+            </template>
+          </DataTable>
 
-        <DarkPagination
-          v-if="leaderboardPagination.total > leaderboardPagination.size"
-          :current-page="leaderboardPagination.page + 1"
-          :page-size="leaderboardPagination.size"
-          :total="leaderboardPagination.total"
-          @current-change="(p) => { leaderboardPagination.page = p - 1; loadLeaderboard() }"
-        />
+          <DarkPagination
+            v-if="leaderboardPagination.total > leaderboardPagination.size"
+            :current-page="leaderboardPagination.page + 1"
+            :page-size="leaderboardPagination.size"
+            :total="leaderboardPagination.total"
+            @current-change="(p) => { leaderboardPagination.page = p - 1; loadLeaderboard() }"
+          />
+        </template>
       </div>
 
       <!-- MY SUBMISSIONS TAB -->
       <div v-if="activeTab === 'submissions'" class="full-tab">
-        <ContestTable
+        <DataTable
           :columns="submissionColumns"
           :data="mySubmissions"
           :loading="mySubsLoading"
           empty-text="Bạn chưa nộp bài nào trong contest này."
+          row-class-name="clickable-row"
           @row-click="(row) => router.push(`/submissions/${row.submissionId}`)"
         >
           <template #cell-createdDate="{ row }">
@@ -614,7 +594,7 @@ onUnmounted(() => {})
           <template #cell-languageKey="{ row }">
             <span class="lang-badge">{{ row.languageKey }}</span>
           </template>
-        </ContestTable>
+        </DataTable>
 
         <DarkPagination
           v-if="mySubsPagination.total > mySubsPagination.size"
@@ -972,6 +952,38 @@ onUnmounted(() => {})
   background: rgba(255,255,255,0.07);
   border-radius: 5px; padding: 2px 8px;
   font-size: 12px; color: #ccc; font-family: monospace;
+}
+
+/* Locked Leaderboard UI */
+.lb-locked-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 20px;
+  background: var(--bg-tertiary, #282828);
+  border: 1px solid var(--border-primary, #3e3e3e);
+  border-radius: 8px;
+  text-align: center;
+  margin-top: 16px;
+}
+.lb-locked-icon {
+  color: #5c5c5c;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.lb-locked-title {
+  color: #eff2f6;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+.lb-locked-desc {
+  color: #8a8a8a;
+  font-size: 14px;
+  max-width: 400px;
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* ===== RESPONSIVE ===== */

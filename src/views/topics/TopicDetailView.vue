@@ -337,9 +337,9 @@ watch(() => route.path, (newPath) => {
             { key: 'solved', label: '', width: 50, resizable: false },
             { key: 'index', label: '#', width: 60, resizable: false },
             { key: 'title', label: 'Title', minWidth: 300 },
-            { key: 'ruleType', label: 'Rule Type', minWidth: 150 },
-            { key: 'difficulty', label: 'Difficulty', minWidth: 150 },
-            { key: 'score', label: 'Score', minWidth: 150 },
+            { key: 'ruleType', label: 'Rule Type', minWidth: 100 },
+            { key: 'difficulty', label: 'Difficulty', minWidth: 100 },
+            { key: 'score', label: 'Score', minWidth: 100 },
             { key: 'rate', label: 'Accepted rate', minWidth: 150 }
           ]"
           :loading="problemStore.loading"
@@ -642,42 +642,13 @@ watch(() => route.path, (newPath) => {
 /* Main Content Area */
 .problems-main {
   background: transparent;
+  min-width: 0;
+  width: 100%;
 }
 
 
-
-.cell-title-wrap {
-  display: flex;
-  align-items: center;
-}
-
-.problem-index {
-  color: #8a8a8a;
-  font-weight: 500;
-  margin-right: 4px;
-  font-size: 14px;
-}
-
-.cell-title {
-  color: #eff2f6;
-  font-weight: 500;
-  font-size: 14px;
-  transition: color 0.2s;
-}
-
-:deep(.leetcode-table tr:hover .cell-title) {
-  color: var(--accent-primary);
-}
-
-.solution-icon { color: #8a8a8a; }
-.acceptance-text { color: #8a8a8a; font-size: 13px; }
 
 .solved-icon { color: #2cbb5d; }
-
-:deep(.difficulty-text) { font-weight: 600; font-size: 13px; }
-:deep(.difficulty-easy) { color: #00b8a3; }
-:deep(.difficulty-medium) { color: #ffc01e; }
-:deep(.difficulty-hard) { color: #ef4743; }
 
 .simple-filter {
   padding: 4px 12px 12px;
@@ -686,22 +657,6 @@ watch(() => route.path, (newPath) => {
 .loading-state {
   max-width: 1200px;
   margin: 0 auto;
-}
-
-/* Rule Type Styles */
-:deep(.rule-type-text) {
-  font-weight: 600;
-  font-size: 13px;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-:deep(.rule-type-oi) {
-  color: #00b8a3;
-  background: rgba(0, 184, 163, 0.1);
-}
-:deep(.rule-type-acm) {
-  color: #ffc01e;
-  background: rgba(255, 192, 30, 0.1);
 }
 
 .score-text {

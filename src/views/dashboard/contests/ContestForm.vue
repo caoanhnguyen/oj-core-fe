@@ -32,7 +32,8 @@ const formRef = ref(null)
 const form = ref({
   title: '', description: '', timeRange: null,
   ruleType: 'ACM', visibility: 'PUBLIC', password: '', 
-  durationMinutes: null, format: 'STRICT', allowLateRegistration: true
+  durationMinutes: null, format: 'STRICT', allowLateRegistration: true,
+  scoreboardVisibility: 'VISIBLE'
 })
 const rules = {
   title:     [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
@@ -41,13 +42,14 @@ const rules = {
 
 // Sync from contest prop (edit mode)
 watch(() => props.contest, (c) => {
-  if (!c) { form.value = { title: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null }; return }
+  if (!c) { form.value = { title: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null, format: 'STRICT', allowLateRegistration: true, scoreboardVisibility: 'VISIBLE' }; return }
   form.value = {
     title: c.title || '', description: c.description || '',
     timeRange: [parseUTC(c.startTime), parseUTC(c.endTime)],
     ruleType: c.ruleType || 'ACM', visibility: c.visibility || 'PUBLIC',
     password: c.password || '', durationMinutes: c.durationMinutes || null,
-    format: c.format || 'STRICT', allowLateRegistration: c.allowLateRegistration !== false
+    format: c.format || 'STRICT', allowLateRegistration: c.allowLateRegistration !== false,
+    scoreboardVisibility: c.scoreboardVisibility || 'VISIBLE'
   }
 }, { immediate: true })
 
@@ -62,6 +64,7 @@ const handleSubmit = async () => {
     ruleType: form.value.ruleType, visibility: form.value.visibility,
     durationMinutes: form.value.format === 'WINDOWED' ? (form.value.durationMinutes || null) : null,
     format: form.value.format, allowLateRegistration: form.value.allowLateRegistration,
+    scoreboardVisibility: form.value.scoreboardVisibility,
     ...(form.value.visibility === 'PRIVATE' ? { password: form.value.password } : {})
   })
 }
@@ -126,6 +129,17 @@ const handleSubmit = async () => {
           <el-input-number v-model="form.durationMinutes" :min="1" :max="1440" controls-position="right" style="width: 100%" />
         </el-form-item>
         <div v-else />
+      </div>
+
+      <div class="form-row-3">
+        <el-form-item label="Chế độ Bảng xếp hạng">
+          <el-select v-model="form.scoreboardVisibility" :disabled="readonly" style="width:100%" popper-class="dark-select-dropdown">
+            <el-option label="Hiện toàn thời gian" value="VISIBLE" />
+            <el-option label="Đóng băng lúc thi" value="HIDDEN_DURING_CONTEST" />
+            <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
+          </el-select>
+        </el-form-item>
+        <div /> <div />
       </div>
 
       <el-form-item label="Mô tả">

@@ -433,54 +433,6 @@ onMounted(async () => {
   letter-spacing: 0.3px;
 }
 
-
-
-
-:deep(.leetcode-table .cell-index) {
-  font-weight: 500;
-  color: #8a8a8a;
-  font-size: 13px;
-}
-:deep(.leetcode-table .cell-title) {
-  font-size: 14px;
-  font-weight: 500;
-  color: #eff2f6;
-  transition: color 0.2s;
-  cursor: pointer;
-}
-:deep(.leetcode-table tr:hover .cell-title) {
-  color: var(--accent-primary);
-}
-:deep(.leetcode-table .difficulty-text) {
-  font-weight: 500;
-  font-size: 13px;
-  display: inline-block;
-  white-space: nowrap;
-}
-:deep(.leetcode-table .score-text) {
-  font-weight: 500;
-  font-size: 13px;
-  display: inline-block;
-  white-space: nowrap;
-  background: transparent !important; 
-  color: #07c511 !important; 
-  padding: 0;
-}
-:deep(.leetcode-table .difficulty-easy) { background: transparent !important; color: #00b8a3 !important; padding: 0; }
-:deep(.leetcode-table .difficulty-medium) { background: transparent !important; color: #ffc01e !important; padding: 0; }
-:deep(.leetcode-table .difficulty-hard) { background: transparent !important; color: #ef4743 !important; padding: 0; }
-
-
-:deep(.leetcode-table .rule-type-text) {
-  font-weight: 500;
-  font-size: 13px;
-  display: inline-block;
-  white-space: nowrap;
-}
-
-:deep(.leetcode-table .rule-type-oi) { background: transparent !important; color: #2cbb5d !important; padding: 0; }
-:deep(.leetcode-table .rule-type-acm) { background: transparent !important; color: #ffa116 !important; padding: 0; }
-
 .solved-icon {
   color: #2cbb5d;
   font-weight: bold;
