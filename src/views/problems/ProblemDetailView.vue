@@ -24,7 +24,9 @@ const targetTime = computed(() => sessionStore.activeSession?.endTime)
 const { formattedTime: contestRemainingTime } = useSyncedTimer(targetTime)
 
 // Contest context
-const contestId = computed(() => route.query.contestId)
+// Contest context: prioritizes hierarchical param over legacy query param
+const contestKey = computed(() => route.params.contestKey || route.query.contestId)
+const contestIdFromQuery = computed(() => route.query.contestId) // Keep for legacy check if it's a UUID
 
 const executionLoading = ref(false)
 const executionResult = ref(null)
@@ -37,11 +39,17 @@ const submissionsTabRef = ref(null)
 const isTopicsExpanded = ref(false)
 const isHintExpanded = ref(false)
 
-// Tab is driven by the URL: /problems/:slug/:tab
-const VALID_TABS = ['description', 'submissions', 'statistics']
+// Tab logic
+const availableTabs = computed(() => {
+  // Always allow description. Submissions/Statistics hidden during active contest context
+  if (contestKey.value) return ['description']
+  return ['description', 'submissions', 'statistics']
+})
+
 const activeTab = computed(() => {
   const t = route.params.tab
-  return VALID_TABS.includes(t) ? t : 'description'
+  if (contestKey.value && t !== 'description') return 'description'
+  return availableTabs.value.includes(t) ? t : 'description'
 })
 
 const switchTab = (tab) => {
@@ -198,6 +206,12 @@ const getMonacoLang = (backendKey) => {
    return map[backendKey] || 'plaintext'
 }
 
+const showExecutionUI = computed(() => {
+  // If in a contest, maybe we want to hide "Run" code depending on contest rules? 
+  // But usually Run is okay.
+  return true
+})
+
 const getInitialCode = () => {
   if (problem.value?.templates?.length > 0) {
     const template = problem.value.templates.find(t => t.languageKey === selectedLanguage.value)
@@ -230,7 +244,15 @@ const handleSubmit = async () => {
      
      // Thêm contestId nếu đang làm bài trong contest
      // Ưu tiên lấy từ session store nếu đang trong Exam Mode để đảm bảo không bị sót
-     const effectiveContestId = sessionStore.isExamMode ? sessionStore.activeSession?.contestId : (contestId.value || null)
+     // Thêm contestId (UUID) nếu đang làm bài trong contest
+     // Ưu tiên lấy từ session store nếu đang trong Exam Mode (đây là UUID an toàn)
+     let effectiveContestId = null
+     if (sessionStore.isExamMode && sessionStore.activeSession?.contestKey === contestKey.value) {
+        effectiveContestId = sessionStore.activeSession?.contestId
+     } else if (contestIdFromQuery.value && /^[0-9a-fA-F-]{36}$/.test(contestIdFromQuery.value)) {
+        // Fallback check if it's a valid UUID in the query string
+        effectiveContestId = contestIdFromQuery.value
+     }
      
      if (effectiveContestId) {
         payload.contestId = effectiveContestId
@@ -304,14 +326,16 @@ const handleRun = async () => {
           handleApiError(err, 'Chạy code thất bại hoặc quá thời gian chờ')
        }
      )
-  } catch (e) {
-      handleApiError(e, 'Yêu cầu chạy thử thất bại')
-  }
+   } catch (e) {
+       handleApiError(e, 'Yêu cầu chạy thử thất bại')
+   } finally {
+       executionLoading.value = false
+   }
 }
 
 const handleBack = () => {
-  if (contestId.value) {
-    router.push(`/contests/${contestId.value}`)
+  if (contestKey.value) {
+    router.push(`/contests/${contestKey.value}`)
   } else {
     router.push('/problems')
   }
@@ -339,9 +363,10 @@ const initPage = async () => {
     const slug = route.params.slug
     if (!slug) return
 
+    // 1. Fetch core problem data
     problem.value = await problemStore.fetchProblemBySlug(slug)
     
-    // Setup Languages
+    // 2. Setup Languages
     if (problem.value && problem.value.allowedLanguages) {
         const displayMap = {
             'JAVA': 'Java',
@@ -368,6 +393,7 @@ const initPage = async () => {
     handleApiError(error, 'Không thể tải thông tin bài tập')
   } finally {
     loading.value = false
+
     nextTick(() => {
       sourceCode.value = getInitialCode()
     })
@@ -390,7 +416,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
       <div class="header-left">
         <el-button link @click="handleBack" class="back-btn">
           <ArrowLeft :size="18" />
-          <span class="back-text">All Problems</span>
+          <span class="back-text">{{ contestKey ? 'Quay lại Contest' : 'Tất cả bài tập' }}</span>
         </el-button>
         <div class="divider"></div>
         <div class="problem-nav-info" v-if="problem">
@@ -443,7 +469,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
       <div class="left-panel" :style="{ width: `${leftWidth}%` }">
         <div class="panel-tabs">
           <button 
-            v-for="tab in ['description', 'submissions', 'statistics']"
+            v-for="tab in availableTabs"
             :key="tab"
             class="tab-btn" 
             :class="{ active: activeTab === tab }"
@@ -461,11 +487,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                 <h1 class="problem-title">{{ problem.title }}</h1>
                 <span v-if="problem.ruleType" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
                 
-                <!-- Contest Indicator -->
-                <div v-if="sessionStore.isExamMode" class="contest-indicator-inline">
-                  <Clock :size="14" />
-                  <span>{{ contestRemainingTime }}</span>
-                </div>
+                <!-- Contest Indicator (Removed as requested, using widget instead) -->
               </div>
               
               <div class="problem-meta-new">
@@ -483,7 +505,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                     <span class="meta-text">{{ problem.source }}</span>
                   </div>
 
-                  <div class="meta-item-wrap" v-if="problem.totalScore">
+                  <div class="meta-item-wrap" v-if="!contestKey && problem.totalScore">
                     <Award :size="14" class="meta-icon score-icon" />
                     <span class="meta-text">{{ problem.totalScore }} pts</span>
                   </div>
@@ -515,7 +537,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                   </button>
 
                   <button 
-                    v-if="problem.hint" 
+                    v-if="problem.hint && !contestKey" 
                     class="meta-btn"
                     @click="scrollToHint"
                   >
@@ -600,8 +622,8 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               </transition>
             </div>
 
-            <!-- Hints Section -->
-            <div v-if="problem.hint" id="hint-section" class="collapsible-section">
+            <!-- Hints Section (Hidden in contest to preserve difficulty) -->
+            <div v-if="problem.hint && !contestKey" id="hint-section" class="collapsible-section">
               <div class="collapsible-header" @click="isHintExpanded = !isHintExpanded">
                  <div class="collapsible-header-left">
                     <Lightbulb :size="16" />
@@ -622,7 +644,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
              <SubmissionsTab 
                ref="submissionsTabRef" 
                :problem-id="problem.id" 
-               :contest-id="sessionStore.isExamMode ? sessionStore.activeSession?.contestId : (contestId || null)"
+               :contest-id="sessionStore.isExamMode && sessionStore.activeSession?.contestKey === contestKey ? sessionStore.activeSession?.contestId : null"
              />
           </div>
           

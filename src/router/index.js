@@ -46,6 +46,11 @@ const router = createRouter({
       component: () => import('../views/contests/ContestDetailView.vue')
     },
     {
+      path: '/contests/:contestKey/problems/:slug/:tab?',
+      name: 'contest-problem-detail',
+      component: () => import('../views/problems/ProblemDetailView.vue')
+    },
+    {
       path: '/submissions',
       name: 'submissions',
       component: () => import('../views/submissions/SubmissionsList.vue'),

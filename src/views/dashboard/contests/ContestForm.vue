@@ -29,22 +29,47 @@ const parseUTC = (s) => { if (!s) return null; return new Date((s.includes('Z') 
 const toUTCString = (val) => { if (!val) return null; const d = val instanceof Date ? val : new Date(val); return d.toISOString().slice(0, 19) }
 
 const formRef = ref(null)
+const userEditedKey = ref(false)
+
 const form = ref({
-  title: '', description: '', timeRange: null,
+  title: '', contestKey: '', description: '', timeRange: null,
   ruleType: 'ACM', visibility: 'PUBLIC', password: '', 
   durationMinutes: null, format: 'STRICT', allowLateRegistration: true,
   scoreboardVisibility: 'VISIBLE'
 })
 const rules = {
-  title:     [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
-  timeRange: [{ required: true, message: 'Vui lòng chọn thời gian', trigger: 'change' }],
+  title:      [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
+  contestKey: [
+    { required: true, message: 'Vui lòng nhập contest key', trigger: 'blur' },
+    { pattern: /^[a-z0-9-]+$/, message: 'Chỉ chấp nhận chữ cái thường, số và dấu gạch ngang' }
+  ],
+  timeRange:  [{ required: true, message: 'Vui lòng chọn thời gian', trigger: 'change' }],
 }
+
+const generateSlug = (str) => {
+  return str.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+watch(() => form.value.title, (newVal) => {
+  if (isCreate.value && !userEditedKey.value && newVal) {
+    form.value.contestKey = generateSlug(newVal)
+  }
+})
 
 // Sync from contest prop (edit mode)
 watch(() => props.contest, (c) => {
-  if (!c) { form.value = { title: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null, format: 'STRICT', allowLateRegistration: true, scoreboardVisibility: 'VISIBLE' }; return }
+  if (!c) { 
+    form.value = { title: '', contestKey: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null, format: 'STRICT', allowLateRegistration: true, scoreboardVisibility: 'VISIBLE' }
+    userEditedKey.value = false
+    return 
+  }
   form.value = {
-    title: c.title || '', description: c.description || '',
+    title: c.title || '', contestKey: c.contestKey || '', description: c.description || '',
     timeRange: [parseUTC(c.startTime), parseUTC(c.endTime)],
     ruleType: c.ruleType || 'ACM', visibility: c.visibility || 'PUBLIC',
     password: c.password || '', durationMinutes: c.durationMinutes || null,
@@ -59,7 +84,7 @@ const handleSubmit = async () => {
   if (!valid) return
   const [start, end] = form.value.timeRange || []
   emit('submit', {
-    title: form.value.title, description: form.value.description,
+    title: form.value.title, contestKey: form.value.contestKey, description: form.value.description,
     startTime: toUTCString(start), endTime: toUTCString(end),
     ruleType: form.value.ruleType, visibility: form.value.visibility,
     durationMinutes: form.value.format === 'WINDOWED' ? (form.value.durationMinutes || null) : null,
@@ -73,9 +98,15 @@ const handleSubmit = async () => {
 <template>
   <div class="contest-form">
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" :disabled="readonly">
-      <el-form-item label="Tiêu đề" prop="title">
-        <el-input v-model="form.title" placeholder="Tên contest..." />
-      </el-form-item>
+      <div class="form-row-2">
+        <el-form-item label="Tiêu đề" prop="title">
+          <el-input v-model="form.title" placeholder="Tên contest..." />
+        </el-form-item>
+
+        <el-form-item label="Contest Key (Slug)" prop="contestKey">
+          <el-input v-model="form.contestKey" placeholder="Contest Key được sinh tự động" @input="userEditedKey = true" />
+        </el-form-item>
+      </div>
 
       <el-form-item label="Thời gian bắt đầu – Kết thúc" prop="timeRange">
         <el-date-picker v-model="form.timeRange" type="datetimerange" range-separator="→"

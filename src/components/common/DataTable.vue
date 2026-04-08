@@ -112,6 +112,13 @@ const getActionClass = (type) => {
         :resizable="col.resizable !== false"
         :selectable="col.selectable"
       >
+        <!-- Custom Header Slot -->
+        <template #header="{ column, $index }">
+          <slot :name="`header-${col.key}`" :column="column" :index="$index">
+            {{ col.label }}
+          </slot>
+        </template>
+
         <!-- Custom Cell Slot for non-special columns -->
         <template v-if="!['selection', 'index', 'expand'].includes(col.type)" #default="{ row, $index }">
           <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]" :index="$index">

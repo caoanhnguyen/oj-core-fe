@@ -19,7 +19,8 @@ const showVerificationBanner = computed(() => {
 
 // Không hiển thị footer khi đang ở trang chi tiết bài tập hoặc Dashboard admin
 const showFooter = computed(() => {
-  return route.name !== 'problem-detail' && !route.path.startsWith('/dashboard')
+  const hiddenNames = ['problem-detail', 'contest-problem-detail']
+  return !hiddenNames.includes(route.name) && !route.path.startsWith('/dashboard')
 })
 
 onMounted(async () => {

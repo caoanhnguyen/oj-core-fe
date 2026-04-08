@@ -179,7 +179,13 @@ const tableColumns = computed(() => {
       </template>
     </DataTable>
 
-    <DarkPagination :current-page="page" :page-size="pageSize" :total="total" @current-change="(p) => { page = p; load() }" />
+    <DarkPagination 
+      v-model:current-page="page" 
+      v-model:page-size="pageSize" 
+      :total="total" 
+      @current-change="load" 
+      @size-change="() => { page = 1; load() }" 
+    />
   </div>
 </template>
 

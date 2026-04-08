@@ -34,11 +34,12 @@ export const useContestSessionStore = defineStore('contestSession', () => {
     return new Date(lastSyncServerTime.value + elapsed)
   }
 
-  const setSession = (contestId, endTime, title = 'Cuộc thi') => {
+  const setSession = (contestId, contestKey, endTime, title = 'Cuộc thi') => {
     // Thêm Z nếu thiếu để đảm bảo parse đúng UTC (backend dùng LocalDateTime không có Z)
     const cleanEndTime = endTime && !(endTime.includes('Z') || endTime.includes('+')) ? endTime + 'Z' : endTime
     const session = { 
       contestId, 
+      contestKey,
       endTime: new Date(cleanEndTime).getTime(),
       title 
     }
@@ -52,10 +53,10 @@ export const useContestSessionStore = defineStore('contestSession', () => {
   }
 
   /** Bắt đầu phiên thi mới */
-  const startSession = async (contestId, title = 'Cuộc thi') => {
+  const startSession = async (contestId, contestKey, title = 'Cuộc thi') => {
     try {
-      const participation = await contestsAPI.start(contestId)
-      setSession(contestId, participation.endTime, title)
+      const participation = await contestsAPI.start(contestKey)
+      setSession(contestId, contestKey, participation.endTime, title)
       return participation
     } catch (error) {
       handleApiError(error, 'Không thể bắt đầu phiên thi')
@@ -64,12 +65,12 @@ export const useContestSessionStore = defineStore('contestSession', () => {
   }
 
   /** Kết thúc phiên thi */
-  const finishSession = async (contestId) => {
+  const finishSession = async (contestKey) => {
     try {
-      const id = contestId || activeSession.value?.contestId
-      if (!id) return
+      const key = contestKey || activeSession.value?.contestKey
+      if (!key) return
       
-      await contestsAPI.finish(id)
+      await contestsAPI.finish(key)
       clearSession()
     } catch (error) {
       if (error.response?.status === 403 || error.response?.status === 400) {

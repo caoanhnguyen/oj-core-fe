@@ -83,12 +83,13 @@ const targetTime = computed(() => {
 })
 
 const contestId = computed(() => sessionStore.activeSession?.contestId)
+const contestKey = computed(() => sessionStore.activeSession?.contestKey)
 const contestTitle = computed(() => sessionStore.activeSession?.title || 'Cuộc thi')
 
 const { formattedTime, isExpired } = useSyncedTimer(targetTime, () => {
   if (sessionStore.activeSession) {
     ElMessage.warning('Đã hết thời gian làm bài!')
-    sessionStore.finishSession(sessionStore.activeSession.contestId)
+    sessionStore.finishSession()
   }
 })
 
@@ -118,9 +119,9 @@ const handleFinishEarly = () => {
     }
   ).then(async () => {
     try {
-      await sessionStore.finishSession(contestId.value)
+      await sessionStore.finishSession()
       ElMessage.success('Đã nộp bài thành công!')
-      router.push(`/contests/${contestId.value}`)
+      router.push(`/contests/${contestKey.value || contestId.value}`)
     } catch (e) {
       console.error(e)
     }
@@ -129,7 +130,7 @@ const handleFinishEarly = () => {
 
 const returnToContest = (e) => {
   e.stopPropagation() // Chặn sự kiện click header
-  router.push(`/contests/${contestId.value}`)
+  router.push(`/contests/${contestKey.value || contestId.value}`)
 }
 </script>
 

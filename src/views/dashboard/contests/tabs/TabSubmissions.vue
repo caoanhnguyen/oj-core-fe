@@ -100,7 +100,13 @@ const tableActions = [
       <template #cell-languageKey="{ row }"><span class="lang-tag">{{ row.languageKey }}</span></template>
     </DataTable>
 
-    <DarkPagination :current-page="page" :page-size="pageSize" :total="total" @current-change="(p) => { page = p; load() }" />
+    <DarkPagination 
+      v-model:current-page="page" 
+      v-model:page-size="pageSize" 
+      :total="total" 
+      @current-change="load" 
+      @size-change="() => { page = 1; load() }" 
+    />
   </div>
 </template>
 

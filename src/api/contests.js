@@ -121,51 +121,51 @@ export const contestsAPI = {
   },
 
   /** User: Xem chi tiết contest */
-  getContestById: async (id) => {
-    const response = await axiosInstance.get(`/contests/${id}`)
+  getContestById: async (contestKey) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}`)
     return response.data.data
   },
 
   /** User: Đăng ký tham gia contest */
-  register: async (id, password = null) => {
+  register: async (contestKey, password = null) => {
     const body = password ? { password } : {}
-    const response = await axiosInstance.post(`/contests/${id}/register`, body)
+    const response = await axiosInstance.post(`/contests/${contestKey}/register`, body)
     return response.data
   },
 
   /** User: Xem danh sách problems trong contest (phải là participant và contest đã started) */
-  getProblems: async (id) => {
-    const response = await axiosInstance.get(`/contests/${id}/problems`)
+  getProblems: async (contestKey) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}/problems`)
     return response.data.data
   },
 
   /** User: Xem danh sách người đăng ký (public) */
-  getPublicParticipants: async (id, params) => {
-    const response = await axiosInstance.get(`/contests/${id}/participants`, { params })
+  getPublicParticipants: async (contestKey, params) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}/participants`, { params })
     return response.data.data
   },
 
   /** User/Admin: Xem bảng xếp hạng */
-  getLeaderboard: async (id, params) => {
-    const response = await axiosInstance.get(`/contests/${id}/leaderboard`, { params })
+  getLeaderboard: async (contestKey, params) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}/leaderboard`, { params })
     return response.data.data
   },
 
   /** User: Xem lịch sử nộp bài của bản thân trong contest */
-  getMySubmissions: async (id, params) => {
-    const response = await axiosInstance.get(`/contests/${id}/submissions/me`, { params })
+  getMySubmissions: async (contestKey, params) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}/submissions/me`, { params })
     return response.data.data
   },
   
   /** User: Bắt đầu tham gia (Personal Session) */
-  start: async (id) => {
-    const response = await axiosInstance.post(`/contests/${id}/start`)
+  start: async (contestKey) => {
+    const response = await axiosInstance.post(`/contests/${contestKey}/start`)
     return response.data.data
   },
 
   /** User: Kết thúc tham gia (Personal Session) */
-  finish: async (id) => {
-    const response = await axiosInstance.post(`/contests/${id}/finish`)
+  finish: async (contestKey) => {
+    const response = await axiosInstance.post(`/contests/${contestKey}/finish`)
     return response.data
   },
 

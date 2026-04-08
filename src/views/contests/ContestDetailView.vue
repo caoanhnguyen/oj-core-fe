@@ -71,10 +71,25 @@ const isLeaderboardHidden = computed(() => {
   return false
 })
 
+const isThisContestActive = computed(() => {
+  if (!sessionStore.isExamMode || !contest.value) return false
+  const activeId = String(sessionStore.activeSession?.contestId)
+  const activeKey = String(sessionStore.activeSession?.contestKey)
+  const currentId = String(contest.value?.id)
+  const currentKey = String(contest.value?.contestKey)
+  return activeId === currentId || activeKey === currentKey
+})
+
 const isPersonalSessionActive = computed(() => {
-  if (!hasJoined.value || !contest.value?.contestParticipation?.endTime) return false
-  const end = parseServerDate(contest.value.contestParticipation.endTime)
-  return sessionStore.getServerNow() < end && !contest.value.contestParticipation.isFinished
+  if (!hasJoined.value) return false
+  if (contest.value?.contestParticipation?.isFinished) return false
+  
+  // For Fixed contests, might not have personal endTime, so use global contest endTime
+  const endStr = contest.value?.contestParticipation?.endTime || contest.value?.endTime
+  if (!endStr) return false
+  
+  const end = parseServerDate(endStr)
+  return sessionStore.getServerNow() < end
 })
 
 const isTabDisabled = (id) => {
@@ -82,7 +97,7 @@ const isTabDisabled = (id) => {
   if (id === 'info') return false
   if (isFinished.value) return false
   if (id === 'problems' || id === 'submissions') {
-    if (!sessionStore.isExamMode || sessionStore.activeSession?.contestId !== contest.value?.id) return true
+    if (!isThisContestActive.value) return true
     return isWindowed.value ? !hasJoined.value : (!isRegistered.value || !isStarted.value)
   }
   return false
@@ -138,7 +153,7 @@ const handleRegister = async () => {
   }
   try {
     registerLoading.value = true
-    await contestStore.registerContest(contestId.value, registerPassword.value || null)
+    await contestStore.registerContest(contest.value.contestKey, registerPassword.value || null)
     await loadContest()
     showPasswordInput.value = false
     registerPassword.value  = ''
@@ -155,7 +170,7 @@ const handleStartContest = async () => {
       { confirmButtonText: 'Bắt đầu ngay', cancelButtonText: 'Để sau', type: 'warning' }
     )
     startLoading.value = true
-    await sessionStore.startSession(contest.value.id, contest.value.title)
+    await sessionStore.startSession(contest.value.id, contest.value.contestKey, contest.value.title)
     await loadContest()
     ElMessage.success('Bắt đầu thi thành công!')
     router.push(`/contests/${contestId.value}/problems`)
@@ -167,7 +182,7 @@ const handleStartContest = async () => {
 const handleEnterExam = () => { router.push(`/contests/${contestId.value}/problems`) }
 
 const handleRejoinContest = () => {
-  sessionStore.setSession(contestId.value, contest.value.contestParticipation.endTime, contest.value.title)
+  sessionStore.setSession(contest.value.id, contest.value.contestKey, contest.value.contestParticipation.endTime, contest.value.title)
   router.push(`/contests/${contestId.value}/problems`)
 }
 
@@ -200,7 +215,7 @@ const problemColumns = [
   { key: '_ac',           label: '',          width: '50',  align: 'center' },
   { key: 'displayId',     label: '#',         width: '80', align: 'center' },
   { key: 'originalTitle', label: 'Bài tập',  minWidth: '300' },
-  { key: 'points',        label: 'Điểm',      width: '100', align: 'right' }
+  { key: 'points',        label: 'Điểm',      width: '100', align: 'center' }
 ]
 
 
@@ -209,7 +224,7 @@ const problemColumns = [
 // =====================
 const leaderboard          = ref([])
 const leaderboardLoading   = ref(false)
-const leaderboardPagination = ref({ page: 0, size: 20, total: 0 })
+const leaderboardPagination = ref({ currentPage: 1, size: 20, total: 0 })
 
 const loadLeaderboard = async () => {
   if (isLeaderboardHidden.value) return
@@ -217,34 +232,134 @@ const loadLeaderboard = async () => {
   try {
     leaderboardLoading.value = true
     const data = await contestsAPI.getLeaderboard(contestId.value, {
-      page: leaderboardPagination.value.page,
+      page: leaderboardPagination.value.currentPage - 1,
       size: leaderboardPagination.value.size
     })
     leaderboard.value = data.content || []
     leaderboardPagination.value.total = data.totalElements || 0
+    if (data.problems) {
+      problems.value = data.problems
+    }
   } catch (err) { handleApiError(err, 'Không thể tải bảng xếp hạng') }
   finally { leaderboardLoading.value = false }
 }
 
-const lbColumns = computed(() => [
-  { key: '_rank',    label: 'Hạng',      width: '100',  align: 'center' },
-  { key: 'username', label: 'Thí sinh',  minWidth: '240' },
-  { key: 'score',    label: 'Điểm',       width: '120', align: 'center' },
-  ...(contest.value?.ruleType === 'ACM' ? [{ key: 'penalty', label: 'Penalty', width: '130', align: 'center' }] : [])
-])
+const leaderboardWithRank = computed(() => {
+  if (!leaderboard.value.length) return []
+  
+  const result = []
+  let currentRank = 1
+  let prevScore = -1
+  let prevPenalty = -1
+  
+  leaderboard.value.forEach((row, index) => {
+    // If not first row and current matches previous, keep rank
+    if (index > 0 && row.score === prevScore && row.penalty === prevPenalty) {
+      // Row has same rank as previous
+    } else {
+      currentRank = (leaderboardPagination.value.currentPage - 1) * leaderboardPagination.value.size + index + 1
+    }
+    
+    result.push({
+      ...row,
+      computedRank: currentRank
+    })
+    
+    prevScore = row.score
+    prevPenalty = row.penalty
+  })
+  
+  return result
+})
+
+const lbColumns = computed(() => {
+  const cols = [
+    { key: '_rank',    label: 'Hạng',      width: '80',  align: 'center' },
+    { key: 'username', label: 'Thí sinh',  minWidth: '200' },
+    { key: 'score',    label: 'Điểm',       width: '100', align: 'center' }
+  ]
+  if (contest.value?.ruleType === 'ACM' || contest.value?.ruleType === 'OI') {
+     cols.push({ key: 'penalty', label: 'Penalty', width: '100', align: 'center' })
+  }
+  // Add problem columns
+  problems.value.forEach(p => {
+    cols.push({ 
+      key: `p_${p.displayId}`, 
+      label: p.displayId, 
+      width: '90', 
+      align: 'center'
+    })
+  })
+  return cols
+})
+
+const getMatrixClass = (result, maxPoints) => {
+  if (!result) return 'lm-cell-empty'
+  if (contest.value?.ruleType === 'ACM') {
+    if (result.isAc) return 'lm-cell-ac'
+    if (result.tries > 0) return 'lm-cell-wa'
+    return 'lm-cell-empty'
+  } else {
+    if (result.score === undefined || result.score === null) return 'lm-cell-empty'
+    if (result.score === 0 && result.penalty > 0) return 'lm-cell-wa'
+    if (result.score === 0) return 'lm-cell-empty'
+    if (result.score >= (maxPoints || 100)) return 'lm-cell-ac'
+    return 'lm-cell-partial'
+  }
+}
+
+const getMatrixScore = (result, maxPoints) => {
+  if (!result) return ''
+  if (contest.value?.ruleType === 'ACM') {
+    if (result.isAc) return `+${result.tries > 0 ? result.tries : ''}`
+    if (result.tries > 0) return `-${result.tries}`
+    return ''
+  } else {
+    if (result.score === undefined || result.score === null) return ''
+    if (result.score === 0 && result.penalty > 0) return '0'
+    if (result.score === 0) return ''
+    return Number.isInteger(result.score) ? result.score : result.score.toFixed(2)
+  }
+}
+
+const formatPenaltyDisplay = (seconds) => {
+  if (seconds === undefined || seconds === null) return ''
+  const s = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  
+  // Format: HH:MM:SS or MM:SS
+  const hStr = h > 0 ? h + ':' : ''
+  const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString()) + ':'
+  const sStr = sec.toString().padStart(2, '0')
+  
+  return `${hStr}${mStr}${sStr}`
+}
+
+const getMatrixSubtext = (result) => {
+  if (!result) return ''
+  if (contest.value?.ruleType === 'ACM') {
+    if (result.isAc) return formatPenaltyDisplay(result.penalty)
+    return ''
+  } else {
+    if (result.score > 0) return formatPenaltyDisplay(result.penalty)
+    return ''
+  }
+}
 
 // =====================
 // My Submissions tab
 // =====================
 const mySubmissions   = ref([])
 const mySubsLoading   = ref(false)
-const mySubsPagination = ref({ page: 0, size: 20, total: 0 })
+const mySubsPagination = ref({ currentPage: 1, size: 20, total: 0 })
 
 const loadMySubmissions = async () => {
   try {
     mySubsLoading.value = true
     const data = await contestsAPI.getMySubmissions(contestId.value, {
-      page: mySubsPagination.value.page,
+      page: mySubsPagination.value.currentPage - 1,
       size: mySubsPagination.value.size,
       sort: 'createdDate,desc'
     })
@@ -363,53 +478,68 @@ onUnmounted(() => {})
 
         <!-- Action area in tab bar -->
         <div class="tab-action">
-          <!-- Windowed: Chưa join -->
-          <template v-if="isWindowed && isRegistered && !hasJoined && !isFinished && isStarted">
-            <AppButton variant="primary" :disabled="startLoading" @click="handleStartContest">
-              <template #icon><Zap :size="14" /></template>
-              Bắt đầu thi
+          <!-- Case 1: Contest already finished -->
+          <template v-if="isFinished">
+            <AppButton variant="secondary" disabled :icon="Lock">
+              Đã kết thúc
             </AppButton>
           </template>
-          <!-- Fixed/Windowed: Đang thi -->
-          <template v-else-if="hasJoined && isPersonalSessionActive">
-            <template v-if="sessionStore.isExamMode && sessionStore.activeSession?.contestId === contestId">
-              <AppButton variant="outline" @click="handleLeaveContest">
-                <template #icon><LogOut :size="14" /></template>
-                Rời phòng
+
+          <!-- Case 2: Registered and Contest is currently active/started -->
+          <template v-else-if="isRegistered && isStarted">
+            <!-- Subcase: User has already started their session -->
+            <template v-if="hasJoined && isPersonalSessionActive">
+              <!-- If actually in Exam Mode (FE session active) -->
+              <template v-if="isThisContestActive">
+                <AppButton variant="secondary" :icon="LogOut" @click="handleLeaveContest">
+                  Rời phòng
+                </AppButton>
+              </template>
+              <!-- If session exists on BE but FE store is clear (e.g. user returned to page) -->
+              <template v-else>
+                <AppButton variant="primary" :icon="Zap" @click="handleRejoinContest">
+                  Vào phòng thi
+                </AppButton>
+              </template>
+            </template>
+            
+            <!-- Subcase: User is registered but hasn't clicked "Start" yet -->
+            <template v-else-if="!hasJoined">
+              <AppButton variant="primary" :loading="startLoading" :icon="Zap" @click="handleStartContest">
+                Bắt đầu thi
               </AppButton>
             </template>
-            <template v-else>
-              <AppButton variant="primary" @click="handleRejoinContest">
-                <template #icon><Zap :size="14" /></template>
-                Vào phòng thi
+
+            <!-- Subcase: Session ended (for windowed contests) -->
+            <template v-else-if="hasJoined && !isPersonalSessionActive">
+              <AppButton variant="secondary" disabled :icon="Check">
+                Đã hoàn thành
               </AppButton>
             </template>
           </template>
-          <!-- Chưa đăng ký -->
-          <template v-else-if="!isRegistered && !isFinished">
+
+          <!-- Case 3: Not registered yet -->
+          <template v-else-if="!isRegistered">
             <template v-if="!isStarted || contest.allowLateRegistration">
               <div v-if="showPasswordInput" class="password-inline">
                 <Key :size="14" />
-                <input v-model="registerPassword" type="password" placeholder="Nhập mật khẩu" class="pw-input" />
+                <el-input 
+                  v-model="registerPassword" 
+                  type="password" 
+                  placeholder="Mật khẩu..." 
+                  show-password
+                  class="pw-el-input"
+                />
               </div>
-              <AppButton variant="primary" :disabled="registerLoading" @click="handleRegister">
-                <template #icon><Shield :size="14" /></template>
+              <AppButton variant="primary" :loading="registerLoading" :icon="Shield" @click="handleRegister">
                 {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
               </AppButton>
             </template>
             <template v-else>
-              <AppButton variant="secondary" disabled>
-                <template #icon><Lock :size="14" /></template>
+              <AppButton variant="secondary" disabled :icon="Lock">
                 Đã quá hạn đăng ký
               </AppButton>
             </template>
-          </template>
-          <!-- Fixed đã đăng ký, đang diễn ra, chưa thi -->
-          <template v-else-if="!isWindowed && isRegistered && isStarted && !hasJoined && !isFinished">
-            <AppButton variant="primary" :disabled="startLoading" @click="handleStartContest">
-              <template #icon><Zap :size="14" /></template>
-              Bắt đầu thi
-            </AppButton>
           </template>
         </div>
       </div>
@@ -511,7 +641,7 @@ onUnmounted(() => {})
           <template #cell-originalTitle="{ row }">
             <span
               class="prob-title"
-              @click.stop="router.push(`/problems/${row.problemSlug}?contestId=${contestId}`)"
+              @click.stop="router.push(`/contests/${contest.contestKey}/problems/${row.problemSlug}`)"
             >{{ row.originalTitle }}</span>
           </template>
           <template #cell-points="{ row }">
@@ -539,30 +669,56 @@ onUnmounted(() => {})
         <template v-else>
           <DataTable
             :columns="lbColumns"
-            :data="leaderboard"
+            :data="leaderboardWithRank"
             :loading="leaderboardLoading"
             empty-text="Chưa có dữ liệu xếp hạng."
           >
-            <template #cell-_rank="{ index }">
-              <span class="lb-rank">{{ getMedal(leaderboardPagination.page * leaderboardPagination.size + index + 1) }}</span>
+            <!-- Rank Column -->
+            <template #cell-_rank="{ row }">
+              <span class="lb-rank">{{ getMedal(row.computedRank) }}</span>
             </template>
             <template #cell-username="{ row }">
               <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
             </template>
+
+            <!-- Total Score Column -->
             <template #cell-score="{ row }">
-              <span class="lb-score">{{ row.score }}</span>
+              <div class="lb-total-score-cell">
+                <span class="lb-total-points">{{ row.score }}</span>
+              </div>
             </template>
+
+            <!-- Total Penalty Column -->
             <template #cell-penalty="{ row }">
-              <span class="lb-penalty">{{ row.penalty }}s</span>
+              <span class="lb-total-penalty">{{ formatPenaltyDisplay(row.penalty) || '0m' }}</span>
+            </template>
+
+            <!-- Dynamic Problem Headers -->
+            <template v-for="prob in problems" :key="'h_' + prob.id" #[`header-p_${prob.displayId}`]>
+              <div class="lb-matrix-header">
+                <div class="lmh-id">{{ prob.displayId }}</div>
+                <div class="lmh-divider"></div>
+                <div class="lmh-points">{{ prob.points }}</div>
+              </div>
+            </template>
+
+            <!-- Dynamic Problem Cells -->
+            <template v-for="prob in problems" :key="'c_' + prob.id" #[`cell-p_${prob.displayId}`]="{ row }">
+              <div class="lb-matrix-cell" :class="getMatrixClass(row.problemResults?.[prob.displayId], prob.points)">
+                <div class="lm-score">{{ getMatrixScore(row.problemResults?.[prob.displayId], prob.points) }}</div>
+                <div class="lm-subtext" v-if="getMatrixSubtext(row.problemResults?.[prob.displayId])">
+                  {{ getMatrixSubtext(row.problemResults?.[prob.displayId]) }}
+                </div>
+              </div>
             </template>
           </DataTable>
 
           <DarkPagination
-            v-if="leaderboardPagination.total > leaderboardPagination.size"
-            :current-page="leaderboardPagination.page + 1"
-            :page-size="leaderboardPagination.size"
+            v-model:current-page="leaderboardPagination.currentPage"
+            v-model:page-size="leaderboardPagination.size"
             :total="leaderboardPagination.total"
-            @current-change="(p) => { leaderboardPagination.page = p - 1; loadLeaderboard() }"
+            @current-change="loadLeaderboard"
+            @size-change="() => { leaderboardPagination.currentPage = 1; loadLeaderboard() }"
           />
         </template>
       </div>
@@ -597,11 +753,11 @@ onUnmounted(() => {})
         </DataTable>
 
         <DarkPagination
-          v-if="mySubsPagination.total > mySubsPagination.size"
-          :current-page="mySubsPagination.page + 1"
-          :page-size="mySubsPagination.size"
+          v-model:current-page="mySubsPagination.currentPage"
+          v-model:page-size="mySubsPagination.size"
           :total="mySubsPagination.total"
-          @current-change="(p) => { mySubsPagination.page = p - 1; loadMySubmissions() }"
+          @current-change="loadMySubmissions"
+          @size-change="() => { mySubsPagination.currentPage = 1; loadMySubmissions() }"
         />
       </div>
 
@@ -779,26 +935,7 @@ onUnmounted(() => {})
   flex-shrink: 0; padding: 8px 0;
 }
 
-.btn-primary {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: #ffa116; color: #000;
-  border: none; border-radius: 8px;
-  padding: 8px 18px; font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: all 0.2s;
-}
-.btn-primary:hover { background: #ffb342; box-shadow: 0 4px 14px rgba(255,161,22,0.35); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-secondary {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: transparent;
-  border: 1px solid #3e3e3e;
-  color: #eff2f6;
-  border-radius: 8px; padding: 8px 18px;
-  font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: all 0.2s;
-}
-.btn-secondary:hover { border-color: #ffa116; color: #ffa116; }
 
 .session-live-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -808,14 +945,34 @@ onUnmounted(() => {})
 }
 
 .password-inline {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 8px;
   background: #1e1e1e; border: 1px solid #333;
-  border-radius: 8px; padding: 0 12px; height: 36px;
+  border-radius: 8px; padding: 0 12px; height: 38px;
   color: #8a8a8a;
+  transition: all 0.2s;
 }
-.pw-input {
-  background: transparent; border: none; outline: none;
-  color: #eff2f6; font-size: 13px; width: 160px;
+.password-inline:focus-within {
+  border-color: #555;
+  background: #242424;
+}
+.pw-el-input {
+  width: 180px;
+}
+:deep(.pw-el-input .el-input__wrapper) {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+:deep(.pw-el-input .el-input__inner) {
+  color: #eff2f6 !important;
+  font-size: 13px !important;
+  height: 34px !important;
+}
+:deep(.pw-el-input .el-input__password) {
+  color: #5c5c5c !important;
+}
+:deep(.pw-el-input .el-input__password:hover) {
+  color: #ffa116 !important;
 }
 
 .tab-content { width: 100%; }
@@ -936,6 +1093,81 @@ onUnmounted(() => {})
 .lb-rank  { font-size: 16px; }
 .lb-score { color: #00b8a3; font-weight: 700; font-size: 15px; }
 .lb-penalty { color: #8a8a8a; font-size: 13px; }
+
+.lb-total-points {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.lb-total-penalty {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+/* Matrix Header ID / Max */
+.lb-matrix-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  line-height: 1;
+}
+
+.lmh-id {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.lmh-divider {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 3px 0;
+}
+
+.lmh-points {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.lb-matrix-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 6px 4px;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  min-height: 44px; 
+}
+
+.lb-matrix-cell:hover {
+  filter: brightness(1.2);
+  transform: scale(1.02);
+}
+
+.lm-score { font-size: 15px; font-weight: 600; line-height: 1.1; }
+.lm-subtext { font-size: 10px; color: var(--text-secondary); margin-top: 5px; opacity: 0.8; line-height: 1; }
+
+.lm-cell-ac { background-color: rgba(44, 187, 93, 0.18); border: 1px solid rgba(44, 187, 93, 0.1); }
+.lm-cell-ac .lm-score { color: #2cbb5d; }
+.lm-cell-wa { background-color: rgba(239, 71, 67, 0.1); border: 1px solid rgba(239, 71, 67, 0.1); }
+.lm-cell-wa .lm-score { color: #ef4743; }
+.lm-cell-partial { background-color: rgba(255, 161, 22, 0.1); border: 1px solid rgba(255, 161, 22, 0.1); }
+.lm-cell-partial .lm-score { color: #ffa116; }
+
+/* Customizing DataTable headers for Matrix style */
+:deep(.dashboard-table th.el-table__cell) {
+  background-color: #0d0d0d !important;
+}
 
 .user-link {
   color: #eff2f6; text-decoration: none; font-weight: 500;

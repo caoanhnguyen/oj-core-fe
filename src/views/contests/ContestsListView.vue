@@ -163,7 +163,7 @@ const endedContests    = computed(() => {
 
 const totalFiltered = computed(() => filteredContests.value.length)
 
-const goToContest = (contest) => router.push(`/contests/${contest.id}`)
+const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
 </script>
 
 <template>
