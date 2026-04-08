@@ -33,7 +33,7 @@ const rankingStore = useRankingStore()
 
 const type = computed(() => (route.params.type || 'acm').toUpperCase())
 const page = ref(1)
-const size = ref(20)
+const size = ref(100)
 
 const rankings = computed(() => rankingStore.rankings)
 const topRankings = computed(() => rankingStore.topRankings)
@@ -187,9 +187,9 @@ const tableColumns = computed(() => {
       :columns="tableColumns"
       :loading="rankingStore.loading"
     >
-      <template #cell-_rank="{ index }">
-        <div class="rank-badge" :class="{ 'top-1': (page - 1) * size + index + 1 === 1, 'top-2': (page - 1) * size + index + 1 === 2, 'top-3': (page - 1) * size + index + 1 === 3 }">
-           {{ (page - 1) * size + index + 1 }}
+      <template #cell-_rank="{ row }">
+        <div class="rank-badge" :class="{ 'top-1': row.rank === 1, 'top-2': row.rank === 2, 'top-3': row.rank === 3 }">
+           {{ row.rank }}
         </div>
       </template>
 

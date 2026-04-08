@@ -10,7 +10,7 @@ export const useRankingStore = defineStore('ranking', {
     loading: false,
     pagination: {
       page: 0,
-      size: 20,
+      size: 100,
       totalElements: 0,
       totalPages: 0
     }
