@@ -41,19 +41,22 @@ const isHintExpanded = ref(false)
 
 // Tab logic
 const availableTabs = computed(() => {
-  // Always allow description. Submissions/Statistics hidden during active contest context
-  if (contestKey.value) return ['description']
+  // Always allow description and submissions. Hide statistics during active contest context
+  if (contestKey.value) return ['description', 'submissions']
   return ['description', 'submissions', 'statistics']
 })
 
 const activeTab = computed(() => {
   const t = route.params.tab
-  if (contestKey.value && t !== 'description') return 'description'
   return availableTabs.value.includes(t) ? t : 'description'
 })
 
 const switchTab = (tab) => {
-  router.push({ name: 'problem-detail', params: { slug: route.params.slug, tab } })
+  if (contestKey.value) {
+    router.push({ name: 'contest-problem-detail', params: { contestKey: contestKey.value, slug: route.params.slug, tab } })
+  } else {
+    router.push({ name: 'problem-detail', params: { slug: route.params.slug, tab } })
+  }
 }
 
 const authStore = useAuthStore()
@@ -485,7 +488,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
             <div class="problem-title-section">
               <div class="title-with-type">
                 <h1 class="problem-title">{{ problem.title }}</h1>
-                <span v-if="problem.ruleType" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
+                <span v-if="problem.ruleType && !contestKey" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
                 
                 <!-- Contest Indicator (Removed as requested, using widget instead) -->
               </div>
@@ -644,6 +647,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
              <SubmissionsTab 
                ref="submissionsTabRef" 
                :problem-id="problem.id" 
+               :contest-key="contestKey"
                :contest-id="sessionStore.isExamMode && sessionStore.activeSession?.contestKey === contestKey ? sessionStore.activeSession?.contestId : null"
              />
           </div>

@@ -15,6 +15,10 @@ const props = defineProps({
   contestId: {
     type: String,
     default: null
+  },
+  contestKey: {
+    type: String,
+    default: null
   }
 })
 
@@ -69,8 +73,11 @@ const loadSubmissions = async () => {
             }
             params.userId = authStore.user?.id
             
-            if (props.contestId) {
-                // Nếu đang trong contest, lấy bài nộp của ME trong contest
+            if (props.contestKey) {
+                // Ưu tiên dùng contestKey cho user API
+                response = await contestsAPI.getMySubmissions(props.contestKey, params)
+            } else if (props.contestId) {
+                // Fallback nếu component caller truyền lú contestId
                 response = await contestsAPI.getMySubmissions(props.contestId, params)
             } else {
                 response = await submissionStore.getSubmissions(params)

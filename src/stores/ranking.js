@@ -35,7 +35,12 @@ export const useRankingStore = defineStore('ranking', {
           totalPages: data.totalPages || 0
         }
 
-        return data
+        // Optimization: If we're on the first page, extract top 10 for the chart
+        if (this.pagination.page === 0 && this.rankings.length > 0) {
+          this.topRankings = this.rankings.slice(0, 10)
+        }
+
+        return data;
       } catch (error) {
         handleApiError(error, 'Không tải được danh sách xếp hạng')
         throw error

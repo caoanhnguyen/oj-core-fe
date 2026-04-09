@@ -244,33 +244,7 @@ const loadLeaderboard = async () => {
   finally { leaderboardLoading.value = false }
 }
 
-const leaderboardWithRank = computed(() => {
-  if (!leaderboard.value.length) return []
-  
-  const result = []
-  let currentRank = 1
-  let prevScore = -1
-  let prevPenalty = -1
-  
-  leaderboard.value.forEach((row, index) => {
-    // If not first row and current matches previous, keep rank
-    if (index > 0 && row.score === prevScore && row.penalty === prevPenalty) {
-      // Row has same rank as previous
-    } else {
-      currentRank = (leaderboardPagination.value.currentPage - 1) * leaderboardPagination.value.size + index + 1
-    }
-    
-    result.push({
-      ...row,
-      computedRank: currentRank
-    })
-    
-    prevScore = row.score
-    prevPenalty = row.penalty
-  })
-  
-  return result
-})
+// Rank is now provided directly by backend as row.rank
 
 const lbColumns = computed(() => {
   const cols = [
@@ -322,25 +296,25 @@ const getMatrixScore = (result, maxPoints) => {
   }
 }
 
-const formatPenaltyDisplay = (seconds) => {
-  if (seconds === undefined || seconds === null) return ''
-  const s = Math.max(0, Math.floor(seconds))
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
+const formatPenaltyDisplay = (minutes) => {
+  if (minutes === undefined || minutes === null) return ''
+  const mTotal = Math.max(0, Math.floor(minutes))
+  const h = Math.floor(mTotal / 60)
+  const m = mTotal % 60
   
-  // Format: HH:MM:SS or MM:SS
   const hStr = h > 0 ? h + ':' : ''
-  const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString()) + ':'
-  const sStr = sec.toString().padStart(2, '0')
+  const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString())
   
-  return `${hStr}${mStr}${sStr}`
+  return hStr ? `${hStr}${mStr}` : `${mStr}m`
 }
 
 const getMatrixSubtext = (result) => {
   if (!result) return ''
   if (contest.value?.ruleType === 'ACM') {
-    if (result.isAc) return formatPenaltyDisplay(result.penalty)
+    if (result.isAc) {
+      const solveTime = result.penalty - (result.tries * 20)
+      return formatPenaltyDisplay(Math.max(0, solveTime))
+    }
     return ''
   } else {
     if (result.score > 0) return formatPenaltyDisplay(result.penalty)
@@ -669,13 +643,13 @@ onUnmounted(() => {})
         <template v-else>
           <DataTable
             :columns="lbColumns"
-            :data="leaderboardWithRank"
+            :data="leaderboard"
             :loading="leaderboardLoading"
             empty-text="Chưa có dữ liệu xếp hạng."
           >
             <!-- Rank Column -->
             <template #cell-_rank="{ row }">
-              <span class="lb-rank">{{ getMedal(row.computedRank) }}</span>
+              <span class="lb-rank">{{ getMedal(row.rank) }}</span>
             </template>
             <template #cell-username="{ row }">
               <RouterLink class="user-link" :to="`/profile/${row.username}`">{{ row.username }}</RouterLink>
@@ -998,6 +972,22 @@ onUnmounted(() => {})
 }
 .desc-body :deep(p) { margin: 0 0 12px; }
 .desc-body :deep(h1),.desc-body :deep(h2),.desc-body :deep(h3) { color: #eff2f6; }
+.desc-body :deep(ul) { list-style-type: disc; padding-left: 24px; margin: 0 0 12px; }
+.desc-body :deep(ol) { list-style-type: decimal; padding-left: 24px; margin: 0 0 12px; }
+.desc-body :deep(li) { margin-bottom: 6px; }
+.desc-body :deep(blockquote) {
+  border-left: 4px solid #ffa116; padding: 10px 16px;
+  background: rgba(255, 161, 22, 0.05); margin: 0 0 16px;
+  border-radius: 0 4px 4px 0; color: #a0a0a0; font-style: italic;
+}
+.desc-body :deep(pre), .desc-body :deep(code) { 
+  font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.07); 
+  padding: 2px 4px; border-radius: 4px; font-size: 13px;
+}
+.desc-body :deep(pre) { padding: 12px; overflow-x: auto; margin: 12px 0; }
+.desc-body :deep(img) { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; display: block; }
+.desc-body :deep(a) { color: #ffa116; text-decoration: none; }
+.desc-body :deep(a:hover) { text-decoration: underline; }
 
 .rule-box {
   background: rgba(255,161,22,0.04);

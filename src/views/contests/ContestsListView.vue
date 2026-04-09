@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Trophy, Clock, Users, ChevronRight, Calendar, Zap, Flame, AlertCircle, Archive, LayoutGrid } from 'lucide-vue-next'
@@ -9,12 +9,16 @@ import { useContestSessionStore } from '@/stores/contestSession'
 import { handleApiError } from '@/utils/errorHandler'
 import TableControls from '@/components/common/TableControls.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import DarkPagination from '@/components/common/DarkPagination.vue'
 
 const router = useRouter()
 
 const allContests = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
+const currentPage = ref(1)
+const pageSize = ref(12)
+const totalElements = ref(0)
 
 const authStore = useAuthStore()
 const sessionStore = useContestSessionStore()
@@ -60,44 +64,6 @@ const getRemainingTime = (endTimeStr) => {
 }
 
 // =====================
-// Data fetching
-// =====================
-const loadAllContests = async () => {
-  try {
-    loading.value = true
-    // Fetch a big page to get all contests for client-side grouping
-    const data = await contestsAPI.getContests({ page: 0, size: 200, sort: 'startTime,desc' })
-    allContests.value = data.content || []
-  } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách contest')
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadActiveContests = async () => {
-  if (!authStore.isAuthenticated) return
-  try {
-    const data = await contestsAPI.getMyActiveContests()
-    activeContests.value = data || []
-  } catch (error) {
-    console.error('Failed to load active contests:', error)
-  }
-}
-
-onMounted(() => {
-  loadAllContests()
-  loadActiveContests()
-  timerInterval = setInterval(() => {
-    now.value = sessionStore.getServerNow()
-  }, 1000)
-})
-
-onUnmounted(() => {
-  if (timerInterval) clearInterval(timerInterval)
-})
-
-// =====================
 // Filters & search
 // =====================
 const filterValues = ref({ ruleType: '', status: '' })
@@ -133,35 +99,74 @@ const handleResetFilters = () => {
 }
 
 // =====================
+// Data fetching
+// =====================
+const loadAllContests = async () => {
+  try {
+    loading.value = true
+    const params = {
+      page: currentPage.value - 1,
+      size: pageSize.value,
+      sort: 'startTime,desc',
+    }
+    if (searchQuery.value) params.keyword = searchQuery.value
+    if (filterValues.value.ruleType) params.ruleType = filterValues.value.ruleType
+    if (filterValues.value.status) params.contestStatus = filterValues.value.status
+
+    const data = await contestsAPI.getContests(params)
+    allContests.value = data.content || []
+    totalElements.value = data.totalElements || 0
+  } catch (error) {
+    handleApiError(error, 'Không thể tải danh sách contest')
+  } finally {
+    loading.value = false
+  }
+}
+
+watch([searchQuery, filterValues], () => {
+  currentPage.value = 1
+  loadAllContests()
+}, { deep: true })
+
+const handlePageChange = (val) => {
+  currentPage.value = val
+  loadAllContests()
+}
+
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadAllContests()
+}
+
+const loadActiveContests = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const data = await contestsAPI.getMyActiveContests()
+    activeContests.value = data || []
+  } catch (error) {
+    console.error('Failed to load active contests:', error)
+  }
+}
+
+onMounted(() => {
+  loadAllContests()
+  loadActiveContests()
+  timerInterval = setInterval(() => {
+    now.value = sessionStore.getServerNow()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval)
+})
+
+// =====================
 // Client-side grouping
 // =====================
-const filteredContests = computed(() => {
-  const q    = searchQuery.value.toLowerCase()
-  const rt   = filterValues.value.ruleType
-  const st   = filterValues.value.status
-  return allContests.value.filter(c => {
-    if (q  && !c.title?.toLowerCase().includes(q)) return false
-    if (rt && c.ruleType !== rt) return false
-    if (st && c.contestStatus !== st) return false
-    return true
-  })
-})
-
-const ongoingContests  = computed(() => {
-  // If status filter is active, only show that group
-  if (filterValues.value.status && filterValues.value.status !== 'ONGOING') return []
-  return filteredContests.value.filter(c => c.contestStatus === 'ONGOING')
-})
-const upcomingContests = computed(() => {
-  if (filterValues.value.status && filterValues.value.status !== 'UPCOMING') return []
-  return filteredContests.value.filter(c => c.contestStatus === 'UPCOMING')
-})
-const endedContests    = computed(() => {
-  if (filterValues.value.status && filterValues.value.status !== 'ENDED') return []
-  return filteredContests.value.filter(c => c.contestStatus === 'ENDED')
-})
-
-const totalFiltered = computed(() => filteredContests.value.length)
+const ongoingContests  = computed(() => allContests.value.filter(c => c.contestStatus === 'ONGOING'))
+const upcomingContests = computed(() => allContests.value.filter(c => c.contestStatus === 'UPCOMING'))
+const endedContests    = computed(() => allContests.value.filter(c => c.contestStatus === 'ENDED'))
 
 const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
 </script>
@@ -180,7 +185,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
         v-model="searchQuery"
         search-placeholder="Tìm kiếm contest..."
         :filter-config="contestFilterConfig"
-        :total-elements="totalFiltered"
+        :total-elements="totalElements"
         item-name="Contests"
         @filter-change="handleFilterChange"
         @reset-filters="handleResetFilters"
@@ -225,8 +230,12 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
 
       <template v-else>
 
+        <div v-if="allContests.length === 0" class="empty-section">
+          <span>Không tìm thấy cuộc thi nào</span>
+        </div>
+
         <!-- ===== ONGOING ===== -->
-        <section class="contest-section">
+        <section v-if="ongoingContests.length > 0" class="contest-section">
           <div class="section-header ongoing-header">
             <div class="section-title-group">
               <Flame :size="18" class="section-icon" />
@@ -235,10 +244,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             </div>
           </div>
 
-          <div v-if="ongoingContests.length === 0" class="empty-section">
-            <span>Không có contest nào đang diễn ra</span>
-          </div>
-          <div v-else class="contests-grid">
+          <div class="contests-grid">
             <div
               v-for="c in ongoingContests"
               :key="c.id"
@@ -276,7 +282,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
         </section>
 
         <!-- ===== UPCOMING ===== -->
-        <section class="contest-section">
+        <section v-if="upcomingContests.length > 0" class="contest-section">
           <div class="section-header upcoming-header">
             <div class="section-title-group">
               <AlertCircle :size="18" class="section-icon" />
@@ -285,10 +291,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             </div>
           </div>
 
-          <div v-if="upcomingContests.length === 0" class="empty-section">
-            <span>Không có contest nào sắp diễn ra</span>
-          </div>
-          <div v-else class="contests-grid">
+          <div class="contests-grid">
             <div
               v-for="c in upcomingContests"
               :key="c.id"
@@ -326,7 +329,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
         </section>
 
         <!-- ===== ENDED ===== -->
-        <section class="contest-section">
+        <section v-if="endedContests.length > 0" class="contest-section">
           <div class="section-header ended-header">
             <div class="section-title-group">
               <Archive :size="18" class="section-icon" />
@@ -335,10 +338,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             </div>
           </div>
 
-          <div v-if="endedContests.length === 0" class="empty-section">
-            <span>Chưa có contest nào kết thúc</span>
-          </div>
-          <div v-else class="contests-grid">
+          <div class="contests-grid">
             <div
               v-for="c in endedContests"
               :key="c.id"
@@ -374,6 +374,16 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             </div>
           </div>
         </section>
+
+        <!-- Pagination -->
+        <DarkPagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="totalElements"
+          :page-sizes="[12, 24, 48]"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
+        />
 
       </template>
     </div>

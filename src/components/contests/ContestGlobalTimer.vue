@@ -119,9 +119,14 @@ const handleFinishEarly = () => {
     }
   ).then(async () => {
     try {
+      const redirectId = contestKey.value
       await sessionStore.finishSession()
       ElMessage.success('Đã nộp bài thành công!')
-      router.push(`/contests/${contestKey.value || contestId.value}`)
+      if (redirectId) {
+        router.push(`/contests/${redirectId}`)
+      } else {
+        router.push(`/contests`)
+      }
     } catch (e) {
       console.error(e)
     }

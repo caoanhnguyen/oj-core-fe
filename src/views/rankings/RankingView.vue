@@ -111,10 +111,7 @@ const getAcceptanceRating = (row) => {
 
 const fetchAll = async () => {
     try {
-        await Promise.all([
-            rankingStore.fetchTopTen(type.value),
-            rankingStore.fetchRankings({ ruleType: type.value, page: page.value - 1, size: size.value })
-        ])
+        await rankingStore.fetchRankings({ ruleType: type.value, page: page.value - 1, size: size.value })
     } catch (e) {
         console.error(e)
     }

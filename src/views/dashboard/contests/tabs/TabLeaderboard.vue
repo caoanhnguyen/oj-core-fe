@@ -43,50 +43,23 @@ const columns = computed(() => {
   return cols
 })
 
-// Tie-ranking logic
-const leaderboardWithRank = computed(() => {
-  if (!leaderboard.value.length) return []
-  
-  const result = []
-  let currentRank = 1
-  let prevScore = -1
-  let prevPenalty = -1
-
-  leaderboard.value.forEach((row, index) => {
-    const isSameAsPrev = row.score === prevScore && row.penalty === prevPenalty
-    if (!isSameAsPrev) {
-      currentRank = (page.value - 1) * pageSize.value + index + 1
-    }
-    
-    result.push({
-      ...row,
-      computedRank: currentRank
-    })
-    
-    prevScore = row.score
-    prevPenalty = row.penalty
-  })
-  
-  return result
-})
+// Rank is now fetched directly from the backend API
 
 const getMedal = (rank) => {
   const medals = { 1: '🥇', 2: '🥈', 3: '🥉' }
   return medals[rank] || rank
 }
 
-const formatPenaltyDisplay = (seconds) => {
-  if (seconds === undefined || seconds === null) return ''
-  const s = Math.max(0, Math.floor(seconds))
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
+const formatPenaltyDisplay = (minutes) => {
+  if (minutes === undefined || minutes === null) return ''
+  const mTotal = Math.max(0, Math.floor(minutes))
+  const h = Math.floor(mTotal / 60)
+  const m = mTotal % 60
   
   const hStr = h > 0 ? h + ':' : ''
-  const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString()) + ':'
-  const sStr = sec.toString().padStart(2, '0')
+  const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString())
   
-  return `${hStr}${mStr}${sStr}`
+  return hStr ? `${hStr}${mStr}` : `${mStr}m`
 }
 
 const getMatrixClass = (result, maxPoints) => {
@@ -121,7 +94,10 @@ const getMatrixScore = (result) => {
 const getMatrixSubtext = (result) => {
   if (!result) return ''
   if (props.ruleType === 'ACM') {
-    if (result.isAc) return formatPenaltyDisplay(result.penalty)
+    if (result.isAc) {
+      const solveTime = result.penalty - (result.tries * 20)
+      return formatPenaltyDisplay(Math.max(0, solveTime))
+    }
     return ''
   } else {
     if (result.score > 0) return formatPenaltyDisplay(result.penalty)
@@ -153,13 +129,13 @@ watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true
 <template>
   <div class="tab-leaderboard">
     <DataTable
-      :data="leaderboardWithRank"
+      :data="leaderboard"
       :columns="columns"
       :loading="loading"
       empty-text="Chưa có dữ liệu xếp hạng."
     >
       <template #cell-_rank="{ row }">
-        <span class="lb-rank">{{ getMedal(row.computedRank) }}</span>
+        <span class="lb-rank">{{ getMedal(row.rank) }}</span>
       </template>
 
       <template #cell-username="{ row }">
@@ -171,7 +147,7 @@ watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true
       </template>
 
       <template #cell-penalty="{ row }">
-        <span class="lb-total-penalty">{{ formatPenaltyDisplay(row.penalty) || '00:00' }}</span>
+        <span class="lb-total-penalty">{{ formatPenaltyDisplay(row.penalty) || '0m' }}</span>
       </template>
 
       <!-- Dynamic Problem Headers -->
