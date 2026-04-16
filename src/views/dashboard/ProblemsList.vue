@@ -12,12 +12,14 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 import { handleApiError } from '@/utils/errorHandler'
+import { useBadge } from '@/composables/useBadge'
 import AppButton from '@/components/common/AppButton.vue'
 import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
 
 const router = useRouter()
 const problemStore = useProblemStore()
 const topicStore = useTopicStore()
+const { difficultyClass, difficultyLabel, estatusClass, problemStatusClass, ruleTypeClass } = useBadge()
 
 // Real problems data from store
 const problems = computed(() => problemStore.problems)
@@ -164,17 +166,7 @@ watch(() => pagination.value.page, () => {
 })
 
 
-const getDifficultyClass = (difficulty) => {
-  const classes = {
-    'EASY': 'difficulty-easy',
-    'MEDIUM': 'difficulty-medium',
-    'HARD': 'difficulty-hard',
-    'Easy': 'difficulty-easy',
-    'Medium': 'difficulty-medium',
-    'Hard': 'difficulty-hard'
-  }
-  return classes[difficulty] || ''
-}
+// getDifficultyClass replaced by composable useBadge.difficultyClass
 
 const filteredTopicsList = computed(() => {
   if (!topicSearchQuery.value) return topics.value
@@ -340,10 +332,11 @@ onMounted(async () => {
       :data="problems" 
       :columns="[
         { key: 'index', label: '#', width: 60, align: 'center' },
-        { key: 'id', label: 'ID', width: 350 },
-        { key: 'title', label: 'Tiêu đề', minWidth: 300 },
+        { key: 'id', label: 'ID', width: 320 },
+        { key: 'title', label: 'Tiêu đề', minWidth: 280 },
         { key: 'createdDate', label: 'Ngày tạo', width: 120, align: 'center' },
         { key: 'difficulty', label: 'Độ khó', width: 100, align: 'center' },
+        { key: 'ruleType', label: 'Rule', width: 80, align: 'center' },
         { key: 'status', label: 'Trạng thái', width: 100, align: 'center' },
         { key: 'problemStatus', label: 'Hiển thị', width: 120, align: 'center' },
         { key: 'actions', label: 'Hành động', width: 140, align: 'center', fixed: 'right' }
@@ -364,15 +357,18 @@ onMounted(async () => {
         <span class="cell-date">{{ formatDate(row.createdDate) }}</span>
       </template>
       <template #cell-difficulty="{ row }">
-         <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+         <span :class="['oj-badge', difficultyClass(row.difficulty)]">{{ difficultyLabel(row.difficulty) }}</span>
       </template>
       <template #cell-status="{ row }">
-        <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
+        <span :class="['oj-badge', estatusClass(row.status)]">
           {{ row.status }}
         </span>
       </template>
+      <template #cell-ruleType="{ row }">
+        <span :class="['oj-badge', ruleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
+      </template>
       <template #cell-problemStatus="{ row }">
-        <span :class="['status-badge', row.problemStatus === 'PUBLISHED' ? 'status-active' : 'status-draft']">
+        <span :class="['oj-badge', problemStatusClass(row.problemStatus)]">
           {{ row.problemStatus }}
         </span>
       </template>
@@ -458,34 +454,7 @@ onMounted(async () => {
   font-size: 13px;
   color: #8a8a8a;
 }
-.difficulty-text {
-  font-weight: 500;
-  font-size: 13px;
-  display: inline-block;
-  white-space: nowrap;
-}
-.difficulty-easy { background: transparent !important; color: #00b8a3 !important; padding: 0; }
-.difficulty-medium { background: transparent !important; color: #ffc01e !important; padding: 0; }
-.difficulty-hard { background: transparent !important; color: #ef4743 !important; padding: 0; }
-
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.status-active {
-  background: rgba(0, 184, 163, 0.1);
-  color: #00b8a3;
-}
-.status-deleted {
-  background: rgba(239, 71, 67, 0.1);
-  color: #ef4743;
-}
-.status-draft {
-  background: rgba(138, 138, 138, 0.1);
-  color: #8a8a8a;
-}
+/* Difficulty / Status badges → global badges.css */
 
 /* Action Buttons */
 .action-buttons {

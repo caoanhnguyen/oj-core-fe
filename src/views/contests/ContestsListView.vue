@@ -10,8 +10,10 @@ import { handleApiError } from '@/utils/errorHandler'
 import TableControls from '@/components/common/TableControls.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import { useBadge } from '@/composables/useBadge'
 
 const router = useRouter()
+const { ruleTypeClass, contestStatusClass } = useBadge()
 
 const allContests = ref([])
 const loading = ref(false)
@@ -205,7 +207,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             @click="goToContest(item.contest)"
           >
             <div class="session-info">
-              <span class="session-rule" :class="item.contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi'">{{ item.contest.ruleType }}</span>
+              <span class="session-rule" :class="['oj-badge', ruleTypeClass(item.contest.ruleType)]">{{ item.contest.ruleType }}</span>
               <h3 class="session-title">{{ item.contest.title }}</h3>
             </div>
             <div class="session-timer">
@@ -253,8 +255,8 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             >
               <div class="card-top">
                 <div class="card-badges">
-                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
-                  <span class="status-badge status-ongoing"><span class="pulse-dot" />Đang diễn ra</span>
+                  <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]"><span class="pulse-dot" />Đang diễn ra</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -300,8 +302,8 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             >
               <div class="card-top">
                 <div class="card-badges">
-                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
-                  <span class="status-badge status-upcoming">Sắp diễn ra</span>
+                  <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">Sắp diễn ra</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -347,8 +349,8 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
             >
               <div class="card-top">
                 <div class="card-badges">
-                  <span :class="['rule-badge', c.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ c.ruleType }}</span>
-                  <span class="status-badge status-ended">Đã kết thúc</span>
+                  <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">Đã kết thúc</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -576,21 +578,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
 
 .card-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.rule-badge {
-  padding: 3px 9px; border-radius: 5px;
-  font-size: 11px; font-weight: 700;
-}
-.rule-acm { background: rgba(0,184,163,0.15); color: #00b8a3; }
-.rule-oi  { background: rgba(255,161,22,0.15); color: #ffa116; }
-
-.status-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
-}
-.status-ongoing  { background: rgba(0,184,163,0.1); color: #00b8a3; }
-.status-upcoming { background: rgba(255,192,30,0.1); color: #ffc01e; }
-.status-ended    { background: rgba(255,255,255,0.06); color: #8a8a8a; }
+/* status-badge classes removed since oj-badge handles it globally */
 
 .pulse-dot {
   width: 5px; height: 5px; border-radius: 50%;

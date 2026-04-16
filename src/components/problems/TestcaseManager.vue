@@ -61,7 +61,7 @@ const clearFile = () => {
         </div>
 
         <!-- Current File State Display -->
-        <div v-if="ExistingDir && !testcaseFile" class="existing-state">
+        <div v-if="existingDir && !testcaseFile" class="existing-state">
            <p><strong>Current Testcase Directory:</strong> {{ existingDir }}</p>
            <p class="hint-text">To replace the testcases, simply upload a new ZIP file below.</p>
         </div>

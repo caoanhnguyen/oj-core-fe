@@ -12,12 +12,15 @@ import { useSyncedTimer } from '../../composables/useSyncedTimer'
 import StatisticsTab from '../../components/problems/StatisticsTab.vue'
 import SubmissionsTab from '../../components/problems/SubmissionsTab.vue'
 import { handleApiError } from '@/utils/errorHandler'
+import { problemsAPI } from '@/api/problems'
+import { useBadge } from '@/composables/useBadge'
 
 const route = useRoute()
 const router = useRouter()
 const problemStore = useProblemStore()
 const submissionStore = useSubmissionStore()
 const sessionStore = useContestSessionStore()
+const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
 
 // Contest timer inside problem view
 const targetTime = computed(() => sessionStore.activeSession?.endTime)
@@ -41,9 +44,10 @@ const isHintExpanded = ref(false)
 
 // Tab logic
 const availableTabs = computed(() => {
-  // Always allow description and submissions. Hide statistics during active contest context
-  if (contestKey.value) return ['description', 'submissions']
-  return ['description', 'submissions', 'statistics']
+  const tabs = ['description']
+  if (authStore.isAuthenticated) tabs.push('submissions')
+  if (!contestKey.value) tabs.push('statistics')
+  return tabs
 })
 
 const activeTab = computed(() => {
@@ -142,14 +146,7 @@ const removeCustomTestcase = (index) => {
 
 const languageOptions = ref([])
 
-const getDifficultyClass = (difficulty) => {
-  const classes = {
-    'EASY': 'difficulty-easy',
-    'MEDIUM': 'difficulty-medium',
-    'HARD': 'difficulty-hard'
-  }
-  return classes[difficulty] || ''
-}
+// Difficulty class logic removed in favor of useBadge
 
 // Layout Resizing Logic
 const leftWidth = ref(50) // Percentage
@@ -366,8 +363,19 @@ const initPage = async () => {
     const slug = route.params.slug
     if (!slug) return
 
-    // 1. Fetch core problem data
-    problem.value = await problemStore.fetchProblemBySlug(slug)
+    // 1. Fetch problem data
+    // When inside a contest (/contests/:contestKey/problems/:slug), use the RESTful
+    // contest-scoped endpoint. This works both during the contest (for participants)
+    // and after it ends (if resourceVisibility = ALWAYS_VISIBLE), including INACTIVE problems.
+    // Otherwise fall back to the standard public slug endpoint.
+    if (contestKey.value) {
+      const { contestsAPI } = await import('@/api/contests')
+      problem.value = await contestsAPI.getProblemInContest(contestKey.value, slug)
+    } else {
+      problem.value = await problemsAPI.getProblemBySlug(slug)
+    }
+    // Sync to store for downstream consumers (e.g. submissions tab)
+    problemStore.currentProblem = problem.value
     
     // 2. Setup Languages
     if (problem.value && problem.value.allowedLanguages) {
@@ -386,7 +394,6 @@ const initPage = async () => {
         }))
             
         if (languageOptions.value.length > 0) {
-            // Only set if not already set or if current not in allowed
             if (!selectedLanguage.value || !problem.value.allowedLanguages.includes(selectedLanguage.value)) {
               selectedLanguage.value = languageOptions.value[0].value
             }
@@ -488,7 +495,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
             <div class="problem-title-section">
               <div class="title-with-type">
                 <h1 class="problem-title">{{ problem.title }}</h1>
-                <span v-if="problem.ruleType && !contestKey" class="rule-badge-main" :class="problem.ruleType.toLowerCase()">{{ problem.ruleType }}</span>
+                <span v-if="problem.ruleType && !contestKey" :class="['oj-badge', ruleTypeClass(problem.ruleType)]">{{ problem.ruleType }}</span>
                 
                 <!-- Contest Indicator (Removed as requested, using widget instead) -->
               </div>
@@ -526,8 +533,8 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 
                 <!-- Row 2: Badges & Interactions (Difficulty, Topics, Hint) -->
                 <div class="meta-row badge-row">
-                  <span class="badge" :class="getDifficultyClass(problem.difficulty)">
-                    {{ problem.difficulty }}
+                  <span :class="['oj-badge', difficultyClass(problem.difficulty)]">
+                    {{ difficultyLabel(problem.difficulty) }}
                   </span>
                   
                   <button 
@@ -647,7 +654,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
              <SubmissionsTab 
                ref="submissionsTabRef" 
                :problem-id="problem.id" 
-               :contest-key="contestKey"
+               :contest-key="sessionStore.isExamMode && sessionStore.activeSession?.contestKey === contestKey ? contestKey : null"
                :contest-id="sessionStore.isExamMode && sessionStore.activeSession?.contestKey === contestKey ? sessionStore.activeSession?.contestId : null"
              />
           </div>

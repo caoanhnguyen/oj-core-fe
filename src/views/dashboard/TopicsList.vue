@@ -5,6 +5,7 @@ import { Search, Plus, Edit, Trash2, RotateCcw } from 'lucide-vue-next'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
+import { useBadge } from '@/composables/useBadge'
 import TopicFormDialog from '@/components/topics/TopicFormDialog.vue'
 import TableControls from '@/components/common/TableControls.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -14,6 +15,7 @@ import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const topicStore = useTopicStore()
+const { estatusClass } = useBadge()
 
 // State
 const searchQuery = ref('')
@@ -41,10 +43,11 @@ const loadTopics = async () => {
   })
 }
 
-const handleSearch = () => {
+import { debounce } from 'lodash'
+const handleSearch = debounce(() => {
   pagination.value.page = 0
   loadTopics()
-}
+}, 400)
 
 const handlePageChange = (page) => {
   pagination.value.page = page - 1
@@ -223,7 +226,7 @@ onMounted(() => {
         <span class="cell-date">{{ formatDate(row.updatedDate) }}</span>
       </template>
       <template #cell-status="{ row }">
-         <span :class="['status-badge', row.status === 'DELETED' ? 'status-deleted' : 'status-active']">
+         <span :class="['oj-badge', estatusClass(row.status)]">
            {{ row.status }}
          </span>
       </template>
@@ -289,20 +292,7 @@ onMounted(() => {
   color: var(--accent-primary);
   text-decoration: underline;
 }
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.status-active {
-  background: rgba(0, 184, 163, 0.1);
-  color: #00b8a3;
-}
-.status-deleted {
-  background: rgba(239, 71, 67, 0.1);
-  color: #ef4743;
-}
+/* EStatus badges → global badges.css */
 
 /* Action Buttons */
 .action-buttons {

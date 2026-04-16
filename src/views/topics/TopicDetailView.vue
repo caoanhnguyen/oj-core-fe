@@ -29,6 +29,7 @@ import DarkPagination from '@/components/common/DarkPagination.vue'
 import { debounce } from 'lodash'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
+import { useBadge } from '@/composables/useBadge'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +40,8 @@ const authStore = useAuthStore()
 const slug = computed(() => route.params.slug)
 const topicData = ref(null)
 const loadingDetail = ref(true)
+
+const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
 
 // Problem list states (Adapted from ProblemListView)
 const problems = computed(() => problemStore.problems)
@@ -62,6 +65,11 @@ const progressPercent = computed(() => {
 })
 
 const fetchTopicDetail = async () => {
+  // Topic detail API requires authentication (returns progress data)
+  if (!authStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
   try {
     loadingDetail.value = true
     topicData.value = await topicStore.getTopicDetails(slug.value)
@@ -143,27 +151,10 @@ const handleSizeChange = (val) => {
   fetchProblemsData()
 }
 
-const getDifficultyClass = (difficulty) => {
-  const classes = {
-    'EASY': 'difficulty-easy',
-    'MEDIUM': 'difficulty-medium',
-    'HARD': 'difficulty-hard'
-  }
-  return classes[difficulty] || ''
-}
-
 const formatDate = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-const getRuleTypeClass = (ruleType) => {
-  const classes = {
-    'OI': 'rule-type-oi',
-    'ACM': 'rule-type-acm'
-  }
-  return classes[ruleType] || ''
 }
 
 const handleViewProblem = (row) => {
@@ -234,7 +225,7 @@ watch(() => route.path, (newPath) => {
           <h1 class="topic-title">{{ topicData.name }}</h1>
           
           <div class="topic-meta">
-            <span>KMA OJ</span>
+            <span>DevAssess</span>
             <span class="dot">•</span>
             <span>{{ (topicData.totalEasy || 0) + (topicData.totalMedium || 0) + (topicData.totalHard || 0) }} questions</span>
           </div>
@@ -357,16 +348,16 @@ watch(() => route.path, (newPath) => {
             <span class="cell-title">{{ row.title }}</span>
           </template>
           <template #cell-ruleType="{ row }">
-             <span :class="['rule-type-text', getRuleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
+             <span :class="['oj-badge', ruleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
           </template>
           <template #cell-difficulty="{ row }">
-             <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+             <span :class="['oj-badge', difficultyClass(row.difficulty)]">{{ difficultyLabel(row.difficulty) }}</span>
           </template>
           <template #cell-score="{ row }">
-             <span class="score-text">{{ row.totalScore }}</span>
+             <span class="metric-score">{{ row.totalScore }}</span>
           </template>
           <template #cell-rate="{ row }">
-            <span class="cell-index">{{ row.submissionCount > 0 ? ((row.acceptedCount / row.submissionCount) * 100).toFixed(2) : '0.00' }}%</span>
+            <span class="metric-rate">{{ row.submissionCount > 0 ? ((row.acceptedCount / row.submissionCount) * 100).toFixed(2) : '0.00' }}%</span>
           </template>
         </DataTable>
 
@@ -657,11 +648,6 @@ watch(() => route.path, (newPath) => {
 .loading-state {
   max-width: 1200px;
   margin: 0 auto;
-}
-
-.score-text {
-  color: #eff2f6;
-  font-weight: 500;
 }
 </style>
 

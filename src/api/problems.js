@@ -49,6 +49,18 @@ export const problemsAPI = {
     },
 
     /**
+     * Get a problem via its contest context (after contest has ended + ALWAYS_VISIBLE).
+     * Allows accessing INACTIVE/DRAFT problems that were exclusively for a contest.
+     * @param {string} slug - Problem slug
+     * @param {string} contestKey - Contest key
+     * @returns {Promise<Object>} Problem details
+     */
+    getProblemViaContest: async (slug, contestKey) => {
+        const response = await axiosInstance.get(`/problems/slug/${slug}/via-contest/${contestKey}`)
+        return response.data.data
+    },
+
+    /**
      * Create new problem (Admin only)
      * @param {Object} data - Problem data
      * @returns {Promise<Object>} Created problem

@@ -8,10 +8,10 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
       <div class="footer-left">
         <div class="footer-logo">
           <Code2 :size="24" class="logo-icon" />
-          <span class="logo-text">KMA OJ</span>
+          <span class="logo-text">DevAssess</span>
         </div>
         <p class="footer-desc">
-          Nền tảng luyện tập lập trình trực tuyến dành cho sinh viên Học viện Kỹ thuật Mật mã.
+          Nền tảng kiểm tra đánh giá năng lực lập trình chuyên nghiệp dành cho doanh nghiệp.
         </p>
         <div class="social-links">
           <a href="https://github.com/caoanhnguyen" class="social-link"><Github :size="20" /></a>
@@ -40,7 +40,7 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
     </div>
     
     <div class="footer-bottom container">
-      <p>&copy; 2026 KMA OJ. Developed with ❤️ by 
+      <p>&copy; 2026 DevAssess. Developed with ❤️ by 
         <a class="footer-link" href="https://github.com/caoanhnguyen">caoanh_ng.</a>
       </p>
     </div>

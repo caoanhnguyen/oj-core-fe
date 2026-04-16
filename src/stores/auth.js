@@ -14,7 +14,9 @@ export const useAuthStore = defineStore('auth', {
     isEmailVerified: (state) => state.user?.emailVerified || false,
     isAdmin: (state) => state.user?.roles?.includes('ROLE_ADMIN'),
     isModerator: (state) => state.user?.roles?.includes('ROLE_MODERATOR'),
-    isAdminOrMod: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR')
+    isAssessor: (state) => state.user?.roles?.includes('ROLE_ASSESSOR'),
+    isAdminOrMod: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR'),
+    canAccessDashboard: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR') || state.user?.roles?.includes('ROLE_ASSESSOR')
   },
 
   actions: {
@@ -64,6 +66,9 @@ export const useAuthStore = defineStore('auth', {
         // Xóa user khỏi store và token
         this.user = null
         localStorage.removeItem('token')
+        // Xóa session thi đang chạy (tránh leak sang tài khoản khác)
+        localStorage.removeItem('activeContestSession')
+        localStorage.removeItem('contestTimeOffset')
         // Reset authInitialized để lần đăng nhập kế tiếp vẫn fetch session đúng
         if (typeof window !== 'undefined') {
           window.__authInitialized = false

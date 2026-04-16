@@ -392,7 +392,8 @@ const handleBack = () => {
 }
 
 .fixed-header {
-  padding: 16px 24px;
+  height: 70px;
+  padding: 0 24px;
   background-color: #141414;
   border-bottom: 1px solid #333;
   display: flex;

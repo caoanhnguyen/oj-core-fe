@@ -22,6 +22,7 @@ const selectedRoles = ref([])
 const availableRoles = [
   { label: 'Administrator', value: 'ROLE_ADMIN' },
   { label: 'Moderator', value: 'ROLE_MODERATOR' },
+  { label: 'Assessor (Người chấm thi)', value: 'ROLE_ASSESSOR' },
   { label: 'User', value: 'ROLE_USER', disabled: true }
 ]
 
@@ -57,12 +58,14 @@ const handleUpdateRoles = async () => {
 </script>
 
 <template>
-  <el-dialog
-    v-model="props.visible"
+  <el-drawer
+    :model-value="props.visible"
+    @update:model-value="(val) => { if (val === false) handleClose() }"
     title="Phân quyền người dùng"
-    width="400px"
+    size="680px"
+    :close-on-click-modal="true"
     @close="handleClose"
-    class="dark-dialog"
+    class="role-drawer"
   >
     <div class="role-dialog-content">
       <div class="user-header">
@@ -87,6 +90,7 @@ const handleUpdateRoles = async () => {
 
       <div class="dialog-tips">
         <p>* Quyền <strong>USER</strong> là quyền mặc định, không thể gỡ bỏ.</p>
+        <p>* Quyền <strong>ASSESSOR</strong> cho phép giám thị/chấm thi truy cập quản lý các kỳ thi.</p>
         <p>* Quyền <strong>MODERATOR</strong> cho phép quản lý bài tập, chủ đề và thảo luận.</p>
         <p>* Quyền <strong>ADMIN</strong> cho phép truy cập đầy đủ vào trang quản trị.</p>
       </div>
@@ -98,7 +102,7 @@ const handleUpdateRoles = async () => {
         <AppButton variant="primary" :loading="loading" @click="handleUpdateRoles">Cập nhật</AppButton>
       </div>
     </template>
-  </el-dialog>
+  </el-drawer>
 </template>
 
 <style scoped>
@@ -176,6 +180,35 @@ const handleUpdateRoles = async () => {
   gap: 12px;
   padding: 10px 0;
 }
+</style>
 
+<style>
+/* Global styles for dark drawer component */
+.role-drawer.el-drawer,
+.el-overlay.role-drawer .el-drawer {
+  background-color: var(--bg-surface, #1e1e1e) !important;
+  color: var(--text-primary, #ffffff) !important;
+  border-left: 1px solid var(--border-primary, #333333) !important;
+}
 
+.role-drawer .el-drawer__header {
+  margin-bottom: 0 !important;
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--border-primary, #333333) !important;
+  color: var(--text-primary, #ffffff) !important;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.role-drawer .el-drawer__body {
+  padding: 24px !important;
+  background-color: var(--bg-surface, #1e1e1e) !important;
+  overflow-y: auto !important;
+}
+
+.role-drawer .el-drawer__footer {
+  border-top: 1px solid var(--border-primary, #333333) !important;
+  padding: 16px 24px !important;
+  background-color: var(--bg-secondary, #141414) !important;
+}
 </style>

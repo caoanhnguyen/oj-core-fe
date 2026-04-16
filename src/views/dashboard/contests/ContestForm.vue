@@ -14,13 +14,18 @@
 import { ref, watch, computed } from 'vue'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import { generateSlug } from '@/utils/stringUtils'
 
 const props = defineProps({
   contest:  { type: Object, default: null },
   loading:  { type: Boolean, default: false },
-  readonly: { type: Boolean, default: false }
+  readonly: { type: Boolean, default: false },
+  contestStatus: { type: String, default: null } // UPCOMING, ONGOING, ENDED
 })
 const emit = defineEmits(['submit', 'cancel'])
+
+const isOngoing = computed(() => props.contestStatus === 'ONGOING')
+const isEnded   = computed(() => props.contestStatus === 'ENDED')
 
 const isCreate = computed(() => !props.contest)
 
@@ -35,7 +40,8 @@ const form = ref({
   title: '', contestKey: '', description: '', timeRange: null,
   ruleType: 'ACM', visibility: 'PUBLIC', password: '', 
   durationMinutes: null, format: 'STRICT', allowLateRegistration: true,
-  scoreboardVisibility: 'VISIBLE'
+  scoreboardVisibility: 'VISIBLE',
+  resourceVisibility: 'ALWAYS_VISIBLE'
 })
 const rules = {
   title:      [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
@@ -46,14 +52,7 @@ const rules = {
   timeRange:  [{ required: true, message: 'Vui lòng chọn thời gian', trigger: 'change' }],
 }
 
-const generateSlug = (str) => {
-  return str.toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d").replace(/Đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+/* generateSlug utility imported from stringUtils */
 
 watch(() => form.value.title, (newVal) => {
   if (isCreate.value && !userEditedKey.value && newVal) {
@@ -64,7 +63,7 @@ watch(() => form.value.title, (newVal) => {
 // Sync from contest prop (edit mode)
 watch(() => props.contest, (c) => {
   if (!c) { 
-    form.value = { title: '', contestKey: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null, format: 'STRICT', allowLateRegistration: true, scoreboardVisibility: 'VISIBLE' }
+    form.value = { title: '', contestKey: '', description: '', timeRange: null, ruleType: 'ACM', visibility: 'PUBLIC', password: '', durationMinutes: null, format: 'STRICT', allowLateRegistration: true, scoreboardVisibility: 'VISIBLE', resourceVisibility: 'ALWAYS_VISIBLE' }
     userEditedKey.value = false
     return 
   }
@@ -74,7 +73,8 @@ watch(() => props.contest, (c) => {
     ruleType: c.ruleType || 'ACM', visibility: c.visibility || 'PUBLIC',
     password: c.password || '', durationMinutes: c.durationMinutes || null,
     format: c.format || 'STRICT', allowLateRegistration: c.allowLateRegistration !== false,
-    scoreboardVisibility: c.scoreboardVisibility || 'VISIBLE'
+    scoreboardVisibility: c.scoreboardVisibility || 'VISIBLE',
+    resourceVisibility: c.resourceVisibility || 'ALWAYS_VISIBLE'
   }
 }, { immediate: true })
 
@@ -90,6 +90,7 @@ const handleSubmit = async () => {
     durationMinutes: form.value.format === 'WINDOWED' ? (form.value.durationMinutes || null) : null,
     format: form.value.format, allowLateRegistration: form.value.allowLateRegistration,
     scoreboardVisibility: form.value.scoreboardVisibility,
+    resourceVisibility: form.value.resourceVisibility,
     ...(form.value.visibility === 'PRIVATE' ? { password: form.value.password } : {})
   })
 }
@@ -110,13 +111,13 @@ const handleSubmit = async () => {
 
       <el-form-item label="Thời gian bắt đầu – Kết thúc" prop="timeRange">
         <el-date-picker v-model="form.timeRange" type="datetimerange" range-separator="→"
-          :disabled="readonly"
+          :disabled="readonly || isEnded"
           start-placeholder="Bắt đầu" end-placeholder="Kết thúc" style="width:100%" popper-class="dark-date-picker" />
       </el-form-item>
 
       <div class="form-row-3">
         <el-form-item label="Rule Type">
-          <el-select v-model="form.ruleType" style="width:100%" popper-class="dark-select-dropdown">
+          <el-select v-model="form.ruleType" :disabled="readonly || isOngoing || isEnded" style="width:100%" popper-class="dark-select-dropdown">
             <el-option label="ACM" value="ACM" /><el-option label="OI" value="OI" />
           </el-select>
         </el-form-item>
@@ -126,7 +127,7 @@ const handleSubmit = async () => {
           </el-select>
         </el-form-item>
         <el-form-item label="Định dạng Contest (Format)">
-          <el-select v-model="form.format" style="width:100%" popper-class="dark-select-dropdown">
+          <el-select v-model="form.format" :disabled="readonly || isOngoing || isEnded" style="width:100%" popper-class="dark-select-dropdown">
             <el-option label="Cố định (Strict)" value="STRICT" />
             <el-option label="Khung giờ linh hoạt (Windowed)" value="WINDOWED" />
           </el-select>
@@ -140,7 +141,7 @@ const handleSubmit = async () => {
           <div class="switch-wrapper">
             <el-switch
               v-model="form.allowLateRegistration"
-              :disabled="readonly"
+              :disabled="readonly || isEnded"
               style="--el-switch-on-color: #ffa116; --el-switch-off-color: #3e3e3e;"
             />
             <span class="switch-label" :class="{ active: form.allowLateRegistration }">
@@ -151,13 +152,13 @@ const handleSubmit = async () => {
 
         <!-- Col 2 (under Visibility): Password if PRIVATE, else empty spacer -->
         <el-form-item v-if="form.visibility === 'PRIVATE'" label="Mật khẩu">
-          <el-input v-model="form.password" show-password placeholder="Mật khẩu tham gia..." />
+          <el-input v-model="form.password" show-password placeholder="Mật khẩu tham gia..." :disabled="readonly || isEnded" />
         </el-form-item>
         <div v-else />
 
         <!-- Col 3 (under Format): Duration if WINDOWED, else empty spacer -->
         <el-form-item v-if="form.format === 'WINDOWED'" label="Thời hạn làm bài (phút)">
-          <el-input-number v-model="form.durationMinutes" :min="1" :max="1440" controls-position="right" style="width: 100%" />
+          <el-input-number v-model="form.durationMinutes" :min="1" :max="1440" :disabled="readonly || isOngoing || isEnded" controls-position="right" style="width: 100%" />
         </el-form-item>
         <div v-else />
       </div>
@@ -170,7 +171,16 @@ const handleSubmit = async () => {
             <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
           </el-select>
         </el-form-item>
-        <div /> <div />
+        <el-form-item label="Quyền xem Đề thi &amp; Lịch sử nộp bài">
+          <el-select v-model="form.resourceVisibility" :disabled="readonly" style="width:100%" popper-class="dark-select-dropdown">
+            <el-option label="Mở công khai luyện tập (Upsolve)" value="ALWAYS_VISIBLE" />
+            <el-option label="Chỉ xem trong khi thi (Exam)" value="ONLY_DURING" />
+          </el-select>
+          <div v-if="form.resourceVisibility === 'ONLY_DURING'" class="hint-warn">
+            ⚠️ Đề thi &amp; source code sẽ bị khóa khi cuộc thi kết thúc. Khuyến nghị cho bài thi đánh giá năng lực.
+          </div>
+        </el-form-item>
+        <div />
       </div>
 
       <el-form-item label="Mô tả">
@@ -238,4 +248,15 @@ const handleSubmit = async () => {
 :deep(.el-switch__label) { color: #5c5c5c !important; font-size: 13px; }
 :deep(.el-switch__label.is-active) { color: #eff2f6 !important; }
 :deep(.el-switch.is-checked .el-switch__core) { border-color: #ffa116 !important; background-color: #ffa116 !important; }
+
+.hint-warn {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #ffa116;
+  padding: 6px 10px;
+  background: rgba(255,161,22,0.06);
+  border: 1px solid rgba(255,161,22,0.2);
+  border-radius: 6px;
+  line-height: 1.5;
+}
 </style>

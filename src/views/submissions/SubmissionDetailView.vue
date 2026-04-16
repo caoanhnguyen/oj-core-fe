@@ -112,11 +112,18 @@ const copyCode = async () => {
     }
 }
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const s = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  const d = new Date(s)
+  return d.toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
 onMounted(async () => {
     try {
         const id = route.params.id
-        // Try fetching it as admin if admin, else normal user
-        submission.value = await submissionStore.getSubmissionResult(id, authStore.isAdmin)
+        // Public page only uses public endpoint, ignoring admin status
+        submission.value = await submissionStore.getSubmissionResult(id, false)
         
         loading.value = false
         
@@ -178,14 +185,14 @@ onBeforeUnmount(() => {
                     <div class="stat-icon"><Clock :size="20" /></div>
                     <div class="stat-info">
                         <span class="stat-label">Thời gian chạy (Runtime)</span>
-                        <span class="stat-value">{{ submission.executionTimeMs != null ? submission.executionTimeMs + ' ms' : 'N/A' }}</span>
+                        <span class="stat-value metric-runtime">{{ submission.executionTimeMs != null ? submission.executionTimeMs + ' ms' : 'N/A' }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><Cpu :size="20" /></div>
                     <div class="stat-info">
                         <span class="stat-label">Bộ nhớ sử dụng (Memory)</span>
-                        <span class="stat-value">{{ submission.executionMemoryMb != null ? submission.executionMemoryMb + ' MB' : 'N/A' }}</span>
+                        <span class="stat-value metric-memory">{{ submission.executionMemoryMb != null ? submission.executionMemoryMb + ' MB' : 'N/A' }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -199,7 +206,7 @@ onBeforeUnmount(() => {
                     <div class="stat-icon"><Calendar :size="20" /></div>
                     <div class="stat-info">
                         <span class="stat-label">Đã nộp lúc</span>
-                        <span class="stat-value">{{ new Date(submission.createdDate).toLocaleString('vi-VN') }}</span>
+                        <span class="stat-value">{{ formatDate(submission.createdDate) }}</span>
                     </div>
                 </div>
             </div>

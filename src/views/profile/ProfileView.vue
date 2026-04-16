@@ -12,6 +12,8 @@ import {
   ExternalLink, ChevronRight, Info
 } from 'lucide-vue-next'
 import { submissionAPI } from '@/api/submissions'
+import DataTable from '@/components/common/DataTable.vue'
+import DarkPagination from '@/components/common/DarkPagination.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,36 +31,57 @@ const isMyProfile = computed(() => {
 // --- Heatmap & Solved Problems ---
 const heatmapData = ref([])
 const totalSubmissionsInYear = ref(0)
-const solvedProblems = ref([])
 const activitiesLoading = ref(false)
 
-const fetchAdditionalData = async (userId) => {
+// Pagination state for Solved Problems
+const solvedPage = ref(1)
+const solvedSize = ref(10)
+const solvedTotal = ref(0)
+const solvedProblems = ref([])
+const solvedLoading = ref(false)
+
+const fetchHeatmapData = async (userId) => {
   try {
     activitiesLoading.value = true
-    const [heatmapRes, solvedRes] = await Promise.all([
-      usersApi.getContributionHeatMap(userId),
-      submissionAPI.getSubmissions({ 
-        userId: userId, 
-        submissionVerdict: 'AC', 
-        size: 100, 
-        sort: 'createdDate,DESC' 
-      })
-    ])
-    
+    const heatmapRes = await usersApi.getContributionHeatMap(userId)
     heatmapData.value = heatmapRes.data.data.heatmapItems || []
     totalSubmissionsInYear.value = heatmapRes.data.data.totalSubmissions || 0
-    
-    // Deduplicate solved problems by problemId
-    const seen = new Set()
-    solvedProblems.value = solvedRes.content.filter(sub => {
-      const duplicate = seen.has(sub.problemId)
-      seen.add(sub.problemId)
-      return !duplicate
-    })
   } catch (error) {
-    console.error('Failed to fetch user activities:', error)
+    console.error('Failed to fetch user heatmap:', error)
   } finally {
     activitiesLoading.value = false
+  }
+}
+
+const fetchSolvedProblems = async (userId) => {
+  try {
+    solvedLoading.value = true
+    const res = await usersApi.getSolvedProblems(userId, {
+      page: solvedPage.value - 1,
+      size: solvedSize.value,
+      sort: 'ups.updatedDate,DESC' // Explicitly sort by UserProblemStatus update date
+    })
+    solvedProblems.value = res.data.data.content
+    solvedTotal.value = res.data.data.totalElements
+  } catch (error) {
+    console.error('Failed to fetch solved problems:', error)
+  } finally {
+    solvedLoading.value = false
+  }
+}
+
+const handleSolvedPageChange = (val) => {
+  solvedPage.value = val
+  if (userProfile.value?.id) {
+    fetchSolvedProblems(userProfile.value.id)
+  }
+}
+
+const handleSolvedSizeChange = (val) => {
+  solvedSize.value = val
+  solvedPage.value = 1
+  if (userProfile.value?.id) {
+    fetchSolvedProblems(userProfile.value.id)
   }
 }
 
@@ -73,9 +96,6 @@ const loadProfile = async () => {
     if (isViewingOwnProfile) {
       // Load current user with full private info
       response = await usersApi.getCurrentUser()
-    } else if (authStore.isAdmin) {
-      // Admin can view anyone directly (idOrUsername in URL is usually the username)
-      response = await usersApi.adminGetUserByUsername(idOrUsername.value)
     } else {
       // Try by ID first, then by username
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrUsername.value)
@@ -88,7 +108,8 @@ const loadProfile = async () => {
     userProfile.value = response.data.data
     // Fetch heatmap and solved list after profile is loaded
     if (userProfile.value?.id) {
-      fetchAdditionalData(userProfile.value.id)
+      fetchHeatmapData(userProfile.value.id)
+      fetchSolvedProblems(userProfile.value.id)
     }
   } catch (error) {
     handleApiError(error, 'Không thể tải thông tin người dùng')
@@ -109,10 +130,23 @@ const formatDate = (dateStr) => {
 
 const formatDateShort = (dateStr) => {
   if (!dateStr) return 'N/A'
-  return new Date(dateStr).toLocaleDateString('vi-VN', {
-    month: 'short',
-    day: 'numeric'
-  })
+  const date = new Date(dateStr)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const getDifficultyClass = (difficulty) => {
+  const classes = {
+    'EASY': 'difficulty-easy',
+    'MEDIUM': 'difficulty-medium',
+    'HARD': 'difficulty-hard',
+    'Easy': 'difficulty-easy',
+    'Medium': 'difficulty-medium',
+    'Hard': 'difficulty-hard'
+  }
+  return classes[difficulty] || ''
 }
 
 // --- Heatmap Logic ---
@@ -241,8 +275,8 @@ onMounted(loadProfile)
             <div class="stat-item">
               <Award class="stat-icon ac" :size="20" />
               <div class="stat-info">
-                <span class="stat-value">{{ userProfile.acCount || 0 }}</span>
-                <span class="stat-label">Accepted</span>
+                <span class="stat-value">{{ userProfile.submissionCount > 0 ? ((userProfile.acCount / userProfile.submissionCount) * 100).toFixed(2) : '0.00' }}%</span>
+                <span class="stat-label">AC Rate</span>
               </div>
             </div>
             <div class="stat-item">
@@ -394,31 +428,54 @@ onMounted(loadProfile)
 
             <!-- Solved Problems Section -->
             <div class="info-card solved-list-card">
-              <h3 class="card-title">Bài tập đã giải ({{ userProfile.solvedCount || 0 }})</h3>
+              <h3 class="card-title">Bài tập đã giải ({{ solvedTotal || userProfile.solvedCount || 0 }})</h3>
               
-              <div class="solved-table-container" v-if="solvedProblems.length > 0">
-                <div class="solved-item" v-for="problem in solvedProblems" :key="problem.problemId" @click="router.push(`/problems/${problem.problemSlug}`)">
-                  <div class="solved-item-main">
-                    <div class="status-icon-wrap">
-                      <CheckCircle :size="16" class="ac-check" />
-                    </div>
-                    <span class="problem-title-link">{{ problem.problemTitle }}</span>
-                  </div>
-                  <div class="solved-item-meta">
-                    <span class="solved-date">{{ formatDateShort(problem.createdDate) }}</span>
-                    <ChevronRight :size="16" class="arrow-icon" />
-                  </div>
-                </div>
-                
-                <div v-if="solvedProblems.length >= 100" class="show-more-notice">
-                  <Info :size="14" /> Chỉ hiển thị 100 bài gần nhất
+              <div v-if="solvedProblems.length > 0" class="solved-table-container">
+                <DataTable 
+                  :data="solvedProblems" 
+                  :columns="[
+                    { key: 'status', label: 'Trạng thái', width: 100, align: 'center', resizable: false },
+                    { key: 'title', label: 'Bài tập', minWidth: 200, resizable: false },
+                    { key: 'difficulty', label: 'Độ khó', width: 120, align: 'center', resizable: false },
+                    { key: 'date', label: 'Ngày giải', width: 160, align: 'center', resizable: false }
+                  ]"
+                  :loading="solvedLoading"
+                  empty-text="Chưa có bài tập nào được giải."
+                >
+                  <template #cell-status>
+                      <CheckCircle :size="18" class="ac-check" />
+                  </template>
+                  
+                  <template #cell-title="{ row }">
+                      <span class="problem-title-link" @click="router.push(`/problems/${row.slug}`)">{{ row.title }}</span>
+                  </template>
+                  
+                  <template #cell-difficulty="{ row }">
+                      <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+                  </template>
+
+                  <template #cell-date="{ row }">
+                      <span class="solved-date">{{ formatDateShort(row.updatedDate || row.createdDate) }}</span>
+                  </template>
+                </DataTable>
+
+                <!-- Pagination -->
+                <div class="pagination-container" style="display: flex; justify-content: flex-end; width: 100%; margin-top: 20px;">
+                  <DarkPagination
+                    v-if="solvedTotal > 0"
+                    :current-page="solvedPage"
+                    :page-size="solvedSize"
+                    :total="solvedTotal"
+                    @size-change="handleSolvedSizeChange"
+                    @current-change="handleSolvedPageChange"
+                  />
                 </div>
               </div>
 
-              <div v-else-if="!activitiesLoading" class="empty-solved">
+              <div v-else-if="!solvedLoading" class="empty-solved">
                  <p>Chưa có bài tập nào được giải.</p>
               </div>
-              <div v-else-if="activitiesLoading" class="solved-skeleton"></div>
+              <div v-else-if="solvedLoading" class="solved-skeleton"></div>
             </div>
           </div>
         </div>
@@ -428,6 +485,16 @@ onMounted(loadProfile)
 </template>
 
 <style scoped>
+.difficulty-text {
+  font-weight: 500;
+  font-size: 13px;
+  display: inline-block;
+  white-space: nowrap;
+}
+.difficulty-easy { background: transparent !important; color: #00b8a3 !important; padding: 0; }
+.difficulty-medium { background: transparent !important; color: #ffc01e !important; padding: 0; }
+.difficulty-hard { background: transparent !important; color: #ef4743 !important; padding: 0; }
+
 .profile-page {
   min-height: calc(100vh - 56px);
   background: var(--bg-primary);
@@ -840,6 +907,8 @@ onMounted(loadProfile)
 .solved-table-container {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .solved-item {

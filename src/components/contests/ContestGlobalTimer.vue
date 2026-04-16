@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContestSessionStore } from '@/stores/contestSession'
+import { useAuthStore } from '@/stores/auth'
 import { useSyncedTimer } from '@/composables/useSyncedTimer'
 import { Clock, LogOut, Zap, ChevronUp, ChevronDown, CheckCircle, Move } from 'lucide-vue-next'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -9,6 +10,14 @@ import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const sessionStore = useContestSessionStore()
+const authStore = useAuthStore()
+
+// Khi user logout -> xóa session thi ngay lập tức khỏi bộ nhớ (không chỉ localStorage)
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (!isAuth && sessionStore.isExamMode) {
+    sessionStore.clearSession()
+  }
+})
 
 const isCollapsed = ref(false)
 const widgetRef = ref(null)
@@ -86,10 +95,13 @@ const contestId = computed(() => sessionStore.activeSession?.contestId)
 const contestKey = computed(() => sessionStore.activeSession?.contestKey)
 const contestTitle = computed(() => sessionStore.activeSession?.title || 'Cuộc thi')
 
-const { formattedTime, isExpired } = useSyncedTimer(targetTime, () => {
+const { formattedTime, isExpired } = useSyncedTimer(targetTime, async () => {
   if (sessionStore.activeSession) {
+    const expiredKey = contestKey.value
     ElMessage.warning('Đã hết thời gian làm bài!')
-    sessionStore.finishSession()
+    await sessionStore.finishSession()
+    // Reload để ContestDetailView/ProblemDetailView cập nhật trạng thái
+    router.go(0)
   }
 })
 
@@ -119,19 +131,25 @@ const handleFinishEarly = () => {
     }
   ).then(async () => {
     try {
-      const redirectId = contestKey.value
+      const redirectKey = contestKey.value
       await sessionStore.finishSession()
       ElMessage.success('Đã nộp bài thành công!')
-      if (redirectId) {
-        router.push(`/contests/${redirectId}`)
+      // Dùng replace + force reload để đảm bảo ContestDetailView
+      // re-fetch dữ liệu mới nhất (isFinished, participation) từ API
+      // tránh trường hợp cùng route không trigger remount
+      if (redirectKey) {
+        await router.replace(`/contests/${redirectKey}`)
+        // Force reload nếu vẫn đang ở cùng URL (router.replace không trigger remount)
+        router.go(0)
       } else {
-        router.push(`/contests`)
+        router.push('/contests')
       }
     } catch (e) {
       console.error(e)
     }
   }).catch(() => {})
 }
+
 
 const returnToContest = (e) => {
   e.stopPropagation() // Chặn sự kiện click header

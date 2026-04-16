@@ -4,9 +4,15 @@ import { useRouter } from 'vue-router'
 import { contestsAPI } from '@/api/contests'
 import DataTable from '@/components/common/DataTable.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import AppButton     from '@/components/common/AppButton.vue'
+import { Download } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
+import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 
 const props = defineProps({
   contestId: { type: String, required: true },
+  contestTitle: { type: String, default: '' },
   ruleType: { type: String, default: 'ACM' }
 })
 const emit = defineEmits(['count'])
@@ -123,11 +129,60 @@ const load = async () => {
   }
 }
 
+const exporting = ref(false)
+const handleExport = async () => {
+  try {
+    exporting.value = true
+    const response = await contestsAPI.adminExportLeaderboard(props.contestId)
+    const textData = await response.text()
+    // Parse CSV response using XLSX
+    const workbook = XLSX.read(textData, { type: 'string' })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+    
+    if (rows.length < 1) {
+       ElMessage.warning('Không có dữ liệu để xuất.')
+       return
+    }
+
+    const headers = rows[0]
+    const data = rows.slice(1)
+
+    // Set column widths: Rank(10), Username(25), Score(15), Penalty(15), and 15 for each problem
+    const columnWidths = [10, 25, 15, 15, ...Array(headers.length > 4 ? headers.length - 4 : 0).fill(15)]
+
+    const baseName = props.contestTitle || props.contestId.substring(0, 8)
+    // Replace invalid characters for filenames
+    const safeName = baseName.replace(/[\/\\?%*:|"<>]/g, '_').substring(0, 50)
+
+    await exportStyledExcel({
+        title: `Kết quả bảng xếp hạng Contest: ${baseName}`,
+        filename: `Leaderboard_${safeName}.xlsx`,
+        sheetName: 'Leaderboard',
+        headers,
+        data,
+        columnWidths
+    })
+    
+    ElMessage.success('Xuất dữ liệu thành công!')
+  } catch (error) {
+    ElMessage.error('Xuất kết quả thất bại.')
+  } finally {
+    exporting.value = false
+  }
+}
+
 watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true })
 </script>
 
 <template>
   <div class="tab-leaderboard">
+    <div class="sub-toolbar">
+      <div class="spacer" />
+      <span class="count-text">Tổng thí sinh tham gia: {{ total }}</span>
+      <AppButton variant="secondary" :icon="Download" :loading="exporting" @click="handleExport">Xuất kết quả (Excel)</AppButton>
+    </div>
+
     <DataTable
       :data="leaderboard"
       :columns="columns"
@@ -185,6 +240,20 @@ watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.sub-toolbar { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  margin-bottom: 4px;
+}
+
+.spacer { flex: 1; }
+
+.count-text {
+  font-size: 13px;
+  color: #8a8a8a;
 }
 
 .cell-link {

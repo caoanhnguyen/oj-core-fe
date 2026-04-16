@@ -20,7 +20,7 @@ const features = [
   {
     icon: Users,
     title: 'Cộng đồng năng động',
-    description: 'Thảo luận, chia sẻ kinh nghiệm giải bài và học hỏi từ các coder hàng đầu tại KMA.',
+    description: 'Thảo luận, chia sẻ kinh nghiệm giải bài và học hỏi từ các chuyên gia hàng đầu.',
     color: '#3b82f6'
   }
 ]
@@ -39,14 +39,14 @@ const stats = [
       <div class="hero-content">
         <div class="hero-badge">
           <Rocket :size="14" />
-          <span>Nền tảng luyện tập lập trình hàng đầu KMA</span>
+          <span>Hệ thống Kiểm tra Đánh giá Năng lực Doanh nghiệp</span>
         </div>
         <h1 class="hero-title">
           Chinh phục đỉnh cao <br />
           <span class="gradient-text">Kỹ năng lập trình</span>
         </h1>
         <p class="hero-subtitle">
-          KMA OJ cung cấp hàng trăm bài tập từ cơ bản đến nâng cao, chuẩn bị tốt nhất cho các kỳ thi tin học trẻ và ACM/ICPC.
+          DevAssess Enterprise cung cấp giải pháp toàn diện giúp doanh nghiệp đánh giá chính xác năng lực ứng viên và nâng cao chất lượng đội ngũ kỹ sư phần mềm.
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" class="premium-btn" @click="router.push('/problems')">
@@ -71,7 +71,7 @@ const stats = [
     <!-- Features Section -->
     <section class="features-section">
       <div class="section-header">
-        <h2 class="section-title">Tại sao chọn KMA OJ?</h2>
+        <h2 class="section-title">Tại sao chọn DevAssess Enterprise?</h2>
         <div class="section-line"></div>
       </div>
       

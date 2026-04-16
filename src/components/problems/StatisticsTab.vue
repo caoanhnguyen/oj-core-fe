@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useSubmissionStore } from '@/stores/submission'
-import { useAuthStore } from '@/stores/auth'
 import VChart, { THEME_KEY } from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -28,7 +27,6 @@ const props = defineProps({
 })
 
 const submissionStore = useSubmissionStore()
-const authStore = useAuthStore()
 
 const loading = ref(true)
 const statisticsData = ref(null)
@@ -47,12 +45,7 @@ const verdictColors = {
 const loadStatistics = async () => {
     loading.value = true
     try {
-        const isAdminOrMod = authStore.isAdminOrMod
-        if (isAdminOrMod) {
-            statisticsData.value = await submissionStore.getAdminProblemStatistics(props.problemId)
-        } else {
-            statisticsData.value = await submissionStore.getProblemStatistics(props.problemId)
-        }
+        statisticsData.value = await submissionStore.getProblemStatistics(props.problemId)
     } catch (error) {
         console.error("Failed to load statistics", error)
     } finally {

@@ -1,10 +1,9 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
 import { contestsAPI } from '@/api/contests'
-import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 
 const props = defineProps({
@@ -54,34 +53,17 @@ const loadSubmissions = async () => {
         }
 
         let response
-        if (authStore.isAdminOrMod) {
-            // Admin/Mod
-            if (props.contestId) {
-                // Nếu đang soi contest, dùng API contest
-                params.contestId = props.contestId
-                response = await contestsAPI.adminGetSubmissions(props.contestId, params)
-            } else {
-                response = await submissionStore.getAllSubmissions(params)
-            }
+        if (props.contestKey) {
+            // Đang trong exam session -> chỉ user đã đăng nhập mới vào được đây
+            response = await contestsAPI.getMySubmissions(props.contestKey, params)
         } else {
-            // User thường: chỉ lấy submissions của chính mình
-            if (!authStore.isAuthenticated) {
-                submissions.value = []
-                totalElements.value = 0
-                loading.value = false
-                return
+            // Public: GET /submissions là endpoint public, không cần auth.
+            // Nếu đã đăng nhập -> lọc theo userId để chỉ thấy submissions cá nhân.
+            // Nếu chưa đăng nhập -> trả về global submissions của bài tập (ai cũng xem được).
+            if (authStore.isAuthenticated && authStore.user?.id) {
+                params.userId = authStore.user.id
             }
-            params.userId = authStore.user?.id
-            
-            if (props.contestKey) {
-                // Ưu tiên dùng contestKey cho user API
-                response = await contestsAPI.getMySubmissions(props.contestKey, params)
-            } else if (props.contestId) {
-                // Fallback nếu component caller truyền lú contestId
-                response = await contestsAPI.getMySubmissions(props.contestId, params)
-            } else {
-                response = await submissionStore.getSubmissions(params)
-            }
+            response = await submissionStore.getSubmissions(params)
         }
 
         submissions.value = response.content || []

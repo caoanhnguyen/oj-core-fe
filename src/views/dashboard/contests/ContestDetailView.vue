@@ -3,13 +3,14 @@ import { ref, computed, watch } from 'vue'
 import { contestsAPI } from '@/api/contests'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
-import { ArrowLeft, Settings, BookOpen, Users, FileText } from 'lucide-vue-next'
+import { ArrowLeft, Settings, BookOpen, Users, FileText, Link as LinkIcon, Copy } from 'lucide-vue-next'
 import ContestForm     from './ContestForm.vue'
 import TabProblems     from './tabs/TabProblems.vue'
 import TabParticipants from './tabs/TabParticipants.vue'
 import TabSubmissions  from './tabs/TabSubmissions.vue'
 import TabLeaderboard  from './tabs/TabLeaderboard.vue'
-import { Trophy } from 'lucide-vue-next'
+import TabWhitelist    from './tabs/TabWhitelist.vue'
+import { Trophy, ShieldCheck } from 'lucide-vue-next'
 import AppButton     from '@/components/common/AppButton.vue'
 
 import { useRoute, useRouter } from 'vue-router'
@@ -37,6 +38,11 @@ const handleBack = () => {
 }
 
 const isDeleted = computed(() => contest.value?.status === 'DELETED')
+const isEnded   = computed(() => contest.value?.contestStatus === 'ENDED')
+const isOngoing = computed(() => contest.value?.contestStatus === 'ONGOING')
+
+const formReadonly = computed(() => isDeleted.value)
+const problemsReadonly = computed(() => isDeleted.value || isEnded.value || isOngoing.value)
 
 const load = async () => {
   if (!id.value) return
@@ -61,6 +67,13 @@ const handleUpdate = async (payload) => {
     emit('updated')
   } catch (e) { handleApiError(e, 'Lưu thất bại') }
   finally { saving.value = false }
+}
+
+const copyInviteLink = () => {
+  if (!contest.value) return
+  const url = `${window.location.origin}/contests/${contest.value.slug || contest.value.contestKey}`
+  navigator.clipboard.writeText(url)
+  ElMessage.success('Đã sao chép Invite Link')
 }
 </script>
 
@@ -92,6 +105,15 @@ const handleUpdate = async (payload) => {
         <div class="meta-item"><span class="meta-label">Người tạo</span><span class="meta-value">{{ contest.authorUsername }}</span></div>
         <div class="meta-item" v-if="contest.durationMinutes"><span class="meta-label">Thời hạn</span><span class="meta-value">{{ contest.durationMinutes }} phút</span></div>
         <div class="meta-item"><span class="meta-label">Thí sinh</span><span class="meta-value">{{ contest.participantCount || 0 }}</span></div>
+        
+        <div class="meta-item" v-if="contest.visibility === 'PRIVATE'">
+          <span class="meta-label">Private Invite Link</span>
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+            <AppButton size="small" variant="primary" :icon="LinkIcon" @click="copyInviteLink">
+              Sao chép Link Mời
+            </AppButton>
+          </div>
+        </div>
       </div>
       <!-- DELETED warning -->
       <div v-if="isDeleted" class="deleted-warning">
@@ -103,11 +125,11 @@ const handleUpdate = async (payload) => {
     <el-tabs v-if="contest" v-model="activeTab" class="detail-tabs">
       <el-tab-pane name="general">
         <template #label><span class="tab-label"><Settings :size="14" /> Thông tin chung</span></template>
-        <ContestForm :contest="contest" :loading="saving" :readonly="isDeleted" @submit="handleUpdate" @cancel="handleBack" />
+        <ContestForm :contest="contest" :loading="saving" :readonly="formReadonly" :contest-status="contest.contestStatus" @submit="handleUpdate" @cancel="handleBack" />
       </el-tab-pane>
       <el-tab-pane name="problems" lazy>
         <template #label><span class="tab-label"><BookOpen :size="14" /> Bài tập</span></template>
-        <TabProblems :contest-id="id" :readonly="isDeleted" />
+        <TabProblems :contest-id="id" :readonly="problemsReadonly" />
       </el-tab-pane>
       <el-tab-pane name="participants" lazy>
         <template #label><span class="tab-label"><Users :size="14" /> Thí sinh</span></template>
@@ -119,7 +141,11 @@ const handleUpdate = async (payload) => {
       </el-tab-pane>
       <el-tab-pane name="leaderboard" lazy>
         <template #label><span class="tab-label"><Trophy :size="14" /> Xếp hạng</span></template>
-        <TabLeaderboard :contest-id="id" :rule-type="contest.ruleType" />
+        <TabLeaderboard :contest-id="id" :contest-title="contest.title" :rule-type="contest.ruleType" />
+      </el-tab-pane>
+      <el-tab-pane name="whitelist" lazy v-if="contest.visibility === 'PRIVATE'">
+        <template #label><span class="tab-label"><ShieldCheck :size="14" /> Whitelist</span></template>
+        <TabWhitelist :contest-id="id" :contest-title="contest.title" :readonly="isDeleted" />
       </el-tab-pane>
     </el-tabs>
   </div>

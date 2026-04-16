@@ -1,0 +1,182 @@
+/**
+ * oj-core-fe — Shared Badge System
+ * ---------------------------------
+ * Single source of truth for ALL status, role, difficulty, language,
+ * verdict and rule-type badges used across the application.
+ *
+ * Usage:
+ *   <span class="oj-badge status-active">ACTIVE</span>
+ *   <span class="oj-badge difficulty-easy">Easy</span>
+ *   <span class="oj-badge role-admin">ADMIN</span>
+ *   <span class="oj-badge lang-badge">python3</span>
+ *   <span class="oj-badge verdict-ac">AC</span>
+ */
+
+/* ─── Base badge ────────────────────────────────────────────── */
+.oj-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.6;
+  border: 1px solid transparent;
+}
+
+/* ─── EStatus (entity record lifecycle: 3 values) ──────────── */
+/* ACTIVE  → green-teal  */
+.status-active {
+  background: rgba(0, 184, 163, 0.12);
+  color: #00b8a3;
+  border-color: rgba(0, 184, 163, 0.25);
+}
+/* INACTIVE → amber/gray */
+.status-inactive {
+  background: rgba(255, 192, 30, 0.12);
+  color: #ffc01e;
+  border-color: rgba(255, 192, 30, 0.25);
+}
+/* DELETED  → red        */
+.status-deleted {
+  background: rgba(239, 71, 67, 0.12);
+  color: #ef4743;
+  border-color: rgba(239, 71, 67, 0.25);
+}
+
+/* ─── Extra status aliases ──────────────────────────────────── */
+/* DRAFT / HIDDEN = same visual as INACTIVE */
+.status-draft {
+  background: rgba(138, 138, 138, 0.12);
+  color: #8a8a8a;
+  border-color: rgba(138, 138, 138, 0.2);
+}
+/* PUBLISHED = alias for ACTIVE */
+.status-published {
+  background: rgba(0, 184, 163, 0.12);
+  color: #00b8a3;
+  border-color: rgba(0, 184, 163, 0.25);
+}
+/* LOCKED = alias for DELETED (user account locked) */
+.status-locked {
+  background: rgba(239, 71, 67, 0.12);
+  color: #ef4743;
+  border-color: rgba(239, 71, 67, 0.25);
+}
+
+/* ─── Contest lifecycle ─────────────────────────────────────── */
+.status-ongoing {
+  background: rgba(0, 184, 163, 0.12);
+  color: #00b8a3;
+  border-color: rgba(0, 184, 163, 0.25);
+}
+.status-upcoming {
+  background: rgba(255, 192, 30, 0.12);
+  color: #ffc01e;
+  border-color: rgba(255, 192, 30, 0.25);
+}
+.status-ended {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8a8a8a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Difficulty ────────────────────────────────────────────── */
+/* Difficulty badges are text-only (no background), matching LeetCode style */
+.difficulty-easy   { color: #00b8a3; background: transparent; border-color: transparent; font-weight: 700; }
+.difficulty-medium { color: #ffc01e; background: transparent; border-color: transparent; font-weight: 700; }
+.difficulty-hard   { color: #ef4743; background: transparent; border-color: transparent; font-weight: 700; }
+
+/* ─── Rule type (ACM / OI) ──────────────────────────────────── */
+.rule-acm {
+  background: rgba(0, 184, 163, 0.12);
+  color: #00b8a3;
+  border-color: rgba(0, 184, 163, 0.25);
+}
+.rule-oi {
+  background: rgba(255, 161, 22, 0.12);
+  color: #ffa116;
+  border-color: rgba(255, 161, 22, 0.25);
+}
+
+/* ─── Roles ─────────────────────────────────────────────────── */
+.role-admin {
+  background: rgba(239, 71, 67, 0.12);
+  color: #ef4743;
+  border-color: rgba(239, 71, 67, 0.2);
+}
+.role-moderator {
+  background: rgba(163, 85, 245, 0.12);
+  color: #a355f5;
+  border-color: rgba(163, 85, 245, 0.2);
+}
+.role-assessor {
+  background: rgba(255, 161, 22, 0.12);
+  color: #ffa116;
+  border-color: rgba(255, 161, 22, 0.2);
+}
+.role-user {
+  background: rgba(44, 187, 93, 0.12);
+  color: #2cbb5d;
+  border-color: rgba(44, 187, 93, 0.2);
+}
+.role-developer {
+  background: rgba(64, 158, 255, 0.12);
+  color: #409eff;
+  border-color: rgba(64, 158, 255, 0.2);
+}
+
+/* ─── Verdict (submission result) ───────────────────────────── */
+/* Verdict is intentionally text-only (bold colored) — same as competitive judge UIs */
+.verdict-ac      { color: #2cbb5d; font-weight: 700; }
+.verdict-wa      { color: #ef4743; font-weight: 700; }
+.verdict-tle     { color: #ffa116; font-weight: 700; }
+.verdict-mle     { color: #ffa116; font-weight: 700; }
+.verdict-re      { color: #ef4743; font-weight: 700; }
+.verdict-ce      { color: #ef4743; font-weight: 700; }
+.verdict-se      { color: #ef4743; font-weight: 700; }
+.verdict-pending { color: #8a8a8a; font-weight: 700; }
+
+/* ─── Language tag ──────────────────────────────────────────── */
+.lang-badge {
+  background: rgba(255, 255, 255, 0.07);
+  color: #ccc;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Scoreboard visibility ─────────────────────────────────── */
+.sb-visible {
+  background: rgba(0, 184, 163, 0.10);
+  color: #00b8a3;
+  border-color: rgba(0, 184, 163, 0.2);
+}
+.sb-hidden {
+  background: rgba(239, 71, 67, 0.10);
+  color: #ef4743;
+  border-color: rgba(239, 71, 67, 0.2);
+}
+
+/* ─── Metrics & Stats ───────────────────────────────────────── */
+.metric-score {
+  color: #2cbb5d;
+  font-weight: 700;
+}
+.metric-rate {
+  color: #8a8a8a;
+  font-weight: 600;
+  font-size: 13px;
+}
+.metric-runtime, .metric-memory {
+  color: #eff2f6;
+  font-weight: 500;
+  font-size: 13px;
+}
+.metric-count {
+  color: #8a8a8a;
+  font-weight: 600;
+}

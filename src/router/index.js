@@ -110,7 +110,7 @@ const router = createRouter({
     {
       path: '/dashboard',
       component: () => import('../views/dashboard/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresAdminOrMod: true },
+      meta: { requiresAuth: true, canAccessDashboard: true },
       children: [
         {
           path: '',
@@ -198,17 +198,17 @@ router.beforeEach(async (to, from, next) => {
 
     const user = authStore.user
     const isAuthenticated = !!user
-    const isAdminOrMod = user?.roles?.some(role => ['ROLE_ADMIN', 'ROLE_MODERATOR'].includes(role))
+    const canAccessDashboard = user?.roles?.some(role => ['ROLE_ADMIN', 'ROLE_MODERATOR', 'ROLE_ASSESSOR'].includes(role))
 
     if (to.matched.some(record => record.meta.requiresGuest) && isAuthenticated) {
-      return next(isAdminOrMod ? '/dashboard' : '/')
+      return next(canAccessDashboard ? '/dashboard' : '/')
     }
 
     if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
       return next('/login')
     }
 
-    if (to.matched.some(record => record.meta.requiresAdminOrMod) && !isAdminOrMod) {
+    if (to.matched.some(record => record.meta.canAccessDashboard) && !canAccessDashboard) {
       return next('/')
     }
 

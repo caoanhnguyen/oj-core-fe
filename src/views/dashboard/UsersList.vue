@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, reactive, watch, computed } from 'vue'
 import usersApi from '@/api/users'
+import { useBadge } from '@/composables/useBadge'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
@@ -17,6 +18,7 @@ import {
 import { handleApiError } from '@/utils/errorHandler'
 
 const router = useRouter()
+const { estatusClass, accountStatusClass, roleClass } = useBadge()
 const loading = ref(false)
 const users = ref([])
 const totalElements = ref(0)
@@ -51,41 +53,37 @@ watch([currentSortField, currentSortDirection], () => {
 
 const filter = reactive({
   keyword: '',
-  isLocked: { active: false, value: null },
-  role: { active: false, value: null },
+  isLocked: '',
+  role: '',
   page: 0,
   size: 20
 })
 
-const filterConfig = computed(() => [
+const filterConfig = [
   {
+    key: 'isLocked',
     type: 'select',
     label: 'Trạng thái',
-    active: filter.isLocked.active,
-    value: filter.isLocked.value,
     options: [
-      { label: 'Hoạt động', value: true },
-      { label: 'Bị khóa', value: false }
-    ],
-    onUpdateActive: (val) => filter.isLocked.active = val,
-    onUpdateValue: (val) => filter.isLocked.value = val
+      { label: 'Hoạt động', value: 'ACTIVE' },
+      { label: 'Bị khóa', value: 'LOCKED' }
+    ]
   },
   {
+    key: 'role',
     type: 'select',
     label: 'Vai trò',
-    active: filter.role.active,
-    value: filter.role.value,
     options: [
       { label: 'ADMIN', value: 'ROLE_ADMIN' },
       { label: 'MODERATOR', value: 'ROLE_MODERATOR' },
+      { label: 'ASSESSOR', value: 'ROLE_ASSESSOR' },
       { label: 'USER', value: 'ROLE_USER' }
-    ],
-    onUpdateActive: (val) => filter.role.active = val,
-    onUpdateValue: (val) => filter.role.value = val
+    ]
   }
-])
+]
 
-const handleFilterChange = () => {
+const handleFilterChange = ({ key, value }) => {
+  filter[key] = value
   handleSearch()
 }
 
@@ -99,10 +97,16 @@ const roleDialog = reactive({
 const fetchUsers = async () => {
   try {
     loading.value = true
+    
+    // Parse isLocked from String to boolean
+    let isLockedParam = undefined
+    if (filter.isLocked === 'ACTIVE') isLockedParam = true
+    if (filter.isLocked === 'LOCKED') isLockedParam = false
+    
     const params = {
       keyword: filter.keyword || undefined,
-      isLocked: (filter.isLocked.active && filter.isLocked.value !== null) ? filter.isLocked.value : undefined,
-      role: (filter.role.active && filter.role.value) ? filter.role.value : undefined,
+      isLocked: isLockedParam,
+      role: filter.role || undefined,
       page: filter.page,
       size: filter.size
     }
@@ -121,10 +125,11 @@ const fetchUsers = async () => {
   }
 }
 
-const handleSearch = () => {
+import { debounce } from 'lodash'
+const handleSearch = debounce(() => {
   filter.page = 0
   fetchUsers()
-}
+}, 400)
 
 const handlePageChange = (p) => {
   filter.page = p - 1
@@ -218,10 +223,8 @@ const showRoleDialog = (user) => {
 }
 
 const resetFilter = () => {
-  filter.isLocked.active = false
-  filter.isLocked.value = null
-  filter.role.active = false
-  filter.role.value = null
+  filter.isLocked = ''
+  filter.role = ''
   filter.page = 0
   fetchUsers()
 }
@@ -330,7 +333,7 @@ const tableColumns = [
             <span 
               v-for="role in row.roles" 
               :key="role" 
-              :class="['role-pill', `role-${role.replace('ROLE_', '').toLowerCase()}`]"
+              :class="['oj-badge', roleClass(role)]"
             >
               {{ role.replace('ROLE_', '') }}
             </span>
@@ -338,8 +341,9 @@ const tableColumns = [
         </template>
 
         <template #cell-status="{ row }">
-          <span v-if="row.accountNonLocked === false" class="status-badge status-locked">BỊ KHÓA</span>
-          <span v-else class="status-badge status-active">HOẠT ĐỘNG</span>
+          <span :class="['oj-badge', accountStatusClass(row.accountNonLocked)]">
+            {{ row.accountNonLocked === false ? 'BỊ KHÓA' : 'HOẠT ĐỘNG' }}
+          </span>
         </template>
 
         <template #cell-createdDate="{ row }">
@@ -526,35 +530,7 @@ const tableColumns = [
   color: #ef4743;
   background: rgba(239, 71, 67, 0.1);
 }
-
-.status-active {
-  color: #2cbb5d;
-  background: rgba(44, 187, 93, 0.1);
-}
-
-.cell-text, .cell-email, .cell-date, .cell-index {
-  color: #8a8a8a;
-  font-size: 13px;
-}
-
-.role-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.role-pill {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.role-admin { background: rgba(239, 71, 67, 0.15); color: #ef4743; border: 1px solid rgba(239, 71, 67, 0.2); }
-.role-moderator { background: rgba(163, 85, 245, 0.15); color: #a355f5; border: 1px solid rgba(163, 85, 245, 0.2); }
-.role-user { background: rgba(44, 187, 93, 0.15); color: #2cbb5d; border: 1px solid rgba(44, 187, 93, 0.2); }
-.role-developer { background: rgba(64, 158, 255, 0.15); color: #409eff; border: 1px solid rgba(64, 158, 255, 0.2); }
+/* Role & status badges → global badges.css */
 
 .action-btns {
   display: flex;

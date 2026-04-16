@@ -14,7 +14,7 @@
  *   update:active      (Boolean)
  */
 import { ref, computed } from 'vue'
-import { Search, RotateCcw } from 'lucide-vue-next'
+import { Search, RotateCcw, Tag } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue:  { type: Array,   default: () => [] },

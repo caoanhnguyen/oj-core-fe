@@ -3,6 +3,8 @@ import { ref, onBeforeUnmount, reactive, watch, onMounted } from 'vue'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { Plus, CheckCircle, ArrowLeft } from 'lucide-vue-next'
 import { useProblemStore } from '../../stores/problem'
+import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
+import { generateSlug } from '@/utils/stringUtils'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import JSZip from 'jszip'
@@ -116,15 +118,7 @@ const rules = reactive({
 const formRef = ref(null)
 
 // Slug Logic
-const generateSlug = (text) => {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')     
-    .replace(/[^\w\-]+/g, '') 
-    .replace(/\-\-+/g, '-')   
-}
+// Slug Logic is handled by the imported generateSlug utility.
 
 watch(() => formData.value.title, (newTitle) => {
   formData.value.slug = generateSlug(newTitle)
@@ -319,7 +313,8 @@ const handleBack = () => {
 }
 
 .fixed-header {
-  padding: 16px 24px;
+  height: 70px;
+  padding: 0 24px;
   background-color: #141414;
   border-bottom: 1px solid #333;
   display: flex;

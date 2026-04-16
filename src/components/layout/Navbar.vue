@@ -35,7 +35,7 @@ const handleLogout = async () => {
     <div class="navbar-content">
       <RouterLink to="/" class="logo">
         <Code2 :size="20" />
-        <span>KMA OJ</span>
+        <span>DevAssess</span>
       </RouterLink>
 
       <div class="nav-links">
@@ -84,10 +84,6 @@ const handleLogout = async () => {
           <Swords :size="16" style="margin-right: 6px;" />
           <span>Contest</span>
         </RouterLink>
-        <a href="#" class="nav-link" @click.prevent>
-          <MessageSquare :size="16" style="margin-right: 6px;" />
-          <span>Discuss</span>
-        </a>
       </div>
 
       <div class="nav-actions">
@@ -102,13 +98,13 @@ const handleLogout = async () => {
             </button>
             <template #dropdown>
               <el-dropdown-menu class="user-dropdown">
-                <el-dropdown-item v-if="authStore.isAdminOrMod" @click="router.push('/dashboard')">
+                <el-dropdown-item v-if="authStore.canAccessDashboard" @click="router.push('/dashboard')">
                   <div class="dropdown-link">
                     <LayoutDashboard :size="16" />
                     <span>Dashboard</span>
                   </div>
                 </el-dropdown-item>
-                <el-dropdown-item :divided="authStore.isAdminOrMod" @click="router.push('/profile')">
+                <el-dropdown-item :divided="authStore.canAccessDashboard" @click="router.push('/profile')">
                   <div class="dropdown-link">
                     <User :size="16" />
                     <span>Profile</span>

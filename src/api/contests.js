@@ -47,6 +47,18 @@ export const contestsAPI = {
     return response.data
   },
 
+  /** Admin: Xem whitelist */
+  adminGetWhitelist: async (id) => {
+    const response = await axiosInstance.get(`/admin/contests/${id}/whitelist`)
+    return response.data.data
+  },
+
+  /** Admin: Cập nhật whitelist */
+  adminSaveWhitelist: async (id, emails) => {
+    const response = await axiosInstance.post(`/admin/contests/${id}/whitelist`, emails)
+    return response.data
+  },
+
   // --- Problems Management ---
 
   /** Admin: Lấy danh sách problems của contest */
@@ -110,6 +122,12 @@ export const contestsAPI = {
     return response.data.data
   },
 
+  /** Admin: Xuất bảng xếp hạng ra CSV */
+  adminExportLeaderboard: async (id) => {
+    const response = await axiosInstance.get(`/admin/contests/${id}/export`, { responseType: 'blob' })
+    return response.data
+  },
+
   // ====================================================
   // USER PUBLIC APIs
   // ====================================================
@@ -136,6 +154,18 @@ export const contestsAPI = {
   /** User: Xem danh sách problems trong contest (phải là participant và contest đã started) */
   getProblems: async (contestKey) => {
     const response = await axiosInstance.get(`/contests/${contestKey}/problems`)
+    return response.data.data
+  },
+
+  /**
+   * User: Xem chi tiết 1 problem trong context của contest.
+   * Hoạt động trong lúc thi (nếu là participant đã start) VÀ sau khi contest kết thúc
+   * (nếu resourceVisibility = ALWAYS_VISIBLE), kể cả problem đang INACTIVE.
+   * Đây là endpoint theo đúng RESTful URL mà FE đang dùng:
+   *   /contests/:contestKey/problems/:slug
+   */
+  getProblemInContest: async (contestKey, slug) => {
+    const response = await axiosInstance.get(`/contests/${contestKey}/problems/${slug}`)
     return response.data.data
   },
 

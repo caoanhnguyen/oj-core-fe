@@ -12,10 +12,12 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import { debounce } from 'lodash'
+import { useBadge } from '@/composables/useBadge'
 
 const router = useRouter()
 const submissionStore = useSubmissionStore()
 const authStore = useAuthStore()
+const { verdictClass } = useBadge()
 
 const loading = ref(false)
 const submissions = ref([])
@@ -58,28 +60,10 @@ const allVerdictOptions = [
 ]
 
 const verdictOptions = computed(() => {
-  return allVerdictOptions.filter(o => !o.adminOnly || authStore.isAdminOrMod)
+  return allVerdictOptions.filter(o => !o.adminOnly)
 })
 
-const getVerdictType = (verdict) => {
-  switch (verdict) {
-    case 'AC': return 'success'
-    case 'WA': return 'danger'
-    case 'TLE': case 'MLE': return 'warning'
-    case 'RE': case 'SE': case 'CE': return 'danger'
-    default: return 'info'
-  }
-}
-
-const getVerdictColor = (verdict) => {
-  switch (verdict) {
-    case 'AC': return '#2cbb5d'
-    case 'WA': case 'RE': case 'SE': case 'CE': return '#ef4743'
-    case 'TLE': case 'MLE': return '#ffa116'
-    case 'PENDING': return '#8a8a8a'
-    default: return '#8a8a8a'
-  }
-}
+// Verdict colors are now handled by useBadge globals
 
 const loadSubmissions = async () => {
   loading.value = true
@@ -119,13 +103,8 @@ const loadSubmissions = async () => {
       params.userId = authStore.user.id
     }
 
-    if (authStore.isAdminOrMod) {
-      // Admin/Mod: Luôn sử dụng endpoint admin để có đầy đủ thông tin (PENDING, SE, v.v.)
-      response = await submissionStore.getAllSubmissions(params)
-    } else {
-      // User thường: Sử dụng endpoint công khai
-      response = await submissionStore.getSubmissions(params)
-    }
+    // Trang public chỉ call public endpoint
+    response = await submissionStore.getSubmissions(params)
 
     submissions.value = response.content || []
     totalElements.value = response.totalElements || 0
@@ -225,7 +204,7 @@ const handleSizeChange = (val) => {
 }
 
 const canViewDetail = (row) => {
-  return authStore.isAdminOrMod || (authStore.isAuthenticated && row.userId === authStore.user?.id)
+  return authStore.isAuthenticated && row.userId === authStore.user?.id
 }
 
 const viewDetail = (row) => {
@@ -255,7 +234,9 @@ watch(filters, () => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('vi-VN')
+  const s = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  const d = new Date(s)
+  return d.toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
 
 onMounted(async () => {
@@ -340,32 +321,32 @@ onMounted(async () => {
       </template>
 
       <template #cell-contest="{ row }">
-        <RouterLink v-if="row.contestId" class="cell-link" :to="`/contests/${row.contestId}`" @click.stop>
+        <RouterLink v-if="row.contestKey" class="cell-link" :to="`/contests/${row.contestKey}`" @click.stop>
            {{ row.contestTitle || 'Bài thi vòng loại' }}
         </RouterLink>
         <span v-else class="cell-date">—</span>
       </template>
 
       <template #cell-verdict="{ row }">
-        <span class="verdict-text" :style="{ color: getVerdictColor(row.verdict) }">
+        <span :class="['oj-badge', verdictClass(row.verdict)]">
           {{ row.verdict || 'PENDING' }}
         </span>
       </template>
 
       <template #cell-score="{ row }">
-        <span class="cell-index">{{ row.score ?? '—' }}</span>
+        <span class="metric-score">{{ row.score ?? '—' }}</span>
       </template>
 
       <template #cell-runtime="{ row }">
-        <span class="cell-date">{{ row.executionTimeMs != null ? row.executionTimeMs + ' ms' : '—' }}</span>
+        <span class="metric-runtime">{{ row.executionTimeMs != null ? row.executionTimeMs + ' ms' : '—' }}</span>
       </template>
 
       <template #cell-memory="{ row }">
-        <span class="cell-date">{{ row.executionMemoryMb != null ? row.executionMemoryMb + ' MB' : '—' }}</span>
+        <span class="metric-memory">{{ row.executionMemoryMb != null ? row.executionMemoryMb + ' MB' : '—' }}</span>
       </template>
 
       <template #cell-language="{ row }">
-        <span class="lang-badge">{{ row.languageKey }}</span>
+        <span class="oj-badge lang-badge">{{ row.languageKey }}</span>
       </template>
     </DataTable>
 
@@ -433,19 +414,7 @@ onMounted(async () => {
 }
 .cell-link:hover { color: var(--accent-primary); }
 
-.verdict-text {
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.lang-badge {
-  background: rgba(255,255,255,0.07);
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 12px;
-  color: #ccc;
-  font-family: monospace;
-}
+/* Verdict & lang badges → global badges.css */
 
 .badge-contest {
   background: rgba(255,161,22,0.15);

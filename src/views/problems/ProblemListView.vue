@@ -12,11 +12,13 @@ import DarkPagination from '@/components/common/DarkPagination.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
 import { debounce } from 'lodash'
+import { useBadge } from '@/composables/useBadge'
 
 const router = useRouter()
 const problemStore = useProblemStore()
 const topicStore = useTopicStore()
 const authStore = useAuthStore()
+const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
 
 // Real problems data from store
 const problems = computed(() => problemStore.problems)
@@ -157,25 +159,7 @@ watch(() => pagination.value.page, () => {
   fetchProblemsData()
 })
 
-const getDifficultyClass = (difficulty) => {
-  const classes = {
-    'EASY': 'difficulty-easy',
-    'MEDIUM': 'difficulty-medium',
-    'HARD': 'difficulty-hard',
-    'Easy': 'difficulty-easy',
-    'Medium': 'difficulty-medium',
-    'Hard': 'difficulty-hard'
-  }
-  return classes[difficulty] || ''
-}
-
-const getRuleTypeClass = (ruleType) => {
-  const classes = {
-    'OI': 'rule-type-oi',
-    'ACM': 'rule-type-acm'
-  }
-  return classes[ruleType] || ''
-}
+// Mapping classes replaced by useBadge
 
 const filteredTopicsList = computed(() => {
   if (!topicSearchQuery.value) return topics.value
@@ -362,16 +346,16 @@ onMounted(async () => {
           <span class="cell-title" @click="handleView(row)">{{ row.title }}</span>
         </template>
         <template #cell-ruleType="{ row }">
-           <span :class="['rule-type-text', getRuleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
+           <span :class="['oj-badge', ruleTypeClass(row.ruleType)]">{{ row.ruleType }}</span>
         </template>
         <template #cell-difficulty="{ row }">
-           <span :class="['difficulty-text', getDifficultyClass(row.difficulty)]">{{ !row.difficulty ? '' : row.difficulty.toUpperCase() === 'EASY' ? 'Easy' : row.difficulty.toUpperCase() === 'MEDIUM' ? 'Med' : 'Hard' }}</span>
+           <span :class="['oj-badge', difficultyClass(row.difficulty)]">{{ difficultyLabel(row.difficulty) }}</span>
         </template>
         <template #cell-score="{ row }">
-           <span class="score-text">{{ row.totalScore }}</span>
+           <span class="metric-score">{{ row.totalScore }}</span>
         </template>
         <template #cell-rate="{ row }">
-          <span class="cell-index">{{ ((row.acceptedCount / row.submissionCount) * 100 || 0).toFixed(2) }}%</span>
+          <span class="metric-rate">{{ ((row.acceptedCount / row.submissionCount) * 100 || 0).toFixed(2) }}%</span>
         </template>
       </DataTable>
 

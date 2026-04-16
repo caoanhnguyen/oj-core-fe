@@ -49,6 +49,10 @@ const usersApi = {
 
   getContributionHeatMap: (id) => {
     return axios.get(`/users/${id}/heatmap`)
+  },
+
+  getSolvedProblems: (id, params) => {
+    return axios.get(`/users/${id}/solved-problems`, { params })
   }
 }
 

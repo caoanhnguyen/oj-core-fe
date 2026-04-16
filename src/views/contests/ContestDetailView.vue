@@ -15,17 +15,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AppButton from '@/components/common/AppButton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import DataTable from '@/components/common/DataTable.vue'
+import { useBadge } from '@/composables/useBadge'
 
 const route  = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const contestStore = useContestStore()
 const sessionStore = useContestSessionStore()
+const { ruleTypeClass, contestStatusClass, verdictClass } = useBadge()
 
 const contestId = computed(() => route.params.id)
 const activeTab  = ref(route.params.tab || 'info')
 const contest    = ref(null)
 const loading    = ref(false)
+const accessDenied = ref(false) // true khi contest private + user không có trong whitelist
 
 // =====================
 // UTC-safe date helpers
@@ -71,6 +74,17 @@ const isLeaderboardHidden = computed(() => {
   return false
 })
 
+// Resource visibility: khoá đề thi & submissions dựa theo cấu hình
+const isResourceLocked = computed(() => {
+  if (!contest.value) return false
+  if (!isFinished.value) return false  // Chỉ áp dụng sau khi contest kết thúc
+  return contest.value.resourceVisibility === 'ONLY_DURING'
+})
+
+const resourceLockMessage = computed(() => {
+  return 'Kỳ thi đã kết thúc. Đề thi và lịch sử nộp bài đã được bảo mật theo quy định của ban tổ chức.'
+})
+
 const isThisContestActive = computed(() => {
   if (!sessionStore.isExamMode || !contest.value) return false
   const activeId = String(sessionStore.activeSession?.contestId)
@@ -93,8 +107,11 @@ const isPersonalSessionActive = computed(() => {
 })
 
 const isTabDisabled = (id) => {
+  if (!authStore.isAuthenticated && ['problems', 'leaderboard', 'submissions'].includes(id)) return true
   if (id === 'leaderboard') return isLeaderboardHidden.value
   if (id === 'info') return false
+  // Khoá tab tài nguyên nếu contest đã kết thúc và có cờ ONLY_DURING
+  if ((id === 'problems' || id === 'submissions') && isResourceLocked.value) return true
   if (isFinished.value) return false
   if (id === 'problems' || id === 'submissions') {
     if (!isThisContestActive.value) return true
@@ -130,10 +147,16 @@ const { formattedTime: timeLeft } = useSyncedTimer(targetTime)
 const loadContest = async () => {
   try {
     loading.value = true
+    accessDenied.value = false
     contest.value = await contestsAPI.getContestById(contestId.value)
   } catch (err) {
-    handleApiError(err, 'Không thể tải thông tin contest')
-    router.replace('/contests')
+    // 403 = Private contest, user không có trong whitelist
+    if (err?.response?.status === 403 || err?.response?.data?.code === 'AUTH_002') {
+      accessDenied.value = true
+    } else {
+      handleApiError(err, 'Không thể tải thông tin contest')
+      router.replace('/contests')
+    }
   } finally {
     loading.value = false
   }
@@ -368,17 +391,27 @@ watch(() => route.params.tab, (newTab) => {
   if (targetTab === 'submissions'  && !mySubmissions.value.length)  loadMySubmissions()
 }, { immediate: true })
 
-// =====================
-// Verdict styling
-// =====================
-const verdictColor = (v) => ({
-  AC: '#2cbb5d', WA: '#ef4743', TLE: '#ffa116', MLE: '#ffa116',
-  RE: '#ef4743', CE: '#ef4743', PENDING: '#8a8a8a', SE: '#ef4743'
-}[v] || '#8a8a8a')
+// Verdict colors handled globally by useBadge
 
 const getMedal = (rank) => ({ 1: '🥇', 2: '🥈', 3: '🥉' }[rank] || rank)
 
-onMounted(loadContest)
+onMounted(async () => {
+  await loadContest()
+
+  // Auto-fill password and attempt register if Invite Link is used
+  if (route.query.pwd && contest.value?.visibility === 'PRIVATE' && !isRegistered.value) {
+    registerPassword.value = route.query.pwd
+    if (authStore.isAuthenticated) {
+      await handleRegister()
+      // Clean up URL
+      const { pwd, ...restQuery } = route.query
+      router.replace({ ...route, query: restQuery })
+    } else {
+      showPasswordInput.value = true
+      ElMessage.info('Vui lòng đăng nhập để tham gia Contest này.')
+    }
+  }
+})
 onUnmounted(() => {})
 </script>
 
@@ -386,6 +419,26 @@ onUnmounted(() => {})
   <!-- Loading fullscreen -->
   <div v-if="loading" class="page-loading">
     <div class="spin" />
+  </div>
+
+  <!-- Access Denied: Private contest, not on whitelist -->
+  <div v-else-if="accessDenied" class="page-loading access-denied-page">
+    <div class="access-denied-card">
+      <Lock :size="52" class="ad-icon" />
+      <h2 class="ad-title">Kỳ thi Riêng tư</h2>
+      <p class="ad-desc">
+        Bạn không có quyền truy cập vào kỳ thi này.<br />
+        Vui lòng liên hệ ban tổ chức để được thêm vào danh sách tham dự.
+      </p>
+      <div class="ad-actions">
+        <button class="ad-btn-secondary" @click="router.push('/contests')">
+          <ChevronLeft :size="16" /> Quay lại danh sách
+        </button>
+        <button v-if="!authStore.isAuthenticated" class="ad-btn-primary" @click="router.push('/login')">
+          Đăng nhập
+        </button>
+      </div>
+    </div>
   </div>
 
   <div v-else-if="contest" class="public-layout-page">
@@ -404,10 +457,10 @@ onUnmounted(() => {})
       <div class="page-header-row">
         <div class="header-center">
           <div class="top-badges">
-            <span :class="['badge-rule', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">
+            <span :class="['oj-badge', ruleTypeClass(contest.ruleType)]">
               {{ contest.ruleType }}
             </span>
-            <span :class="['badge-status', `status-${contest.contestStatus?.toLowerCase()}`]">
+            <span :class="['oj-badge', contestStatusClass(contest.contestStatus)]">
               <span v-if="contest.contestStatus === 'ONGOING'" class="pulse-dot" />
               {{ contest.contestStatus === 'ONGOING' ? 'Đang diễn ra' : contest.contestStatus === 'UPCOMING' ? 'Sắp diễn ra' : 'Đã kết thúc' }}
             </span>
@@ -446,7 +499,6 @@ onUnmounted(() => {})
           >
             <component :is="tab.icon" :size="15" />
             {{ tab.label }}
-            <span v-if="tab.id === 'problems' && problems.length" class="tab-count">{{ problems.length }}</span>
           </button>
         </div>
 
@@ -546,7 +598,7 @@ onUnmounted(() => {})
             <div class="info-rows">
               <div class="info-row">
                 <span class="ir-label">Rule</span>
-                <span :class="['badge-rule-sm', contest.ruleType === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ contest.ruleType }}</span>
+                <span :class="['oj-badge', ruleTypeClass(contest.ruleType)]">{{ contest.ruleType }}</span>
               </div>
               <div class="info-row">
                 <span class="ir-label">Bắt đầu</span>
@@ -598,7 +650,15 @@ onUnmounted(() => {})
 
       <!-- PROBLEMS TAB -->
       <div v-if="activeTab === 'problems'" class="full-tab">
+        <!-- Locked state -->
+        <div v-if="isResourceLocked" class="lb-locked-container">
+          <Lock :size="48" class="lb-locked-icon" />
+          <h3 class="lb-locked-title">Đề thi đã bị khoá</h3>
+          <p class="lb-locked-desc">{{ resourceLockMessage }}</p>
+        </div>
+        <!-- Normal state -->
         <DataTable
+          v-else
           :columns="problemColumns"
           :data="problems"
           :loading="problemsLoading"
@@ -699,6 +759,14 @@ onUnmounted(() => {})
 
       <!-- MY SUBMISSIONS TAB -->
       <div v-if="activeTab === 'submissions'" class="full-tab">
+        <!-- Locked state -->
+        <div v-if="isResourceLocked" class="lb-locked-container">
+          <Lock :size="48" class="lb-locked-icon" />
+          <h3 class="lb-locked-title">Lịch sử nộp bài đã bị khoá</h3>
+          <p class="lb-locked-desc">{{ resourceLockMessage }}</p>
+        </div>
+        <!-- Normal state -->
+        <template v-else>
         <DataTable
           :columns="submissionColumns"
           :data="mySubmissions"
@@ -714,15 +782,15 @@ onUnmounted(() => {})
             <span class="prob-title">{{ row.problemTitle || row.problemId }}</span>
           </template>
           <template #cell-verdict="{ row }">
-            <span class="verdict-text" :style="{ color: verdictColor(row.verdict) }">
+            <span :class="['oj-badge', verdictClass(row.verdict)]">
               {{ row.verdict || 'PENDING' }}
             </span>
           </template>
           <template #cell-score="{ row }">
-            <span class="cell-score">{{ row.score ?? '—' }}</span>
+            <span class="metric-score">{{ row.score ?? '—' }}</span>
           </template>
           <template #cell-languageKey="{ row }">
-            <span class="lang-badge">{{ row.languageKey }}</span>
+            <span class="oj-badge lang-badge">{{ row.languageKey }}</span>
           </template>
         </DataTable>
 
@@ -733,6 +801,7 @@ onUnmounted(() => {})
           @current-change="loadMySubmissions"
           @size-change="() => { mySubsPagination.currentPage = 1; loadMySubmissions() }"
         />
+        </template>
       </div>
 
     </div>
@@ -805,21 +874,7 @@ onUnmounted(() => {})
 
 .top-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 
-.badge-rule {
-  padding: 3px 10px; border-radius: 5px;
-  font-size: 11px; font-weight: 700;
-}
-.rule-acm { background: rgba(0,184,163,0.15); color: #00b8a3; }
-.rule-oi  { background: rgba(255,161,22,0.15); color: #ffa116; }
-
-.badge-status {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
-}
-.status-ongoing  { background: rgba(0,184,163,0.1); color: #00b8a3; }
-.status-upcoming { background: rgba(255,192,30,0.1); color: #ffc01e; }
-.status-ended    { background: rgba(255,255,255,0.06); color: #8a8a8a; }
+/* Removed local badge-rule and badge-status in favor of global oj-badge options */
 
 .badge-private {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1024,10 +1079,7 @@ onUnmounted(() => {})
 .ir-val   { color: #eff2f6; font-weight: 500; text-align: right; }
 .ir-highlight { color: #ffa116 !important; font-weight: 600 !important; }
 
-.badge-rule-sm {
-  padding: 2px 8px; border-radius: 4px;
-  font-size: 11px; font-weight: 700;
-}
+/* badge-rule-sm removed */
 
 /* Registration state */
 .reg-state { text-align: center; padding: 8px 0; }
@@ -1170,12 +1222,6 @@ onUnmounted(() => {})
 
 .verdict-text { font-weight: 700; font-size: 13px; }
 
-.lang-badge {
-  background: rgba(255,255,255,0.07);
-  border-radius: 5px; padding: 2px 8px;
-  font-size: 12px; color: #ccc; font-family: monospace;
-}
-
 /* Locked Leaderboard UI */
 .lb-locked-container {
   display: flex;
@@ -1207,6 +1253,86 @@ onUnmounted(() => {})
   margin: 0;
   line-height: 1.5;
 }
+
+/* ===== ACCESS DENIED PAGE ===== */
+.access-denied-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 60px);
+  background-color: var(--bg-dark, #121212);
+  padding: 20px;
+}
+
+.access-denied-card {
+  background: var(--bg-card, #1e1e1e);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.ad-icon {
+  color: var(--warning-color, #ffa116);
+  margin-bottom: 20px;
+}
+
+.ad-title {
+  color: var(--text-color, #e0e0e0);
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.ad-desc {
+  color: var(--text-secondary, #a0a0a0);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 30px 0;
+}
+
+.ad-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ad-btn-primary, .ad-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.ad-btn-primary {
+  background: var(--accent-color, #2cbb5d);
+  color: white;
+}
+
+.ad-btn-primary:hover {
+  background: var(--accent-hover, #239c4d);
+}
+
+.ad-btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-color, #e0e0e0);
+}
+
+.ad-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {

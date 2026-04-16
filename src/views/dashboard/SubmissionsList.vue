@@ -11,8 +11,10 @@ import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { RefreshCw, Ban, Trash2, RotateCcw, Activity, MoreVertical, Eye, Code2, Calendar } from 'lucide-vue-next'
 import SubmissionDetailDrawer from './SubmissionDetailDrawer.vue'
+import { useBadge } from '@/composables/useBadge'
 
 const router = useRouter()
+const { estatusClass, verdictClass } = useBadge()
 
 // ===== STATE =====
 const submissions = ref([])
@@ -71,10 +73,7 @@ const resetFilters = () => {
   filters.value.page = 0
 }
 
-const verdictColor = (v) => ({
-  AC: '#2cbb5d', WA: '#ef4743', TLE: '#ffa116', MLE: '#ffa116',
-  RE: '#ef4743', CE: '#ef4743', PENDING: '#8a8a8a', INACTIVE: '#5c5c5c', DELETED: '#ff0000', SE: '#ef4743'
-}[v] || '#8a8a8a')
+// verdictColor replaced by useBadge.verdictClass
 
 const parseServerDate = (dateStr) => {
   if (!dateStr) return null
@@ -398,16 +397,16 @@ const handleRowClick = (row) => {
         <div class="verdict-col">
            <div v-if="value === 'PENDING'" class="pending-spinner-wrapper">
              <div class="spin-small"></div>
-             <span class="verdict-text" style="color: #8a8a8a">PENDING</span>
+             <span :class="['oj-badge', verdictClass(value)]">PENDING</span>
            </div>
-           <span v-else class="verdict-text" :style="{ color: verdictColor(value) }">
+           <span v-else :class="['oj-badge', verdictClass(value)]">
              {{ value }}
            </span>
         </div>
       </template>
 
       <template #cell-status="{ value }">
-        <span class="state" :class="value?.toLowerCase()">{{ value || 'ACTIVE' }}</span>
+        <span :class="['oj-badge', estatusClass(value)]">{{ value || 'ACTIVE' }}</span>
       </template>
       
       <template #cell-score="{ value }">
@@ -415,7 +414,7 @@ const handleRowClick = (row) => {
       </template>
       
       <template #cell-languageKey="{ value }">
-         <span class="lang-badge">{{ value }}</span>
+         <span class="oj-badge lang-badge">{{ value }}</span>
       </template>
       
       <template #actions="{ row }">
@@ -485,10 +484,7 @@ const handleRowClick = (row) => {
 .verdict-col { display: flex; justify-content: center; align-items: center; }
 .verdict-text { font-size: 13px; font-weight: 700; white-space: nowrap; }
 
-.state { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
-.state.active { background: rgba(0, 184, 163, 0.1); color: #00b8a3; }
-.state.inactive { background: rgba(138, 138, 138, 0.1); color: #8a8a8a; }
-.state.deleted { background: rgba(239, 71, 67, 0.1); color: #ef4743; }
+/* EStatus, verdict, lang badges → global badges.css */
 .pending-spinner-wrapper {
   display: flex; align-items: center; gap: 6px; justify-content: center;
 }
@@ -502,7 +498,6 @@ const handleRowClick = (row) => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .score-text { font-size: 13px; font-weight: 600; color: #eff2f6; }
-.lang-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: rgba(255,255,255,0.08); color: #b0b0b0; font-size: 11px; font-weight: 600; text-transform: uppercase; }
 
 .pagination-wrapper {
   margin-top: 24px;

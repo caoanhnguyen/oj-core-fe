@@ -10,6 +10,7 @@ import DataTable      from '@/components/common/DataTable.vue'
 import PageHeader     from '@/components/common/PageHeader.vue'
 import AppButton      from '@/components/common/AppButton.vue'
 import { useRouter } from 'vue-router'
+import { useBadge } from '@/composables/useBadge'
 
 const columns = [
   { key: 'index', label: '#', width: 60, align: 'center', fixed: 'left' },
@@ -25,6 +26,8 @@ const columns = [
 
 // ── Navigation ───────────────────────────────────────────────────
 const router = useRouter()
+const { contestStatusClass, estatusClass, ruleTypeClass, scoreboardClass } = useBadge()
+const getContestStatusLabel = (s) => ({ ONGOING: 'Đang diễn ra', UPCOMING: 'Sắp diễn ra', ENDED: 'Đã kết thúc' }[s] || s)
 const openDetail = (id) => { router.push(`/dashboard/contests/${id}`) }
 const openCreate = () => { router.push(`/dashboard/contests/create`) }
 
@@ -41,7 +44,7 @@ const pageSize    = ref(20)
 const total       = ref(0)
 
 // Filter
-const filterValues = ref({ contestStatus: '', ruleType: '', status: '', scoreboardVisibility: '' })
+const filterValues = ref({ contestStatus: '', ruleType: '', status: '' })
 const filterConfig = [
   { key: 'contestStatus', label: 'Cuộc thi', icon: Trophy, options: [
     { label: 'Đang diễn ra', value: 'ONGOING' }, { label: 'Sắp diễn ra', value: 'UPCOMING' }, { label: 'Đã kết thúc', value: 'ENDED' }
@@ -49,15 +52,12 @@ const filterConfig = [
   { key: 'ruleType', label: 'Rule Type', icon: LayoutGrid, options: [
     { label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }
   ]},
-  { key: 'scoreboardVisibility', label: 'Xếp hạng', icon: LayoutGrid, options: [
-    { label: 'Hiện toàn thời gian', value: 'VISIBLE' }, { label: 'Đóng băng lúc thi', value: 'HIDDEN_DURING_CONTEST' }, { label: 'Ẩn vĩnh viễn', value: 'HIDDEN_PERMANENTLY' }
-  ]},
   { key: 'status', label: 'Trạng thái', icon: Eye, options: [
     { label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Deleted', value: 'DELETED' }
   ]}
 ]
 const handleFilterChange = ({ key, value }) => { filterValues.value[key] = value; page.value = 1; load() }
-const handleResetFilters = () => { filterValues.value = { contestStatus: '', ruleType: '', status: '', scoreboardVisibility: '' }; page.value = 1; load() }
+const handleResetFilters = () => { filterValues.value = { contestStatus: '', ruleType: '', status: '' }; page.value = 1; load() }
 
 // ── Load ─────────────────────────────────────────────────────────
 const load = async () => {
@@ -67,7 +67,6 @@ const load = async () => {
     if (keyword.value) params.keyword = keyword.value
     if (filterValues.value.contestStatus) params.contestStatus = filterValues.value.contestStatus
     if (filterValues.value.ruleType) params.ruleType = filterValues.value.ruleType
-    if (filterValues.value.scoreboardVisibility) params.scoreboardVisibility = filterValues.value.scoreboardVisibility
     if (filterValues.value.status) params.status = filterValues.value.status
     const data = await contestsAPI.adminSearch(params)
     contests.value = data.content || []
@@ -80,9 +79,7 @@ let kwTimer = null
 watch(keyword, () => { clearTimeout(kwTimer); kwTimer = setTimeout(() => { page.value = 1; load() }, 350) })
 
 // ── Helpers ──────────────────────────────────────────────────────
-const getContestStatusClass = (s) => ({ ONGOING: 'status-ongoing', UPCOMING: 'status-upcoming', ENDED: 'status-ended' }[s] || '')
-const getContestStatusLabel = (s) => ({ ONGOING: 'Đang diễn ra', UPCOMING: 'Sắp diễn ra', ENDED: 'Đã kết thúc' }[s] || s)
-const getEntityStatusClass = (s) => ({ ACTIVE: 'status-active', INACTIVE: 'status-upcoming', DELETED: 'status-deleted' }[s] || '')
+// Badge helpers replaced by useBadge composable
 
 // ── Actions with confirm ─────────────────────────────────────────
 const handleDelete = async (row) => {
@@ -162,7 +159,7 @@ const handleToggleVisibility = async (row) => {
         </template>
 
         <template #cell-ruleType="{ value }">
-          <span :class="['rule-badge', value === 'ACM' ? 'rule-acm' : 'rule-oi']">{{ value }}</span>
+          <span :class="['oj-badge', ruleTypeClass(value)]">{{ value }}</span>
         </template>
 
         <template #cell-durationMinutes="{ row }">
@@ -172,18 +169,18 @@ const handleToggleVisibility = async (row) => {
 
         <template #cell-scoreboardVisibility="{ value }">
           <el-tooltip :content="value === 'VISIBLE' ? 'Hiện toàn thời gian' : (value === 'HIDDEN_PERMANENTLY' ? 'Ẩn vĩnh viễn' : 'Đóng băng lúc thi')" placement="top" effect="dark">
-            <span :class="['sb-badge', value === 'VISIBLE' ? 'sb-visible' : 'sb-hidden']">
+            <span :class="['oj-badge', scoreboardClass(value)]">
               {{ value === 'VISIBLE' ? 'VISIBLE' : (value === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
             </span>
           </el-tooltip>
         </template>
 
         <template #cell-contestStatus="{ value }">
-          <span :class="['status-badge', getContestStatusClass(value)]">{{ getContestStatusLabel(value) }}</span>
+          <span :class="['oj-badge', contestStatusClass(value)]">{{ getContestStatusLabel(value) }}</span>
         </template>
 
         <template #cell-status="{ value }">
-          <span :class="['status-badge', getEntityStatusClass(value)]">{{ value }}</span>
+          <span :class="['oj-badge', estatusClass(value)]">{{ value }}</span>
         </template>
 
         <template #cell-startTime="{ value }"><span class="cell-date">{{ fmtDt(value) }}</span></template>
@@ -244,41 +241,12 @@ const handleToggleVisibility = async (row) => {
 .highlight-dur { color: #ffa116; font-weight: 600; }
 .mute { opacity: 0.4; }
 
-/* Badges */
-.status-badge, .rule-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
-.rule-acm { background: rgba(0,184,163,0.15); color: #00b8a3; }
-.rule-oi  { background: rgba(255,161,22,0.15); color: #ffa116; }
-.status-ongoing  { background: rgba(0,184,163,0.12); color: #00b8a3; }
-.status-upcoming { background: rgba(255,192,30,0.12); color: #ffc01e; }
-.status-ended    { background: rgba(255,255,255,0.08); color: #8a8a8a; }
-.status-active   { background: rgba(0,184,163,0.1); color: #00b8a3; }
-.status-deleted  { background: rgba(239,71,67,0.1); color: #ef4743; }
+/* Contest status/rule/sb badges → global badges.css */
 
 /* Actions */
 .action-buttons { display: flex; gap: 2px; justify-content: center; flex-wrap: nowrap; }
 
-.sb-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.sb-visible {
-  background: rgba(0, 184, 163, 0.1);
-  color: #00b8a3;
-  border: 1px solid rgba(0, 184, 163, 0.2);
-}
-.sb-hidden {
-  background: rgba(239, 71, 67, 0.1);
-  color: #ef4743;
-  border: 1px solid rgba(239, 71, 67, 0.2);
-}
-:deep(.action-btn) { padding: 4px; color: var(--text-secondary); transition: all 0.2s; }
-:deep(.action-btn:hover) { color: var(--accent-primary); background: rgba(255,161,22,0.1); }
-:deep(.action-btn.action-danger:hover) { color: var(--error); background: rgba(239,71,67,0.1); }
-:deep(.action-btn.action-restore:hover) { color: #00b8a3; background: rgba(0,184,163,0.1); }
+/* sb badges → global badges.css */
 </style>
 
 <style>

@@ -135,7 +135,7 @@ const handleGitHubLogin = () => {
       <div class="auth-card">
         <div class="auth-header">
           <h1>Sign In</h1>
-          <p>Welcome back to Leet KMA</p>
+          <p>Welcome back to DevAssess</p>
         </div>
 
         <el-form

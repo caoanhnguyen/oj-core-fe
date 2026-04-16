@@ -15,14 +15,21 @@ const allMenuItems = [
   { id: 'topics', label: 'Topics', icon: Tag },
   { id: 'contests', label: 'Contests', icon: Trophy },
   { id: 'submissions', label: 'Submissions', icon: Activity },
-  { id: 'discussions', label: 'Discussions', icon: MessageSquare },
 ]
 
 const menuItems = computed(() => {
-  if (authStore.isModerator && !authStore.isAdmin) {
-    return allMenuItems.filter(item => ['problems', 'topics', 'contests', 'submissions'].includes(item.id))
+  if (authStore.isAdmin) {
+    return allMenuItems
   }
-  return allMenuItems
+  if (authStore.isModerator) {
+    // Moderator: no contests, no users, no submissions, no discussions
+    return allMenuItems.filter(item => ['overview', 'problems', 'topics'].includes(item.id))
+  }
+  if (authStore.isAssessor) {
+    // Assessor: needs contests to manage their own, and overview
+    return allMenuItems.filter(item => ['overview', 'contests'].includes(item.id))
+  }
+  return [] // Fallback
 })
 
 const toggleCollapse = () => {
