@@ -12,7 +12,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { RefreshCw, Ban, Trash2, RotateCcw, Activity, MoreVertical, Eye, Code2, Calendar } from 'lucide-vue-next'
 import SubmissionDetailDrawer from './SubmissionDetailDrawer.vue'
 import { useBadge } from '@/composables/useBadge'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const { estatusClass, verdictClass } = useBadge()
 
@@ -48,15 +50,15 @@ const verdictOptions = [
 ]
 
 const filterConfig = computed(() => [
-  { key: 'verdict', label: 'Kết quả', icon: Activity, options: verdictOptions },
-  { key: 'status', label: 'Status', icon: Eye, options: [
+  { key: 'verdict', label: t('admin_submissions.filter_verdict'), icon: Activity, options: verdictOptions },
+  { key: 'status', label: t('admin_submissions.filter_status'), icon: Eye, options: [
       { value: 'ACTIVE', label: 'Active' },
       { value: 'INACTIVE', label: 'Inactive' },
       { value: 'DELETED', label: 'Deleted' }
     ]
   },
-  { key: 'language', label: 'Ngôn ngữ', icon: Code2, options: languageOptions.value },
-  { key: 'dateRange', label: 'Thời gian', icon: Calendar, type: 'daterange' }
+  { key: 'language', label: t('admin_submissions.filter_language'), icon: Code2, options: languageOptions.value },
+  { key: 'dateRange', label: t('admin_submissions.filter_time'), icon: Calendar, type: 'daterange' }
 ])
 
 const handleFilterChange = ({ key, value }) => {
@@ -105,7 +107,7 @@ const loadSubmissions = async () => {
     submissions.value = res.content || []
     totalElements.value = res.totalElements || 0
   } catch (err) {
-    ElMessage.error(err.response?.data?.message || 'Không thể tải danh sách Submissions.')
+    ElMessage.error(err.response?.data?.message || t('admin_submissions.msg_load_fail'))
   } finally {
     loading.value = false
   }
@@ -137,9 +139,11 @@ const getSelectedIds = () => selectedRows.value.map(row => row.submissionId || r
 const doApiCall = async (actionName, apiFunc, payload, successMsg) => {
   try {
     executingAction.value = true
-    await ElMessageBox.confirm(`Xác nhận thao tác ${actionName} cho ${payload.length} bản ghi?`, 'Xác nhận', {
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      t('admin_submissions.msg_confirm_action', { actionName, count: payload.length }),
+      t('common.confirm') || 'Confirmation',
+      { type: 'warning', customClass: 'dark-message-box' }
+    )
     await apiFunc(payload)
     ElMessage.success(successMsg)
     
@@ -155,7 +159,7 @@ const doApiCall = async (actionName, apiFunc, payload, successMsg) => {
         await loadSubmissions()
     }
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error('Thao tác thất bại.')
+    if (e !== 'cancel') ElMessage.error(t('admin_submissions.msg_failed'))
   } finally {
     executingAction.value = false
   }
@@ -169,10 +173,10 @@ const handleActionCommand = (cmd, row) => {
   
   const id = row.submissionId || row.id
   const actionMap = {
-    rejudge: { func: (param) => submissionAPI.adminRejudge({ submissionIds: param }), name: 'Rejudge', msg: 'Đã đưa vào hàng chờ chấm lại.' },
-    void: { func: submissionAPI.adminVoid, name: 'Void', msg: 'Đã Ẩn (Void) thành công.' },
-    restore: { func: submissionAPI.adminRestore, name: 'Khôi phục', msg: 'Đã Khôi phục thành công.' },
-    delete: { func: submissionAPI.adminSoftDelete, name: 'Xóa mềm', msg: 'Đã Xóa mềm thành công.' }
+    rejudge: { func: (param) => submissionAPI.adminRejudge({ submissionIds: param }), name: t('admin_submissions.btn_rejudge') || 'Rejudge', msg: t('admin_submissions.msg_rejudge_success') },
+    void: { func: submissionAPI.adminVoid, name: t('admin_submissions.btn_void') || 'Void', msg: t('admin_submissions.msg_void_success') },
+    restore: { func: submissionAPI.adminRestore, name: t('admin_submissions.btn_restore') || 'Restore', msg: t('admin_submissions.msg_restore_success') },
+    delete: { func: submissionAPI.adminSoftDelete, name: t('admin_submissions.btn_soft_del') || 'Soft Delete', msg: t('admin_submissions.msg_delete_success') }
   }
   
   const action = actionMap[cmd]
@@ -191,25 +195,25 @@ const handleActionCommand = (cmd, row) => {
 const handleRejudge = () => {
   const ids = getSelectedIds()
   if (!ids.length) return
-  doApiCall('Rejudge', (param) => submissionAPI.adminRejudge({ submissionIds: param }), ids, 'Đã đưa vào hàng chờ chấm lại.')
+  doApiCall(t('admin_submissions.btn_rejudge') || 'Rejudge', (param) => submissionAPI.adminRejudge({ submissionIds: param }), ids, t('admin_submissions.msg_rejudge_success'))
 }
 
 const handleVoid = () => {
   const ids = getSelectedIds()
   if (!ids.length) return
-  doApiCall('Void', submissionAPI.adminVoid, ids, 'Đã Ẩn (Void) thành công.')
+  doApiCall(t('admin_submissions.btn_void') || 'Void', submissionAPI.adminVoid, ids, t('admin_submissions.msg_void_success'))
 }
 
 const handleRestore = () => {
   const ids = getSelectedIds()
   if (!ids.length) return
-  doApiCall('Khôi phục', submissionAPI.adminRestore, ids, 'Đã Khôi phục thành công.')
+  doApiCall(t('admin_submissions.btn_restore') || 'Restore', submissionAPI.adminRestore, ids, t('admin_submissions.msg_restore_success'))
 }
 
 const handleSoftDelete = () => {
   const ids = getSelectedIds()
   if (!ids.length) return
-  doApiCall('Xóa mềm', submissionAPI.adminSoftDelete, ids, 'Đã Xóa mềm thành công.')
+  doApiCall(t('admin_submissions.btn_soft_del') || 'Soft Delete', submissionAPI.adminSoftDelete, ids, t('admin_submissions.msg_delete_success'))
 }
 
 // ===== POLLING LOGIC =====
@@ -274,7 +278,7 @@ onMounted(async () => {
     const langs = await systemAPI.getLanguages()
     languageOptions.value = langs.map(l => ({ label: l.name, value: l.languageKey }))
   } catch (error) {
-    console.warn('Lỗi lấy danh sách ngôn ngữ:', error)
+    console.warn(t('admin_submissions.msg_load_lang_fail') || 'Failed to get languages:', error)
   }
   loadSubmissions()
 })
@@ -284,21 +288,7 @@ onUnmounted(() => {
 })
 
 // ===== TABLE COLUMNS =====
-const columns = [
-  { type: 'selection', width: 50, fixed: 'left', align: 'center' },
-  { key: 'index', label: '#', width: 60, fixed: 'left', align: 'center' },
-  { key: 'submissionId', label: 'ID', minWidth: 300, align: 'center' },
-  { key: 'createdDate', label: 'Ngày nộp', width: 200, align: 'center' },
-  { key: 'username', label: 'Người gửi', width: 200, align: 'center' },
-  { key: 'problemTitle', label: 'Bài tập', minWidth: 200, align: 'center' },
-  { key: 'contestTitle', label: 'Kỳ thi', minWidth: 200, align: 'center' },
-  { key: 'executionTimeMs', label: 'Run Time', width: 100, align: 'center' },
-  { key: 'executionMemoryMb', label: 'Memory', width: 100, align: 'center' },
-  { key: 'verdict', label: 'Kết quả', width: 140, align: 'center' },
-  { key: 'score', label: 'Điểm', width: 80, align: 'center' },
-  { key: 'languageKey', label: 'Ngôn ngữ', width: 120, align: 'center' },
-  { key: 'status', label: 'Trạng thái', width: 120, align: 'center' }
-]
+// Columns are inlinely defined in template
 
 const handleRowClick = (row) => {
   drawerRow.value = row
@@ -309,46 +299,60 @@ const handleRowClick = (row) => {
 <template>
   <div class="admin-layout-container">
     <PageHeader 
-      title="Quản lý Submissions" 
-      subtitle="Theo dõi và thao tác lên lịch sử các bài nộp trong hệ thống"
+      :title="$t('admin_submissions.page_title')" 
+      :subtitle="$t('admin_submissions.page_subtitle')"
     >
       <div class="bulk-actions-header">
         <AppButton variant="primary" :icon="RefreshCw" :disabled="!selectedRows.length || executingAction" @click="handleRejudge">
-          Rejudge
+          {{ $t('admin_submissions.btn_rejudge') }}
         </AppButton>
         <AppButton variant="secondary" :icon="Ban" :disabled="!selectedRows.length || executingAction" @click="handleVoid">
-          Void
+          {{ $t('admin_submissions.btn_void') }}
         </AppButton>
         <AppButton variant="warning" :icon="RotateCcw" :disabled="!selectedRows.length || executingAction" @click="handleRestore">
-          Khôi phục
+          {{ $t('admin_submissions.btn_restore') }}
         </AppButton>
         <AppButton variant="danger" :icon="Trash2" :disabled="!selectedRows.length || executingAction" @click="handleSoftDelete">
-          Xóa mềm
+          {{ $t('admin_submissions.btn_soft_del') }}
         </AppButton>
       </div>
     </PageHeader>
 
     <TableControls
       v-model="filters.keyword"
-      search-placeholder="Tìm ID, User..."
+      :search-placeholder="$t('admin_submissions.search_placeholder')"
       :total-elements="totalElements"
-      item-name="bản ghi"
+      :item-name="$t('admin_submissions.item_name')"
       :filter-config="filterConfig"
-      filter-title="Bộ lọc bài nộp"
+      :filter-title="$t('admin_submissions.filter_title')"
       @filter-change="handleFilterChange"
       @reset-filters="resetFilters"
     />
 
     <DataTable
       :data="submissions"
-      :columns="columns"
+      :columns="[
+        { type: 'selection', width: 50, fixed: 'left', align: 'center' },
+        { key: 'index', label: '#', width: 60, fixed: 'left', align: 'center' },
+        { key: 'submissionId', label: $t('admin_submissions.col_id'), minWidth: 200, align: 'center' },
+        { key: 'createdDate', label: $t('admin_submissions.col_date'), width: 200, align: 'center' },
+        { key: 'username', label: $t('admin_submissions.col_sender'), width: 150, align: 'center' },
+        { key: 'problemTitle', label: $t('admin_submissions.col_problem'), minWidth: 200, align: 'center' },
+        { key: 'contestTitle', label: $t('admin_submissions.col_contest'), minWidth: 200, align: 'center' },
+        { key: 'executionTimeMs', label: $t('admin_submissions.col_runtime'), width: 100, align: 'center' },
+        { key: 'executionMemoryMb', label: $t('admin_submissions.col_memory'), width: 100, align: 'center' },
+        { key: 'verdict', label: $t('admin_submissions.col_verdict'), width: 140, align: 'center' },
+        { key: 'score', label: $t('admin_submissions.col_score'), width: 80, align: 'center' },
+        { key: 'languageKey', label: $t('admin_submissions.col_lang'), width: 120, align: 'center' },
+        { key: 'status', label: $t('admin_submissions.col_status'), width: 120, align: 'center' }
+      ]"
       :loading="loading"
       rowKey="id"
-      empty-text="Không tìm thấy bản ghi nào."
+      :empty-text="$t('admin_submissions.empty_text')"
       @selection-change="v => selectedRows = v"
       @row-click="handleRowClick"
       class="clickable-row-table"
-      action-label="Hành động"
+      :action-label="$t('admin_submissions.col_actions')"
       :action-width="120"
     >
       <template #cell-index="{ index }">
@@ -380,7 +384,7 @@ const handleRowClick = (row) => {
 
       <template #cell-contestTitle="{ row }">
         <RouterLink v-if="row.contestId" class="cell-link" :to="`/dashboard/contests/${row.contestId}`" @click.stop>
-          {{ row.contestTitle || 'Kỳ thi ẩn' }}
+          {{ row.contestTitle || $t('admin_submissions.hidden_contest') }}
         </RouterLink>
         <span v-else class="cell-date">—</span>
       </template>
@@ -424,11 +428,11 @@ const handleRowClick = (row) => {
           </el-button>
           <template #dropdown>
             <el-dropdown-menu class="dark-dropdown">
-              <el-dropdown-item command="view"><Eye :size="14" style="margin-right:8px;"/> Xem chi tiết</el-dropdown-item>
-              <el-dropdown-item command="rejudge" :disabled="row.verdict === 'PENDING'"><RefreshCw :size="14" style="margin-right:8px;"/> Rejudge</el-dropdown-item>
-              <el-dropdown-item command="void" v-if="row.status === 'ACTIVE'"><Ban :size="14" style="margin-right:8px;"/> Void</el-dropdown-item>
-              <el-dropdown-item command="restore" v-if="row.status === 'INACTIVE' || row.status === 'DELETED'"><RotateCcw :size="14" style="margin-right:8px;"/> Khôi phục</el-dropdown-item>
-              <el-dropdown-item command="delete" v-if="row.status === 'ACTIVE' || row.status === 'INACTIVE'"><Trash2 :size="14" style="margin-right:8px;"/> Xóa mềm</el-dropdown-item>
+              <el-dropdown-item command="view"><Eye :size="14" style="margin-right:8px;"/> {{ $t('admin_submissions.action_view') }}</el-dropdown-item>
+              <el-dropdown-item command="rejudge" :disabled="row.verdict === 'PENDING'"><RefreshCw :size="14" style="margin-right:8px;"/> {{ $t('admin_submissions.btn_rejudge') }}</el-dropdown-item>
+              <el-dropdown-item command="void" v-if="row.status === 'ACTIVE'"><Ban :size="14" style="margin-right:8px;"/> {{ $t('admin_submissions.btn_void') }}</el-dropdown-item>
+              <el-dropdown-item command="restore" v-if="row.status === 'INACTIVE' || row.status === 'DELETED'"><RotateCcw :size="14" style="margin-right:8px;"/> {{ $t('admin_submissions.btn_restore') }}</el-dropdown-item>
+              <el-dropdown-item command="delete" v-if="row.status === 'ACTIVE' || row.status === 'INACTIVE'"><Trash2 :size="14" style="margin-right:8px;"/> {{ $t('admin_submissions.btn_soft_del') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>

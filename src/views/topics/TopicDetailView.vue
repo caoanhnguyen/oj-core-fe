@@ -22,6 +22,7 @@ import {
 import { useTopicStore } from '@/stores/topic'
 import { useProblemStore } from '@/stores/problem'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import TableControls from '@/components/common/TableControls.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -36,6 +37,7 @@ const router = useRouter()
 const topicStore = useTopicStore()
 const problemStore = useProblemStore()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const slug = computed(() => route.params.slug)
 const topicData = ref(null)
@@ -74,7 +76,7 @@ const fetchTopicDetail = async () => {
     loadingDetail.value = true
     topicData.value = await topicStore.getTopicDetails(slug.value)
   } catch (error) {
-    handleApiError(error, 'Không tải được thông tin topic')
+    handleApiError(error, t('topics.msg_load_fail'))
   } finally {
     loadingDetail.value = false
   }
@@ -126,10 +128,10 @@ const resetFilters = () => {
   filters.value.ruleType = { active: false, operator: 'is', value: '' }
 }
 
-const filterConfig = [
-  { key: 'difficulty', label: 'Difficulty', icon: Gauge, options: [{ label: 'Easy', value: 'EASY' }, { label: 'Medium', value: 'MEDIUM' }, { label: 'Hard', value: 'HARD' }] },
-  { key: 'ruleType', label: 'Rule Type', icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] }
-]
+const filterConfig = computed(() => [
+  { key: 'difficulty', label: t('problems.difficulty'), icon: Gauge, options: [{ label: t('problems.difficulty_levels.easy'), value: 'EASY' }, { label: t('problems.difficulty_levels.medium'), value: 'MEDIUM' }, { label: t('problems.difficulty_levels.hard'), value: 'HARD' }] },
+  { key: 'ruleType', label: t('problems.rule_type'), icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] }
+])
 
 const handleFilterChange = ({ key, value }) => {
   if (value === '') {
@@ -192,7 +194,7 @@ const initPage = async () => {
       fetchProblemsData()
     ])
   } catch (err) {
-    handleApiError(err, 'Không thể tải thông tin chủ đề')
+    handleApiError(err, t('topics.msg_load_fail'))
   } finally {
     loadingDetail.value = false
   }
@@ -227,12 +229,12 @@ watch(() => route.path, (newPath) => {
           <div class="topic-meta">
             <span>DevAssess</span>
             <span class="dot">•</span>
-            <span>{{ (topicData.totalEasy || 0) + (topicData.totalMedium || 0) + (topicData.totalHard || 0) }} questions</span>
+            <span>{{ $t('topics.questions_count', { count: (topicData.totalEasy || 0) + (topicData.totalMedium || 0) + (topicData.totalHard || 0) }) }}</span>
           </div>
 
           <div class="topic-update-info">
             <Calendar :size="14" />
-            <span>Updated: {{ formatDate(topicData.updatedDate) }}</span>
+            <span>{{ $t('topics.updated_at') }}{{ formatDate(topicData.updatedDate) }}</span>
           </div>
 
           <div class="topic-description" v-if="topicData.description">
@@ -241,14 +243,14 @@ watch(() => route.path, (newPath) => {
           
           <div class="topic-creator">
             <User :size="16" />
-            <span>Created by: <router-link :to="`/profile/${topicData.createdBy}`" class="creator-name">{{ topicData.createdBy }}</router-link></span>
+            <span>{{ $t('topics.created_by') }}<router-link :to="`/profile/${topicData.createdBy}`" class="creator-name">{{ topicData.createdBy }}</router-link></span>
           </div>
         </div>
 
         <!-- Progress Section -->
         <div class="sidebar-card progress-card" v-if="authStore.isAuthenticated">
           <div class="progress-header">
-            <h3 class="card-title">Progress</h3>
+            <h3 class="card-title">{{ $t('topics.progress') }}</h3>
             <button class="reset-btn" @click="fetchTopicDetail"><RotateCcw :size="14" /></button>
           </div>
           
@@ -273,7 +275,7 @@ watch(() => route.path, (newPath) => {
                   </div>
                   <div class="solved-status">
                     <Check :size="12" class="check-icon" />
-                    <span>Solved</span>
+                    <span>{{ $t('problems.solved') }}</span>
                   </div>
                 </div>
               </div>
@@ -282,15 +284,15 @@ watch(() => route.path, (newPath) => {
             <!-- Right: Difficulty small cards -->
             <div class="difficulty-cards">
               <div class="diff-card easy">
-                <div class="diff-label">Easy</div>
+                <div class="diff-label">{{ $t('problems.difficulty_levels.easy') }}</div>
                 <div class="diff-val"><span class="current">{{ topicData.solvedEasy || 0 }}</span>/{{ topicData.totalEasy || 0 }}</div>
               </div>
               <div class="diff-card medium">
-                <div class="diff-label">Med.</div>
+                <div class="diff-label">{{ $t('problems.difficulty_levels.medium') }}</div>
                 <div class="diff-val"><span class="current">{{ topicData.solvedMedium || 0 }}</span>/{{ topicData.totalMedium || 0 }}</div>
               </div>
               <div class="diff-card hard">
-                <div class="diff-label">Hard</div>
+                <div class="diff-label">{{ $t('problems.difficulty_levels.hard') }}</div>
                 <div class="diff-val"><span class="current">{{ topicData.solvedHard || 0 }}</span>/{{ topicData.totalHard || 0 }}</div>
               </div>
             </div>
@@ -302,19 +304,19 @@ watch(() => route.path, (newPath) => {
       <main class="problems-main">
         <TableControls
           v-model="searchQuery"
-          search-placeholder="Search questions..."
+          :search-placeholder="$t('problems.search_placeholder')"
           :total-elements="problemStore.pagination.totalElements"
-          item-name="Problems"
+          :item-name="$t('problems.title')"
           :sort-options="[
-            { label: 'Title', value: 'title' },
-            { label: 'Difficulty', value: 'difficulty' }
+            { label: $t('problems.title_col'), value: 'title' },
+            { label: $t('problems.difficulty'), value: 'difficulty' }
           ]"
           :current-sort="currentSortField"
           :current-sort-dir="currentSortDirection"
           @sort="handleSort"
           @reset-sort="resetSort"
           :filter-config="filterConfig"
-          filter-title="Filter Problems"
+          :filter-title="$t('problems.filter_title')"
           @filter-change="handleFilterChange"
           @reset-filters="resetFilters"
         />
@@ -327,14 +329,14 @@ watch(() => route.path, (newPath) => {
           :columns="[
             { key: 'solved', label: '', width: 50, resizable: false },
             { key: 'index', label: '#', width: 60, resizable: false },
-            { key: 'title', label: 'Title', minWidth: 300 },
-            { key: 'ruleType', label: 'Rule Type', minWidth: 100 },
-            { key: 'difficulty', label: 'Difficulty', minWidth: 100 },
-            { key: 'score', label: 'Score', minWidth: 100 },
-            { key: 'rate', label: 'Accepted rate', minWidth: 150 }
+            { key: 'title', label: $t('problems.title_col'), minWidth: 300 },
+            { key: 'ruleType', label: $t('problems.rule_type'), minWidth: 100 },
+            { key: 'difficulty', label: $t('problems.difficulty'), minWidth: 100 },
+            { key: 'score', label: $t('problems.score'), minWidth: 100 },
+            { key: 'rate', label: $t('problems.ac_rate'), minWidth: 150 }
           ]"
           :loading="problemStore.loading"
-          empty-text="No problems found in this topic"
+          :empty-text="$t('topics.empty_problems')"
           @row-click="handleViewProblem"
           :row-class-name="() => 'clickable-row'"
         >

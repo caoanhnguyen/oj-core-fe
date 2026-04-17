@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useProblemStore } from '../../stores/problem'
 import { useAuthStore } from '../../stores/auth'
@@ -20,6 +21,7 @@ const router = useRouter()
 const problemStore = useProblemStore()
 const submissionStore = useSubmissionStore()
 const sessionStore = useContestSessionStore()
+const { t } = useI18n()
 const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
 
 // Contest timer inside problem view
@@ -426,7 +428,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
       <div class="header-left">
         <el-button link @click="handleBack" class="back-btn">
           <ArrowLeft :size="18" />
-          <span class="back-text">{{ contestKey ? 'Quay lại Contest' : 'Tất cả bài tập' }}</span>
+          <span class="back-text">{{ contestKey ? $t('problem_detail.back_contest') : $t('problem_detail.all_problems') }}</span>
         </el-button>
         <div class="divider"></div>
         <div class="problem-nav-info" v-if="problem">
@@ -436,33 +438,33 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
       <div class="header-right">
         <el-tooltip
           v-if="!authStore.isAuthenticated"
-          content="Đăng nhập để chạy thử"
+          :content="$t('problem_detail.login_run')"
           placement="bottom"
           effect="dark"
         >
           <el-button class="action-btn run-btn guest-btn" @click="handleRun">
             <LogIn class="run-icon" :size="14" />
-            Run
+            {{ $t('problem_detail.run') }}
           </el-button>
         </el-tooltip>
         <el-button v-else class="action-btn run-btn" @click="handleRun">
           <Play class="run-icon" :size="14" fill="currentColor" />
-          Run
+          {{ $t('problem_detail.run') }}
         </el-button>
 
         <el-tooltip
           v-if="!authStore.isAuthenticated"
-          content="Đăng nhập để nộp bài"
+          :content="$t('problem_detail.login_submit')"
           placement="bottom"
           effect="dark"
         >
           <el-button class="action-btn submit-btn guest-btn" @click="handleSubmit">
             <LogIn class="run-icon" :size="14" />
-            Submit
+            {{ $t('problem_detail.submit') }}
           </el-button>
         </el-tooltip>
         <el-button v-else class="action-btn submit-btn" type="primary" @click="handleSubmit">
-          Submit
+          {{ $t('problem_detail.submit') }}
         </el-button>
       </div>
     </div>
@@ -485,7 +487,8 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
             :class="{ active: activeTab === tab }"
             @click="switchTab(tab)"
           >
-            {{ tab.charAt(0).toUpperCase() + tab.slice(1) }}
+            <!-- Map backend tabs to FE keys, assuming tab strings match or use a dict -->
+            {{ $t('contest_detail.tab_' + tab) || tab.charAt(0).toUpperCase() + tab.slice(1) }}
           </button>
         </div>
 
@@ -543,7 +546,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                     @click="scrollToTopics"
                   >
                     <Tag :size="12" />
-                    Topics
+                    {{ $t('problem_detail.topics') }}
                   </button>
 
                   <button 
@@ -552,7 +555,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                     @click="scrollToHint"
                   >
                     <Lightbulb :size="12" />
-                    Hint
+                    {{ $t('problem_detail.hint') }}
                   </button>
                 </div>
               </div>
@@ -563,11 +566,11 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
             <!-- Input / Output Format -->
             <div v-if="problem.inputFormat || problem.outputFormat" class="format-section">
               <div v-if="problem.inputFormat" class="format-block">
-                <h3 class="section-title">Input Format</h3>
+                <h3 class="section-title">{{ $t('problem_detail.input_format') }}</h3>
                 <div class="rich-content" v-html="problem.inputFormat"></div>
               </div>
               <div v-if="problem.outputFormat" class="format-block">
-                <h3 class="section-title">Output Format</h3>
+                <h3 class="section-title">{{ $t('problem_detail.output_format') }}</h3>
                 <div class="rich-content" v-html="problem.outputFormat"></div>
               </div>
             </div>
@@ -575,7 +578,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
             <!-- Examples -->
             <div v-if="problem.examples && problem.examples.length > 0" class="examples-section">
               <div v-for="(example, index) in problem.examples" :key="index" class="example-card">
-                <div class="example-header">Example {{ index + 1 }}</div>
+                <div class="example-header">{{ $t('problem_detail.example') }} {{ index + 1 }}</div>
                 <div class="example-body">
                   <div class="io-group">
                     <div class="io-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -596,7 +599,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                     <pre class="monospace-textarea io-pre bg-dark">{{ example.rawOutput }}</pre>
                   </div>
                   <div v-if="example.explanation" class="io-group explanation">
-                    <span class="io-label">Explanation:</span>
+                    <span class="io-label">{{ $t('problem_detail.explanation') }}:</span>
                     <div class="explanation-content" v-html="example.explanation"></div>
                   </div>
                 </div>
@@ -605,7 +608,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
 
             <!-- Constraints -->
             <div class="constraints-section">
-              <h3 class="section-title">Constraints</h3>
+              <h3 class="section-title">{{ $t('problem_detail.constraints') }}</h3>
               <div class="rich-content constraints-content" v-html="problem.constraints"></div>
             </div>
 
@@ -614,7 +617,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               <div class="collapsible-header" @click="isTopicsExpanded = !isTopicsExpanded">
                  <div class="collapsible-header-left">
                     <Tag :size="16" />
-                    <span>Topics</span>
+                    <span>{{ $t('problem_detail.topics') }}</span>
                  </div>
                  <component :is="isTopicsExpanded ? ChevronUp : ChevronDown" :size="16" />
               </div>
@@ -637,7 +640,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
               <div class="collapsible-header" @click="isHintExpanded = !isHintExpanded">
                  <div class="collapsible-header-left">
                     <Lightbulb :size="16" />
-                    <span>Hint 1</span>
+                    <span>{{ $t('problem_detail.hint') }} 1</span>
                  </div>
                  <component :is="isHintExpanded ? ChevronUp : ChevronDown" :size="16" />
               </div>
@@ -685,7 +688,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
           <div class="editor-header">
             <div class="code-lang-wrapper">
                <span class="code-icon">&lt;/&gt;</span>
-               <span class="code-label">Code</span>
+               <span class="code-label">{{ $t('problem_detail.code') }}</span>
             </div>
             <div class="lang-selector">
               <el-select 
@@ -703,12 +706,12 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                   :value="lang.value"
                 />
               </el-select>
-              <el-tooltip content="Reset to default code" placement="bottom" effect="dark" :hide-after="0">
+              <el-tooltip :content="$t('problem_detail.reset_code')" placement="bottom" effect="dark" :hide-after="0">
                 <button class="icon-btn" @click="handleResetCode">
                   <RotateCcw :size="14" />
                 </button>
               </el-tooltip>
-              <el-tooltip content="Retrieve last submitted code" placement="bottom" effect="dark" :hide-after="0">
+              <el-tooltip :content="$t('problem_detail.fetch_last_code')" placement="bottom" effect="dark" :hide-after="0">
                 <button class="icon-btn" @click="handleRetrieveLastCode">
                   <History :size="14" />
                 </button>
@@ -732,7 +735,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
           <div class="testcase-header">
             <div class="testcase-title-group">
                <span class="testcase-icon">☑</span>
-               <span class="testcase-title">Testcase</span>
+               <span class="testcase-title">{{ $t('problem_detail.testcase') }}</span>
             </div>
             <button class="icon-btn" @click="rightTopHeight = rightTopHeight > 90 ? 60 : 96">
                <component :is="rightTopHeight > 90 ? ChevronUp : ChevronDown" :size="14"/>
@@ -753,7 +756,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                         :class="{ active: activeTestcaseIndex === -1 }"
                         @click="activeTestcaseIndex = -1"
                       >
-                        Result <span v-if="executionLoading" style="margin-left: 4px" class="loader-inline"></span>
+                        {{ $t('problem_detail.result') }} <span v-if="executionLoading" style="margin-left: 4px" class="loader-inline"></span>
                       </button>
                     </div>
                     <div
@@ -784,11 +787,11 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                 <div class="testcase-result" v-if="activeTestcaseIndex === -1">
                     <div v-if="executionLoading" style="padding: 20px; color: #888; text-align: center;">
                         <div class="loader" style="margin: 0 auto 10px; width: 24px; height: 24px;"></div>
-                        Đang chờ kết quả từ máy chấm...
+                        {{ $t('problem_detail.processing') }}
                     </div>
                     <div v-else-if="executionResult" class="result-display">
                         <div v-if="executionResult.status === 'FAILED'" style="color: #ef4743; font-family: monospace; white-space: pre-wrap; background: rgba(239, 71, 67, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-                           <div style="font-weight: 600; margin-bottom: 8px;">Compile Error:</div>
+                           <div style="font-weight: 600; margin-bottom: 8px;">{{ $t('problem_detail.compile_error') }}:</div>
                            {{ executionResult.compileMessage }}
                         </div>
                         <template v-else>
@@ -801,14 +804,13 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                                </div>
                                <div v-if="res.errorMessage" style="color: #ef4743; font-family: monospace; white-space: pre-wrap; background: rgba(239, 71, 67, 0.1); padding: 8px; border-radius: 4px; margin-bottom: 8px;">{{ res.errorMessage }}</div>
                                
-                               <!-- Display IO -->
                                <div style="display: flex; flex-direction: column; gap: 8px;">
                                    <div v-if="res.input">
                                        <div style="color: #888; font-size: 12px;">Input:</div>
                                        <div class="input-display">{{ res.input }}</div>
                                    </div>
                                    <div>
-                                       <div style="color: #888; font-size: 12px;">Your Output:</div>
+                                       <div style="color: #888; font-size: 12px;">Output:</div>
                                        <div class="input-display">{{ res.output || 'No output' }}</div>
                                    </div>
                                    <div v-if="res.expectedOutput">

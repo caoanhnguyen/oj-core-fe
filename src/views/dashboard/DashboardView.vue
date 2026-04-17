@@ -1,33 +1,35 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, FileText, MessageSquare, Users, Trophy, ChevronLeft, ChevronRight, Tag, Activity } from 'lucide-vue-next'
+import { LayoutDashboard, BookOpen, MessageSquare, Users, Swords, ChevronLeft, ChevronRight, Tag, Send } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const isCollapsed = ref(false)
 
-const allMenuItems = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'users', label: 'Users', icon: Users },
-  { id: 'problems', label: 'Problems', icon: FileText },
-  { id: 'topics', label: 'Topics', icon: Tag },
-  { id: 'contests', label: 'Contests', icon: Trophy },
-  { id: 'submissions', label: 'Submissions', icon: Activity },
-]
+const allMenuItems = computed(() => [
+  { id: 'overview', label: t('dashboard.menu.overview'), icon: LayoutDashboard },
+  { id: 'users', label: t('dashboard.menu.users'), icon: Users },
+  { id: 'problems', label: t('dashboard.menu.problems'), icon: BookOpen },
+  { id: 'topics', label: t('dashboard.menu.topics'), icon: Tag },
+  { id: 'contests', label: t('dashboard.menu.contests'), icon: Swords },
+  { id: 'submissions', label: t('dashboard.menu.submissions'), icon: Send },
+])
 
 const menuItems = computed(() => {
   if (authStore.isAdmin) {
-    return allMenuItems
+    return allMenuItems.value
   }
   if (authStore.isModerator) {
     // Moderator: no contests, no users, no submissions, no discussions
-    return allMenuItems.filter(item => ['overview', 'problems', 'topics'].includes(item.id))
+    return allMenuItems.value.filter(item => ['overview', 'problems', 'topics'].includes(item.id))
   }
   if (authStore.isAssessor) {
     // Assessor: needs contests to manage their own, and overview
-    return allMenuItems.filter(item => ['overview', 'contests'].includes(item.id))
+    return allMenuItems.value.filter(item => ['overview', 'contests'].includes(item.id))
   }
   return [] // Fallback
 })
@@ -49,7 +51,7 @@ const isSidebarActive = (id) => {
     <aside class="dashboard-sidebar" :class="{ 'is-collapsed': isCollapsed }">
       <div class="sidebar-header">
         <LayoutDashboard :size="28" class="sidebar-logo" />
-        <h2 class="sidebar-title" v-show="!isCollapsed">Admin Panel</h2>
+        <h2 class="sidebar-title" v-show="!isCollapsed">{{ $t('dashboard.admin_panel') }}</h2>
       </div>
 
       <nav class="sidebar-nav">

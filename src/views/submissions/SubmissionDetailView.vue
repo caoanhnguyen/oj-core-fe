@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
@@ -29,6 +30,7 @@ const route = useRoute()
 const router = useRouter()
 const submissionStore = useSubmissionStore()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const loading = ref(true)
 const submission = ref(null)
@@ -106,9 +108,9 @@ const copyCode = async () => {
     if (!submission.value?.sourceCode) return
     try {
         await navigator.clipboard.writeText(submission.value.sourceCode)
-        ElMessage.success('Đã copy source code!')
+        ElMessage.success(t('submission_detail.msg_copy_success'))
     } catch (err) {
-        ElMessage.error('Lỗi khi copy code')
+        ElMessage.error(t('submission_detail.msg_copy_fail'))
     }
 }
 
@@ -131,7 +133,7 @@ onMounted(async () => {
             initMonaco()
         })
     } catch (error) {
-        handleApiError(error, 'Không thể tải dữ liệu chi tiết bài nộp')
+        handleApiError(error, t('submission_detail.msg_load_fail'))
         loading.value = false
     }
 })
@@ -151,7 +153,7 @@ onBeforeUnmount(() => {
         <div class="header-nav">
             <el-button link @click="router.back()" class="back-btn">
                 <ArrowLeft :size="18" />
-                <span class="back-text">Quay lại danh sách</span>
+                <span class="back-text">{{ $t('submission_detail.back_to_list') }}</span>
             </el-button>
         </div>
 
@@ -167,15 +169,15 @@ onBeforeUnmount(() => {
                     <component :is="getVerdictIcon(submission.verdict)" :size="28" />
                     <h2>{{ submission.verdict || 'PENDING' }}</h2>
                     <div v-if="submission.score != null" class="score-badge" :style="{ color: getStatusColor(submission.verdict), borderColor: getStatusColor(submission.verdict) + '40', background: getStatusColor(submission.verdict) + '15' }">
-                        Score: {{ submission.score }}
+                        {{ $t('submission_detail.score') }}: {{ submission.score }}
                     </div>
                 </div>
                 <div class="problem-link">
-                    Bài toán: <RouterLink :to="`/problems/${submission.problemSlug}`" class="link-text">{{ submission.problemTitle }}</RouterLink>
+                    {{ $t('submission_detail.label_problem') }}: <RouterLink :to="`/problems/${submission.problemSlug}`" class="link-text">{{ submission.problemTitle }}</RouterLink>
                 </div>
 
                 <div class="problem-link">
-                    Người nộp: <RouterLink :to="`/profile/${submission.username}`" class="link-text">{{ submission.username }}</RouterLink>
+                    {{ $t('submission_detail.label_author') }}: <RouterLink :to="`/profile/${submission.username}`" class="link-text">{{ submission.username }}</RouterLink>
                 </div>
             </div>
 
@@ -184,28 +186,28 @@ onBeforeUnmount(() => {
                 <div class="stat-card">
                     <div class="stat-icon"><Clock :size="20" /></div>
                     <div class="stat-info">
-                        <span class="stat-label">Thời gian chạy (Runtime)</span>
+                        <span class="stat-label">{{ $t('submission_detail.stat_runtime') }}</span>
                         <span class="stat-value metric-runtime">{{ submission.executionTimeMs != null ? submission.executionTimeMs + ' ms' : 'N/A' }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><Cpu :size="20" /></div>
                     <div class="stat-info">
-                        <span class="stat-label">Bộ nhớ sử dụng (Memory)</span>
+                        <span class="stat-label">{{ $t('submission_detail.stat_memory') }}</span>
                         <span class="stat-value metric-memory">{{ submission.executionMemoryMb != null ? submission.executionMemoryMb + ' MB' : 'N/A' }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><Code2 :size="20" /></div>
                     <div class="stat-info">
-                        <span class="stat-label">Ngôn ngữ (Language)</span>
+                        <span class="stat-label">{{ $t('submission_detail.stat_language') }}</span>
                         <span class="stat-value">{{ submission.language }}</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><Calendar :size="20" /></div>
                     <div class="stat-info">
-                        <span class="stat-label">Đã nộp lúc</span>
+                        <span class="stat-label">{{ $t('submission_detail.stat_time') }}</span>
                         <span class="stat-value">{{ formatDate(submission.createdDate) }}</span>
                     </div>
                 </div>
@@ -213,13 +215,13 @@ onBeforeUnmount(() => {
 
             <!-- Testcases & Error Info -->
             <div v-if="submission.errorMessage" class="error-panel">
-                <h3><AlertCircle :size="18" /> Thông báo lỗi</h3>
+                <h3><AlertCircle :size="18" /> {{ $t('submission_detail.error_title') }}</h3>
                 <pre class="error-text custom-scrollbar">{{ submission.errorMessage }}</pre>
             </div>
             
             <div v-else-if="submission.totalTestCount > 0" class="testcase-progress-wrapper" :style="{ borderColor: getStatusColor(submission.verdict) + '40' }">
                 <div class="testcase-stats">
-                    Testcases đã vượt qua: <strong>{{ submission.passedTestCount }}</strong> / {{ submission.totalTestCount }}
+                    {{ $t('submission_detail.testcase_passed') }} <strong>{{ submission.passedTestCount }}</strong> / {{ submission.totalTestCount }}
                 </div>
                 <el-progress 
                    :percentage="submission.totalTestCount ? Math.round((submission.passedTestCount / submission.totalTestCount) * 100) : 0" 
@@ -232,9 +234,9 @@ onBeforeUnmount(() => {
             <!-- Source Code Viewer -->
             <div class="code-section">
                 <div class="code-header">
-                    <span>Source Code</span>
+                    <span>{{ $t('submission_detail.code_title') }}</span>
                     <el-button link @click="copyCode" class="copy-btn">
-                        <Copy :size="14" style="margin-right: 6px;" /> Copy
+                        <Copy :size="14" style="margin-right: 6px;" /> {{ $t('submission_detail.copy_btn') }}
                     </el-button>
                 </div>
                 <div class="editor-container" ref="editorContainer"></div>
@@ -243,7 +245,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else class="empty-state">
-            Mã bài nộp không tồn tại hoặc bạn không có quyền xem.
+            {{ $t('submission_detail.empty_state') }}
         </div>
     </div>
   </div>

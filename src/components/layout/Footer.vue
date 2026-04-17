@@ -11,7 +11,7 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
           <span class="logo-text">DevAssess</span>
         </div>
         <p class="footer-desc">
-          Nền tảng kiểm tra đánh giá năng lực lập trình chuyên nghiệp dành cho doanh nghiệp.
+          {{ $t('footer.desc') }}
         </p>
         <div class="social-links">
           <a href="https://github.com/caoanhnguyen" class="social-link"><Github :size="20" /></a>
@@ -22,25 +22,25 @@ import { Code2, Github, Facebook, Mail } from 'lucide-vue-next'
       
       <div class="footer-links">
         <div class="link-group">
-          <h4 class="group-title">Nền tảng</h4>
-          <RouterLink to="/problems" class="footer-link">Bài tập</RouterLink>
-          <RouterLink to="/submissions" class="footer-link">Bài nộp</RouterLink>
-          <a href="#" class="footer-link">Kỳ thi</a>
-          <a href="#" class="footer-link">Bảng xếp hạng</a>
+          <h4 class="group-title">{{ $t('footer.platform') }}</h4>
+          <RouterLink to="/problems" class="footer-link">{{ $t('footer.problems') }}</RouterLink>
+          <RouterLink to="/submissions" class="footer-link">{{ $t('footer.submissions') }}</RouterLink>
+          <a href="#" class="footer-link">{{ $t('footer.contest') }}</a>
+          <a href="#" class="footer-link">{{ $t('footer.rank') }}</a>
         </div>
         
         <div class="link-group">
-          <h4 class="group-title">Hỗ trợ</h4>
-          <a href="#" class="footer-link">Hướng dẫn</a>
-          <a href="#" class="footer-link">Điều khoản</a>
-          <a href="#" class="footer-link">Bảo mật</a>
-          <a href="#" class="footer-link">Liên hệ</a>
+          <h4 class="group-title">{{ $t('footer.support') }}</h4>
+          <a href="#" class="footer-link">{{ $t('footer.guide') }}</a>
+          <a href="#" class="footer-link">{{ $t('footer.terms') }}</a>
+          <a href="#" class="footer-link">{{ $t('footer.privacy') }}</a>
+          <a href="#" class="footer-link">{{ $t('footer.contact') }}</a>
         </div>
       </div>
     </div>
     
     <div class="footer-bottom container">
-      <p>&copy; 2026 DevAssess. Developed with ❤️ by 
+      <p>&copy; 2026 DevAssess. {{ $t('footer.developed_by') }}
         <a class="footer-link" href="https://github.com/caoanhnguyen">caoanh_ng.</a>
       </p>
     </div>

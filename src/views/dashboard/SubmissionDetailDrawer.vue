@@ -3,8 +3,11 @@ import { ref, watch, computed } from 'vue'
 import { submissionAPI } from '@/api/submissions'
 import AppButton from '@/components/common/AppButton.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
+import { useI18n } from 'vue-i18n'
 import { Eye, RefreshCw, Ban, Trash2, RotateCcw, X, Clock, Cpu, User, FileCode, CheckCircle, XCircle } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -30,7 +33,7 @@ const fetchDetails = async () => {
     const res = await submissionAPI.getAdminSubmissionResult(props.submissionId)
     details.value = res
   } catch (error) {
-    ElMessage.error('Không thể tải chi tiết submission.')
+    ElMessage.error(t('admin_submissions.msg_load_detail_fail'))
   } finally {
     loading.value = false
   }
@@ -73,7 +76,7 @@ const handleCommand = (cmd) => {
       <!-- HEADER -->
       <div class="drawer-header">
         <div class="drawer-title">
-          Chi tiết Submission 
+          {{ $t('admin_submissions.drawer_title') }} 
           <span class="sub-id">#{{ submissionId?.substring(0,8) }}</span>
         </div>
         <button class="close-btn" @click="drawerVisible = false">
@@ -88,47 +91,47 @@ const handleCommand = (cmd) => {
           <!-- QUICK STATS CARDS -->
           <div class="stats-grid">
             <div class="stat-card">
-              <div class="stat-label">Trạng thái</div>
+              <div class="stat-label">{{ $t('admin_submissions.stat_status') }}</div>
               <div class="stat-value verdict-badge" :style="{ backgroundColor: verdictColor(details.verdict) + '22', color: verdictColor(details.verdict) }">
                  {{ details.verdict }}
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Điểm số</div>
+              <div class="stat-label">{{ $t('admin_submissions.stat_score') }}</div>
               <div class="stat-value score">{{ details.score ?? 0 }}</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label"><Clock :size="14" /> Thời gian</div>
+              <div class="stat-label"><Clock :size="14" /> {{ $t('admin_submissions.stat_time') }}</div>
               <div class="stat-value resource">{{ details.executionTimeMs ?? 0 }} ms</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label"><Cpu :size="14" /> Bộ nhớ</div>
+              <div class="stat-label"><Cpu :size="14" /> {{ $t('admin_submissions.stat_memory') }}</div>
               <div class="stat-value resource">{{ details.executionMemoryMb ?? 0 }} MB</div>
             </div>
           </div>
 
           <!-- INFO TABLE -->
           <div class="info-section">
-            <h3 class="section-title">Thông tin chung</h3>
+            <h3 class="section-title">{{ $t('admin_submissions.info_title') }}</h3>
             <div class="info-table">
               <div class="info-row">
-                 <span class="info-key"><User :size="14"/> Người gửi:</span>
+                 <span class="info-key"><User :size="14"/> {{ $t('admin_submissions.info_sender') }}</span>
                  <span class="info-val hl">{{ rowData?.username || '—' }}</span>
               </div>
               <div class="info-row">
-                 <span class="info-key"><FileCode :size="14"/> Bài tập:</span>
+                 <span class="info-key"><FileCode :size="14"/> {{ $t('admin_submissions.info_problem') }}</span>
                  <span class="info-val">{{ rowData?.problemTitle || rowData?.problemId || '—' }}</span>
               </div>
               <div class="info-row">
-                 <span class="info-key">Ngôn ngữ:</span>
+                 <span class="info-key">{{ $t('admin_submissions.info_language') }}</span>
                  <span class="info-val">{{ details.language }}</span>
               </div>
               <div class="info-row">
-                 <span class="info-key">Ngày nộp:</span>
+                 <span class="info-key">{{ $t('admin_submissions.info_date') }}</span>
                  <span class="info-val">{{ formatDate(details.createdDate) }}</span>
               </div>
               <div class="info-row">
-                 <span class="info-key">Trạng thái bản ghi (Admin):</span>
+                 <span class="info-key">{{ $t('admin_submissions.info_admin_status') }}</span>
                  <span class="info-val state" :class="rowData?.status?.toLowerCase()">{{ rowData?.status }}</span>
               </div>
             </div>
@@ -136,14 +139,14 @@ const handleCommand = (cmd) => {
 
           <!-- COMPILER OUTPUT -->
           <div class="info-section" v-if="details.verdict === 'CE' || details.compilerMessage">
-            <h3 class="section-title">Lỗi biên dịch / System Message</h3>
-            <div class="code-block error-block">{{ details.compilerMessage || 'Không có tin nhắn.' }}</div>
+            <h3 class="section-title">{{ $t('admin_submissions.ce_title') }}</h3>
+            <div class="code-block error-block">{{ details.compilerMessage || $t('admin_submissions.ce_no_msg') }}</div>
           </div>
 
           <!-- SOURCE CODE -->
           <div class="info-section" style="flex: 1; display: flex; flex-direction: column;">
             <h3 class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-              Source Code
+              {{ $t('admin_submissions.code_title') }}
               <AppButton variant="secondary" size="small" @click="() => { navigator.clipboard.writeText(details.sourceCode); ElMessage.success('Copied!') }">Copy</AppButton>
             </h3>
             <CodeEditor
@@ -163,19 +166,19 @@ const handleCommand = (cmd) => {
 
           <!-- TEST CASES (Optional) -->
           <div class="info-section" v-if="details.testcaseResults && details.testcaseResults.length > 0">
-             <h3 class="section-title">Kết quả Test Cases</h3>
+             <h3 class="section-title">{{ $t('admin_submissions.tc_title') }}</h3>
              <div class="tc-list">
                 <div class="tc-item" v-for="(tc, idx) in details.testcaseResults" :key="idx">
                    <div class="tc-header">
                       <span class="tc-name">
                         <CheckCircle v-if="tc.verdict === 'AC'" :size="14" color="#2cbb5d" />
                         <XCircle v-else :size="14" :color="verdictColor(tc.verdict)" />
-                        Test #{{ idx + 1 }}
+                        {{ $t('admin_submissions.tc_test') }} #{{ idx + 1 }}
                       </span>
                       <span class="tc-verdict" :style="{ color: verdictColor(tc.verdict) }">{{ tc.verdict }}</span>
                    </div>
                    <div class="tc-metrics" v-if="tc.verdict !== 'CE'">
-                      <span>Điểm: {{ tc.score }}</span> • 
+                      <span>{{ $t('admin_submissions.tc_score') }} {{ tc.score }}</span> • 
                       <span>{{ tc.timeMetric }} ms</span> • 
                       <span>{{ tc.memoryMetric }} KB</span>
                    </div>
@@ -188,10 +191,10 @@ const handleCommand = (cmd) => {
 
       <!-- FOOTER ACTIONS -->
       <div class="drawer-footer">
-        <AppButton variant="primary" :icon="RefreshCw" @click="handleCommand('rejudge')" :disabled="rowData?.verdict === 'PENDING'">Rejudge</AppButton>
-        <AppButton variant="secondary" :icon="Ban" @click="handleCommand('void')" v-if="rowData?.status === 'ACTIVE'">Void</AppButton>
-        <AppButton variant="warning" :icon="RotateCcw" @click="handleCommand('restore')" v-if="rowData?.status === 'INACTIVE' || rowData?.status === 'DELETED'">Khôi phục</AppButton>
-        <AppButton variant="danger" :icon="Trash2" @click="handleCommand('delete')" v-if="rowData?.status === 'ACTIVE' || rowData?.status === 'INACTIVE'">Xóa mềm</AppButton>
+        <AppButton variant="primary" :icon="RefreshCw" @click="handleCommand('rejudge')" :disabled="rowData?.verdict === 'PENDING'">{{ $t('admin_submissions.btn_rejudge') }}</AppButton>
+        <AppButton variant="secondary" :icon="Ban" @click="handleCommand('void')" v-if="rowData?.status === 'ACTIVE'">{{ $t('admin_submissions.btn_void') }}</AppButton>
+        <AppButton variant="warning" :icon="RotateCcw" @click="handleCommand('restore')" v-if="rowData?.status === 'INACTIVE' || rowData?.status === 'DELETED'">{{ $t('admin_submissions.btn_restore') }}</AppButton>
+        <AppButton variant="danger" :icon="Trash2" @click="handleCommand('delete')" v-if="rowData?.status === 'ACTIVE' || rowData?.status === 'INACTIVE'">{{ $t('admin_submissions.btn_soft_del') }}</AppButton>
       </div>
     </div>
   </el-drawer>

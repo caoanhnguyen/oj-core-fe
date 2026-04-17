@@ -12,8 +12,9 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import { useI18n } from 'vue-i18n'
 
-const router = useRouter()
+const { t } = useI18n()
 const topicStore = useTopicStore()
 const { estatusClass } = useBadge()
 
@@ -86,7 +87,7 @@ const openEditDialog = async (row) => {
     }
     dialogVisible.value = true
   } catch (error) {
-    handleApiError(error, 'Không thể tải thông tin chi tiết chủ đề')
+    handleApiError(error, t('admin_topics.msg_load_fail'))
   }
 }
 
@@ -116,11 +117,11 @@ const submitForm = async (data) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn xóa chủ đề "${row.name}"?`,
-      'Xác nhận xóa',
+      t('admin_topics.confirm_del_msg', { name: row.name }),
+      t('admin_topics.confirm_del_title'),
       {
-        confirmButtonText: 'Xóa',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: t('common.delete') || 'Xóa',
+        cancelButtonText: t('common.cancel') || 'Hủy',
         type: 'warning',
         customClass: 'dark-message-box',
         confirmButtonClass: 'el-button--danger'
@@ -132,7 +133,7 @@ const handleDelete = async (row) => {
     loadTopics()
   } catch (error) {
     if (error !== 'cancel') {
-        handleApiError(error, 'Xóa chủ đề thất bại')
+        handleApiError(error, t('admin_topics.msg_del_fail'))
     }
   }
 }
@@ -140,11 +141,11 @@ const handleDelete = async (row) => {
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn khôi phục chủ đề "${row.name}"?`,
-      'Xác nhận khôi phục',
+      t('admin_topics.confirm_restore_msg', { name: row.name }),
+      t('admin_topics.confirm_restore_title'),
       {
-        confirmButtonText: 'Khôi phục',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: t('admin_problems.action_restore') || 'Khôi phục',
+        cancelButtonText: t('common.cancel') || 'Hủy',
         customClass: 'dark-message-box',
         type: 'info'
       }
@@ -155,7 +156,7 @@ const handleRestore = async (row) => {
     loadTopics()
   } catch (error) {
     if (error !== 'cancel') {
-        handleApiError(error, 'Khôi phục chủ đề thất bại')
+        handleApiError(error, t('admin_topics.msg_restore_fail'))
     }
   }
 }
@@ -174,20 +175,20 @@ onMounted(() => {
 <template>
   <div class="admin-layout-container">
     <PageHeader 
-      title="Quản lý chủ đề" 
-      subtitle="Tạo và quản lý các danh mục bài tập"
+      :title="$t('admin_topics.page_title')" 
+      :subtitle="$t('admin_topics.page_subtitle')"
     >
       <AppButton variant="primary" :icon="Plus" @click="openCreateDialog">
-        Thêm chủ đề
+        {{ $t('admin_topics.btn_add_topic') }}
       </AppButton>
     </PageHeader>
 
     <TableControls
       v-model="searchQuery"
       @update:modelValue="handleSearch"
-      search-placeholder="Tìm kiếm chủ đề theo tên..." 
+      :search-placeholder="$t('admin_topics.search_placeholder')" 
       :total-elements="pagination.totalElements"
-      item-name="Chủ đề"
+      :item-name="$t('admin_topics.item_name')"
       :sort-options="[]" 
     />
 
@@ -195,15 +196,16 @@ onMounted(() => {
       :data="topics" 
       :columns="[
         { key: 'index', label: '#', width: 60, align: 'center' },
-        { key: 'name', label: 'Tên', minWidth: 100 },
-        { key: 'slug', label: 'Đường dẫn', minWidth: 100 },
-        { key: 'createdBy', label: 'Người tạo', width: 200, align: 'center' },
-        { key: 'updatedDate', label: 'Ngày cập nhật', width: 200, align: 'center' },
-        { key: 'status', label: 'Trạng thái', width: 100, align: 'center' },
-        { key: 'actions', label: 'Hành động', width: 120, align: 'center', fixed: 'right' }
+        { key: 'name', label: $t('admin_topics.col_name'), minWidth: 100 },
+        { key: 'slug', label: $t('admin_topics.col_slug'), minWidth: 100 },
+        { key: 'createdBy', label: $t('admin_topics.col_created_by'), width: 200, align: 'center' },
+        { key: 'updatedDate', label: $t('admin_topics.col_updated_date'), width: 200, align: 'center' },
+        { key: 'status', label: $t('admin_topics.col_status'), width: 100, align: 'center' }
       ]"
+      :action-width="120"
+      :action-label="$t('admin_topics.col_actions')"
       :loading="loading" 
-      empty-text="Không tìm thấy chủ đề nào"
+      :empty-text="$t('admin_topics.empty_text')"
       @row-click="handleRowClick"
     >
       <template #cell-index="{ index }">
@@ -232,15 +234,15 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <div class="action-buttons">
-          <el-tooltip v-if="row.status === 'ACTIVE'" content="Sửa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip v-if="row.status === 'ACTIVE'" :content="$t('admin_topics.tooltip_edit')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Edit" @click.stop="openEditDialog(row)" class="action-btn" />
           </el-tooltip>
           
-          <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip v-if="row.status === 'ACTIVE'" :content="$t('admin_topics.tooltip_delete')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Trash2" @click.stop="handleDelete(row)" class="action-btn action-danger" />
           </el-tooltip>
           
-          <el-tooltip v-else content="Khôi phục chủ đề" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip v-else :content="$t('admin_topics.tooltip_restore')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="RotateCcw" @click.stop="handleRestore(row)" class="action-btn action-success" />
           </el-tooltip>
         </div>

@@ -1,6 +1,7 @@
 <script setup>
 import { defineProps, ref, onMounted } from 'vue'
 import { Plus, X, Upload, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import AppButton from '@/components/common/AppButton.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { ElMessage } from 'element-plus'
@@ -12,6 +13,8 @@ const props = defineProps({
         required: true
     }
 })
+
+const { t } = useI18n()
 
 // Options
 const languageOptions = ref([])
@@ -48,7 +51,7 @@ const addTemplate = () => {
   const availableLang = languageOptions.value.find(opt => !usedLangs.includes(opt.value))
   
   if (!availableLang) {
-    ElMessage.warning('All supported languages have been added or options not loaded yet')
+    ElMessage.warning(t('admin_problems.msg_all_lang_added'))
     return
   }
 
@@ -83,12 +86,12 @@ const handleFileUpload = (event, templateIndex) => {
 <template>
     <div class="tab-content-wrapper full-width">
        <div class="examples-header-row mb-6">
-          <h3 class="section-title">Language & Template</h3>
-          <AppButton variant="primary" :icon="Plus" @click="addTemplate">Add Template</AppButton>
+          <h3 class="section-title">{{ $t('admin_problems.title_templates') }}</h3>
+          <AppButton variant="primary" :icon="Plus" @click="addTemplate">{{ $t('admin_problems.btn_add_template') }}</AppButton>
        </div>
 
        <div v-if="templates.length === 0" class="empty-state">
-          <span>Add code templates for supported languages.</span>
+          <span>{{ $t('admin_problems.empty_templates') }}</span>
        </div>
 
        <div v-for="(template, index) in templates" :key="index" class="template-card full-card">
@@ -121,11 +124,11 @@ const handleFileUpload = (event, templateIndex) => {
                    >
                    <label :for="`file-upload-${index}`" class="upload-label">
                       <Upload :size="16" />
-                      <span>Upload Code File</span>
+                      <span>{{ $t('admin_problems.btn_upload_code') }}</span>
                    </label>
                 </div>
              </div>
-             <AppButton variant="text" size="small" :icon="X" @click.stop="removeTemplate(index)" style="color: var(--error)">Remove</AppButton>
+             <AppButton variant="text" size="small" :icon="X" @click.stop="removeTemplate(index)" style="color: var(--error)">{{ $t('admin_problems.btn_remove') }}</AppButton>
           </div>
           
           <div v-show="template.expanded" class="template-body">

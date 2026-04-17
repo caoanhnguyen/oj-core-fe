@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
@@ -18,6 +19,7 @@ import DarkPagination from '@/components/common/DarkPagination.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const loading = ref(false)
 const userProfile = ref(null)
@@ -112,7 +114,7 @@ const loadProfile = async () => {
       fetchSolvedProblems(userProfile.value.id)
     }
   } catch (error) {
-    handleApiError(error, 'Không thể tải thông tin người dùng')
+    handleApiError(error, t('profile.msg_load_fail'))
     if (!idOrUsername.value) router.push('/login')
   } finally {
     loading.value = false
@@ -199,8 +201,11 @@ const getHeatColorClass = (count) => {
 }
 
 const getHeatTitle = (day) => {
-  if (day.isFuture) return "Trong tương lai"
-  return `${day.count} contributions on ${day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  if (day.isFuture) return t('profile.future_date')
+  return t('profile.contribution_tooltip', { 
+    count: day.count, 
+    date: day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+  })
 }
 
 // Logic to position month labels correctly above the first week of that month
@@ -256,7 +261,7 @@ onMounted(loadProfile)
                   {{ role }}
                 </el-tag>
                 <el-tag v-if="userProfile.emailVerified" type="success" size="small" class="verified-badge">
-                  <CheckCircle :size="12" /> Đã xác thực
+                  <CheckCircle :size="12" /> {{ $t('profile.verified') }}
                 </el-tag>
               </div>
               <div class="bio" v-if="userProfile.bio" v-html="userProfile.bio"></div>
@@ -269,28 +274,28 @@ onMounted(loadProfile)
               <Trophy class="stat-icon solved" :size="20" />
               <div class="stat-info">
                 <span class="stat-value">{{ userProfile.solvedCount || 0 }}</span>
-                <span class="stat-label">Solved</span>
+                <span class="stat-label">{{ $t('profile.stat_solved') }}</span>
               </div>
             </div>
             <div class="stat-item">
               <Award class="stat-icon ac" :size="20" />
               <div class="stat-info">
                 <span class="stat-value">{{ userProfile.submissionCount > 0 ? ((userProfile.acCount / userProfile.submissionCount) * 100).toFixed(2) : '0.00' }}%</span>
-                <span class="stat-label">AC Rate</span>
+                <span class="stat-label">{{ $t('profile.stat_ac_rate') }}</span>
               </div>
             </div>
             <div class="stat-item">
               <Send class="stat-icon submission" :size="20" />
               <div class="stat-info">
                 <span class="stat-value">{{ userProfile.submissionCount || 0 }}</span>
-                <span class="stat-label">Submissions</span>
+                <span class="stat-label">{{ $t('profile.stat_submissions') }}</span>
               </div>
             </div>
             <div class="stat-item">
               <div class="stat-icon score-icon">Σ</div>
               <div class="stat-info">
                 <span class="stat-value">{{ userProfile.totalScore || 0 }}</span>
-                <span class="stat-label">Points</span>
+                <span class="stat-label">{{ $t('profile.stat_points') }}</span>
               </div>
             </div>
           </div>
@@ -300,13 +305,13 @@ onMounted(loadProfile)
           <!-- Left Column: Info -->
           <div class="info-column">
             <div class="info-card">
-              <h3 class="card-title">Thông tin chi tiết</h3>
+              <h3 class="card-title">{{ $t('profile.info_details') }}</h3>
               <div class="info-list">
                 <div class="info-entry" v-if="userProfile.gender">
                   <User :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Giới tính</label>
-                    <span>{{ userProfile.gender === 'MALE' ? 'Nam' : userProfile.gender === 'FEMALE' ? 'Nữ' : 'Khác' }}</span>
+                    <label>{{ $t('profile.label_gender') }}</label>
+                    <span>{{ userProfile.gender === 'MALE' ? $t('profile.gender_male') : userProfile.gender === 'FEMALE' ? $t('profile.gender_female') : $t('profile.gender_other') }}</span>
                   </div>
                 </div>
                 <div class="info-entry" v-if="userProfile.email">
@@ -319,35 +324,35 @@ onMounted(loadProfile)
                 <div class="info-entry" v-if="userProfile.phoneNumber">
                   <Phone :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Số điện thoại</label>
+                    <label>{{ $t('profile.label_phone') }}</label>
                     <span>{{ userProfile.phoneNumber }}</span>
                   </div>
                 </div>
                 <div class="info-entry" v-if="userProfile.school">
                   <School :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Trường học</label>
+                    <label>{{ $t('profile.label_school') }}</label>
                     <span>{{ userProfile.school }}</span>
                   </div>
                 </div>
                 <div class="info-entry" v-if="userProfile.major">
                   <BookOpen :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Chuyên ngành</label>
+                    <label>{{ $t('profile.label_major') }}</label>
                     <span>{{ userProfile.major }}</span>
                   </div>
                 </div>
                 <div class="info-entry" v-if="userProfile.address || userProfile.city || userProfile.country">
                   <MapPin :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Vị trí</label>
+                    <label>{{ $t('profile.label_address') }}</label>
                     <span>{{ [userProfile.address, userProfile.city, userProfile.country].filter(Boolean).join(', ') }}</span>
                   </div>
                 </div>
                 <div class="info-entry">
                   <Calendar :size="16" class="entry-icon" />
                   <div class="entry-content">
-                    <label>Ngày tham gia</label>
+                    <label>{{ $t('profile.join_date') }}</label>
                     <span>{{ formatDate(userProfile.createdDate) }}</span>
                   </div>
                 </div>
@@ -355,7 +360,7 @@ onMounted(loadProfile)
             </div>
 
             <div class="info-card social-card" v-if="userProfile.githubUrl || userProfile.linkedInUrl || userProfile.website">
-              <h3 class="card-title">Liên kết mạng xã hội</h3>
+              <h3 class="card-title">{{ $t('profile.social_links') }}</h3>
               <div class="social-grid">
                 <a v-if="userProfile.githubUrl" :href="userProfile.githubUrl" target="_blank" class="social-btn github">
                   <Github :size="18" /> GitHub
@@ -376,8 +381,8 @@ onMounted(loadProfile)
             <div class="info-card heatmap-card">
               <div class="card-header-with-action">
                 <div class="card-title-group">
-                  <h3 class="card-title">Lịch sử đóng góp</h3>
-                  <span class="total-year-submissions" v-if="!activitiesLoading">{{ totalSubmissionsInYear }} lần nộp bài trong năm vừa qua</span>
+                  <h3 class="card-title">{{ $t('profile.activity_history') }}</h3>
+                  <span class="total-year-submissions" v-if="!activitiesLoading">{{ $t('profile.submissions_year', { count: totalSubmissionsInYear }) }}</span>
                 </div>
                 <div class="heatmap-legend">
                   <span>Less</span>
@@ -428,19 +433,19 @@ onMounted(loadProfile)
 
             <!-- Solved Problems Section -->
             <div class="info-card solved-list-card">
-              <h3 class="card-title">Bài tập đã giải ({{ solvedTotal || userProfile.solvedCount || 0 }})</h3>
+              <h3 class="card-title">{{ $t('profile.solved_problems', { count: solvedTotal || userProfile.solvedCount || 0 }) }}</h3>
               
               <div v-if="solvedProblems.length > 0" class="solved-table-container">
                 <DataTable 
                   :data="solvedProblems" 
                   :columns="[
-                    { key: 'status', label: 'Trạng thái', width: 100, align: 'center', resizable: false },
-                    { key: 'title', label: 'Bài tập', minWidth: 200, resizable: false },
-                    { key: 'difficulty', label: 'Độ khó', width: 120, align: 'center', resizable: false },
-                    { key: 'date', label: 'Ngày giải', width: 160, align: 'center', resizable: false }
+                    { key: 'status', label: $t('profile.status'), width: 100, align: 'center', resizable: false },
+                    { key: 'title', label: $t('profile.problem'), minWidth: 200, resizable: false },
+                    { key: 'difficulty', label: $t('profile.difficulty'), width: 120, align: 'center', resizable: false },
+                    { key: 'date', label: $t('profile.solve_date'), width: 160, align: 'center', resizable: false }
                   ]"
                   :loading="solvedLoading"
-                  empty-text="Chưa có bài tập nào được giải."
+                  :empty-text="$t('profile.empty_solved')"
                 >
                   <template #cell-status>
                       <CheckCircle :size="18" class="ac-check" />
@@ -473,7 +478,7 @@ onMounted(loadProfile)
               </div>
 
               <div v-else-if="!solvedLoading" class="empty-solved">
-                 <p>Chưa có bài tập nào được giải.</p>
+                 <p>{{ $t('profile.empty_solved') }}</p>
               </div>
               <div v-else-if="solvedLoading" class="solved-skeleton"></div>
             </div>

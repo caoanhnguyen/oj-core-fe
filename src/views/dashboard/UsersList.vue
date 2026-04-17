@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, reactive, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import usersApi from '@/api/users'
 import { useBadge } from '@/composables/useBadge'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -18,6 +19,7 @@ import {
 import { handleApiError } from '@/utils/errorHandler'
 
 const router = useRouter()
+const { t } = useI18n()
 const { estatusClass, accountStatusClass, roleClass } = useBadge()
 const loading = ref(false)
 const users = ref([])
@@ -59,28 +61,30 @@ const filter = reactive({
   size: 20
 })
 
-const filterConfig = [
+const filterConfig = computed(() => [
   {
     key: 'isLocked',
     type: 'select',
-    label: 'Trạng thái',
+    label: t('admin_users.col_status'),
+    icon: Lock,
     options: [
-      { label: 'Hoạt động', value: 'ACTIVE' },
-      { label: 'Bị khóa', value: 'LOCKED' }
+      { label: t('admin_users.status_active'), value: 'ACTIVE' },
+      { label: t('admin_users.status_locked'), value: 'LOCKED' }
     ]
   },
   {
     key: 'role',
     type: 'select',
-    label: 'Vai trò',
+    label: t('admin_users.col_roles'),
+    icon: Shield,
     options: [
-      { label: 'ADMIN', value: 'ROLE_ADMIN' },
-      { label: 'MODERATOR', value: 'ROLE_MODERATOR' },
-      { label: 'ASSESSOR', value: 'ROLE_ASSESSOR' },
-      { label: 'USER', value: 'ROLE_USER' }
+      { label: t('admin_users.role_admin'), value: 'ROLE_ADMIN' },
+      { label: t('admin_users.role_moderator'), value: 'ROLE_MODERATOR' },
+      { label: t('admin_users.role_assessor'), value: 'ROLE_ASSESSOR' },
+      { label: t('admin_users.role_user'), value: 'ROLE_USER' }
     ]
   }
-]
+])
 
 const handleFilterChange = ({ key, value }) => {
   filter[key] = value
@@ -119,7 +123,7 @@ const fetchUsers = async () => {
     users.value = response.data.data.content
     totalElements.value = response.data.data.totalElements
   } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách người dùng')
+    handleApiError(error, t('admin_users.fetch_error'))
   } finally {
     loading.value = false
   }
@@ -165,14 +169,14 @@ const formatDate = (dateStr) => {
 
 const handleToggleLock = async (user) => {
   const isLocked = user.accountNonLocked === false;
-  const actionName = isLocked ? 'mở khóa' : 'khóa';
+  const actionName = isLocked ? t('admin_users.action_unlock') : t('admin_users.action_lock');
   const newLockStatus = isLocked ? true : false;
   
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn ${actionName} người dùng ${user.username}?`,
-      'Xác nhận',
-      { type: 'warning', confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' }
+      t('admin_users.confirm_lock_msg', { action: actionName, username: user.username }),
+      t('admin_users.confirm_lock_title'),
+      { type: 'warning', confirmButtonText: t('contest_detail.btn_confirm'), cancelButtonText: t('admin_role.btn_cancel') }
     )
     
     await usersApi.adminBulkToggleLock({
@@ -180,25 +184,25 @@ const handleToggleLock = async (user) => {
       accountNonLocked: newLockStatus
     })
     
-    ElMessage.success(`${user.username} đã được ${actionName} thành công!`)
+    ElMessage.success(t('admin_users.lock_success', { action: actionName, username: user.username }))
     fetchUsers()
   } catch (error) { 
     if (error !== 'cancel') {
-        handleApiError(error, `Thực hiện ${actionName} thất bại`)
+        handleApiError(error, `Toggle failed`)
     }
   }
 }
 
 const handleBulkLock = async (isToLock) => {
   if (selectedUsers.value.length === 0) return
-  const actionName = isToLock ? 'khóa' : 'mở khóa'
+  const actionName = isToLock ? t('admin_users.action_lock') : t('admin_users.action_unlock')
   const newLockStatus = isToLock ? false : true;
   
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn ${actionName} ${selectedUsers.value.length} người dùng đã chọn?`,
-      'Xác nhận hàng loạt',
-      { type: 'warning', confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' }
+      t('admin_users.confirm_bulk_msg', { action: actionName, count: selectedUsers.value.length }),
+      t('admin_users.confirm_bulk_title'),
+      { type: 'warning', confirmButtonText: t('contest_detail.btn_confirm'), cancelButtonText: t('admin_role.btn_cancel') }
     )
     
     await usersApi.adminBulkToggleLock({
@@ -206,11 +210,11 @@ const handleBulkLock = async (isToLock) => {
       accountNonLocked: newLockStatus
     })
     
-    ElMessage.success(`Đã ${actionName} ${selectedUsers.value.length} người dùng!`)
+    ElMessage.success(t('admin_users.bulk_success', { action: actionName, count: selectedUsers.value.length }))
     fetchUsers()
   } catch (error) { 
     if (error !== 'cancel') {
-        handleApiError(error, `Thực hiện ${actionName} hàng loạt thất bại`)
+        handleApiError(error, `Bulk format failed`)
     }
   }
 }
@@ -231,44 +235,44 @@ const resetFilter = () => {
 
 onMounted(fetchUsers)
 
-const tableColumns = [
+const tableColumns = computed(() => [
   { type: 'selection', width: '55', align: 'center', fixed: 'left' },
   { key: '_index', label: '#', width: '60', align: 'center' },
   { key: 'id', label: 'ID', minWidth: '300', align: 'center' },
-  { key: 'username', label: 'Người dùng', minWidth: '220', align: 'center' },
-  { key: 'fullName', label: 'Họ tên', minWidth: '220', align: 'center' },
-  { key: 'email', label: 'Email', minWidth: '320', align: 'center' },
-  { key: 'roles', label: 'Vai trò', minWidth: '200', align: 'center' },
-  { key: 'status', label: 'Trạng thái', width: '140', align: 'center' },
-  { key: 'createdDate', label: 'Ngày gia nhập', width: '160', align: 'center' },
-  { key: 'updatedDate', label: 'Ngày cập nhật', width: '160', align: 'center' }
-]
+  { key: 'username', label: t('admin_users.col_username'), minWidth: '220', align: 'center' },
+  { key: 'fullName', label: t('admin_users.col_fullname'), minWidth: '220', align: 'center' },
+  { key: 'email', label: t('admin_users.col_email'), minWidth: '320', align: 'center' },
+  { key: 'roles', label: t('admin_users.col_roles'), minWidth: '200', align: 'center' },
+  { key: 'status', label: t('admin_users.col_status'), width: '140', align: 'center' },
+  { key: 'createdDate', label: t('admin_users.col_joined'), width: '160', align: 'center' },
+  { key: 'updatedDate', label: t('admin_users.col_updated'), width: '160', align: 'center' }
+])
 </script>
 
 <template>
   <div class="admin-layout-container">
     <PageHeader 
-      title="Quản lý người dùng" 
-      subtitle="Xem và quản trị danh sách người dùng, phân quyền hệ thống"
+      :title="$t('admin_users.title')" 
+      :subtitle="$t('admin_users.subtitle')"
     />
 
     <!-- Table Controls -->
     <TableControls
       v-model="filter.keyword"
       @update:modelValue="handleSearch"
-      search-placeholder="Tìm kiếm người dùng..." 
+      :search-placeholder="$t('admin_users.search_placeholder')" 
       :total-elements="totalElements"
-      item-name="Người dùng"
+      :item-name="$t('admin_users.item_name')"
       :sort-options="[
-        { label: 'Username', value: 'username' },
-        { label: 'Họ tên', value: 'fullName' }
+        { label: $t('admin_users.col_username'), value: 'username' },
+        { label: $t('admin_users.col_fullname'), value: 'fullName' }
       ]"
       :current-sort="currentSortField"
       :current-sort-dir="currentSortDirection"
       @sort="handleSort"
       @reset-sort="resetSort"
       :filter-config="filterConfig"
-      filter-title="Bộ lọc người dùng"
+      :filter-title="$t('admin_users.filter_title')"
       @filter-change="handleFilterChange"
       @reset-filters="resetFilter"
     >
@@ -280,7 +284,7 @@ const tableColumns = [
             :disabled="!canLockSelected"
             :class="{ 'is-disabled': !canLockSelected }"
           >
-            <Lock :size="13" style="margin-right: 5px" /> Khóa
+            <Lock :size="13" style="margin-right: 5px" /> {{ $t('admin_users.btn_lock') }}
           </button>
           <button 
             class="bulk-btn bulk-btn-unlock" 
@@ -288,7 +292,7 @@ const tableColumns = [
             :disabled="!canUnlockSelected"
             :class="{ 'is-disabled': !canUnlockSelected }"
           >
-            <Unlock :size="13" style="margin-right: 5px" /> Mở khóa
+            <Unlock :size="13" style="margin-right: 5px" /> {{ $t('admin_users.btn_unlock') }}
           </button>
         </div>
       </template>
@@ -304,7 +308,8 @@ const tableColumns = [
         :columns="tableColumns"
         v-loading="loading"
         @selection-change="handleSelectionChange"
-        empty-text="Không tìm thấy người dùng nào"
+        :empty-text="$t('admin_users.empty_text')"
+        :action-label="$t('admin_users.col_actions')"
       >
         <template #cell-_index="{ index }">
           <span class="cell-index">{{ filter.page * filter.size + index + 1 }}</span>
@@ -342,7 +347,7 @@ const tableColumns = [
 
         <template #cell-status="{ row }">
           <span :class="['oj-badge', accountStatusClass(row.accountNonLocked)]">
-            {{ row.accountNonLocked === false ? 'BỊ KHÓA' : 'HOẠT ĐỘNG' }}
+            {{ row.accountNonLocked === false ? $t('admin_users.status_locked').toUpperCase() : $t('admin_users.status_active').toUpperCase() }}
           </span>
         </template>
 
@@ -356,17 +361,17 @@ const tableColumns = [
 
         <template #actions="{ row }">
           <div class="action-btns">
-             <el-tooltip content="Chi tiết" placement="top">
+             <el-tooltip :content="$t('admin_users.tooltip_details')" placement="top">
                <button class="action-btn action-btn-info" @click="router.push(`/profile/${row.username}`)">
                  <Info :size="16" />
                </button>
              </el-tooltip>
-             <el-tooltip content="Quản lý vai trò" placement="top">
+             <el-tooltip :content="$t('admin_users.tooltip_role')" placement="top">
                <button class="action-btn action-btn-shield" @click="showRoleDialog(row)">
                  <Shield :size="16" />
                </button>
              </el-tooltip>
-             <el-tooltip :content="row.accountNonLocked === false ? 'Mở khóa' : 'Khóa'" placement="top" :hide-after="0">
+             <el-tooltip :content="row.accountNonLocked === false ? $t('admin_users.btn_unlock') : $t('admin_users.btn_lock')" placement="top" :hide-after="0">
                <button 
                  :class="['action-btn', row.accountNonLocked === false ? 'action-btn-unlock' : 'action-btn-lock']"
                  @click="handleToggleLock(row)"

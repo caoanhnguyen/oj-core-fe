@@ -38,12 +38,12 @@ const toggleExample = (index) => {
 <template>
     <div class="tab-content-wrapper full-width">
         <div class="examples-header-row mb-6">
-            <h3 class="section-title">Test Cases Examples</h3>
-            <AppButton variant="primary" :icon="Plus" @click="addExample">Add Example</AppButton>
+            <h3 class="section-title">{{ $t('admin_problems.title_examples') }}</h3>
+            <AppButton variant="primary" :icon="Plus" @click="addExample">{{ $t('admin_problems.btn_add_example') }}</AppButton>
         </div>
 
         <div v-if="examples.length === 0" class="empty-state">
-            <span>No examples added yet. Click "Add Example" to creating one.</span>
+            <span>{{ $t('admin_problems.empty_examples') }}</span>
         </div>
 
         <div class="examples-grid">
@@ -51,42 +51,42 @@ const toggleExample = (index) => {
                 <div class="card-header-row clickable-header" @click="toggleExample(index)">
                     <div class="header-left">
                         <component :is="example.expanded !== false ? ChevronDown : ChevronRight" :size="20" class="text-gray" />
-                        <span class="card-badge">Example {{ index + 1 }}</span>
+                        <span class="card-badge">{{ $t('admin_problems.example_badge', { index: index + 1 }) }}</span>
                     </div>
-                    <AppButton variant="text" size="small" :icon="X" @click.stop="removeExample(index)" style="color: var(--error)">Remove</AppButton>
+                    <AppButton variant="text" size="small" :icon="X" @click.stop="removeExample(index)" style="color: var(--error)">{{ $t('admin_problems.btn_remove') }}</AppButton>
                 </div>
                 
                 <div v-show="example.expanded !== false" class="example-body">
                     <el-row :gutter="24">
                         <el-col :span="12">
-                            <el-form-item label="Input">
+                            <el-form-item :label="$t('admin_problems.field_input')">
                                 <el-input 
                                     v-model="example.rawInput" 
                                     type="textarea"
                                     :rows="6"
-                                    placeholder="Input data..." 
+                                    :placeholder="$t('admin_problems.placeholder_input')" 
                                     class="custom-textarea monospace-textarea"
                                 />
                             </el-form-item>
                         </el-col>
                         <el-col :span="12">
-                            <el-form-item label="Output">
+                            <el-form-item :label="$t('admin_problems.field_output')">
                                 <el-input 
                                     v-model="example.rawOutput" 
                                     type="textarea"
                                     :rows="6"
-                                    placeholder="Expected output..." 
+                                    :placeholder="$t('admin_problems.placeholder_output')" 
                                     class="custom-textarea monospace-textarea"
                                 />
                             </el-form-item>
                         </el-col>
                     </el-row>
                     
-                    <el-form-item label="Explanation (Optional)" class="mt-4">
+                    <el-form-item :label="$t('admin_problems.field_explanation')" class="mt-4">
                         <div style="height: 250px; width: 100%;">
                             <RichTextEditor 
                                 v-model:content="example.explanation" 
-                                placeholder="Explain the logic..." 
+                                :placeholder="$t('admin_problems.placeholder_explanation')" 
                             />
                         </div>
                     </el-form-item>

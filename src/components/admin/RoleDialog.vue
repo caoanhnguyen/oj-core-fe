@@ -1,5 +1,6 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
 import { Shield } from 'lucide-vue-next'
@@ -15,16 +16,17 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible', 'updated'])
 
+const { t } = useI18n()
 const loading = ref(false)
 const selectedRoles = ref([])
 
 // Available roles in the system
-const availableRoles = [
-  { label: 'Administrator', value: 'ROLE_ADMIN' },
-  { label: 'Moderator', value: 'ROLE_MODERATOR' },
-  { label: 'Assessor (Người chấm thi)', value: 'ROLE_ASSESSOR' },
-  { label: 'User', value: 'ROLE_USER', disabled: true }
-]
+const availableRoles = computed(() => [
+  { label: t('admin_users.role_admin'), value: 'ROLE_ADMIN' },
+  { label: t('admin_users.role_moderator'), value: 'ROLE_MODERATOR' },
+  { label: t('admin_users.role_assessor'), value: 'ROLE_ASSESSOR' },
+  { label: t('admin_users.role_user'), value: 'ROLE_USER', disabled: true }
+])
 
 watch(() => props.visible, (val) => {
   if (val) {
@@ -46,11 +48,11 @@ const handleUpdateRoles = async () => {
     await usersApi.adminUpdateRoles(props.userId, {
       roles: selectedRoles.value
     })
-    ElMessage.success(`Đã cập nhật phân quyền cho ${props.username} thành công!`)
+    ElMessage.success(t('admin_role.update_success', { username: props.username }))
     emit('updated')
     handleClose()
   } catch (error) {
-    handleApiError(error, 'Không thể cập nhật phân quyền')
+    handleApiError(error, t('admin_role.update_fail'))
   } finally {
     loading.value = false
   }
@@ -61,7 +63,7 @@ const handleUpdateRoles = async () => {
   <el-drawer
     :model-value="props.visible"
     @update:model-value="(val) => { if (val === false) handleClose() }"
-    title="Phân quyền người dùng"
+    :title="$t('admin_role.title')"
     size="680px"
     :close-on-click-modal="true"
     @close="handleClose"
@@ -71,35 +73,35 @@ const handleUpdateRoles = async () => {
       <div class="user-header">
         <Shield class="icon" :size="32" />
         <div class="meta">
-          <span class="label">Đang phân quyền cho</span>
+          <span class="label">{{ $t('admin_role.meta_label') }}</span>
           <span class="value">@{{ props.username }}</span>
         </div>
       </div>
 
       <div class="role-selection">
-        <p class="section-hint">Chọn các vai trò để gán cho người dùng:</p>
+        <p class="section-hint">{{ $t('admin_role.hint') }}</p>
         <el-checkbox-group v-model="selectedRoles" class="role-group">
           <div v-for="role in availableRoles" :key="role.value" class="role-item">
             <el-checkbox :label="role.value" :disabled="role.disabled">
               {{ role.label }}
             </el-checkbox>
-            <span v-if="role.disabled" class="mandatory-hint">(Bắt buộc)</span>
+            <span v-if="role.disabled" class="mandatory-hint">{{ $t('admin_role.mandatory') }}</span>
           </div>
         </el-checkbox-group>
       </div>
 
       <div class="dialog-tips">
-        <p>* Quyền <strong>USER</strong> là quyền mặc định, không thể gỡ bỏ.</p>
-        <p>* Quyền <strong>ASSESSOR</strong> cho phép giám thị/chấm thi truy cập quản lý các kỳ thi.</p>
-        <p>* Quyền <strong>MODERATOR</strong> cho phép quản lý bài tập, chủ đề và thảo luận.</p>
-        <p>* Quyền <strong>ADMIN</strong> cho phép truy cập đầy đủ vào trang quản trị.</p>
+        <p v-html="$t('admin_role.tip_user')"></p>
+        <p v-html="$t('admin_role.tip_assessor')"></p>
+        <p v-html="$t('admin_role.tip_moderator')"></p>
+        <p v-html="$t('admin_role.tip_admin')"></p>
       </div>
     </div>
     
     <template #footer>
       <div class="role-dialog-footer">
-        <AppButton variant="info" @click="handleClose">Hủy bỏ</AppButton>
-        <AppButton variant="primary" :loading="loading" @click="handleUpdateRoles">Cập nhật</AppButton>
+        <AppButton variant="info" @click="handleClose">{{ $t('admin_role.btn_cancel') }}</AppButton>
+        <AppButton variant="primary" :loading="loading" @click="handleUpdateRoles">{{ $t('admin_role.btn_update') }}</AppButton>
       </div>
     </template>
   </el-drawer>

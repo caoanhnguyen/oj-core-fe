@@ -15,7 +15,7 @@ const props = defineProps({
        <div class="form-section mb-6">
          <el-row :gutter="32">
             <el-col :span="12">
-               <el-form-item label="Time Limit (ms)" prop="timeLimitMs">
+               <el-form-item :label="$t('admin_problems.field_time_limit')" prop="timeLimitMs">
                   <el-input-number 
                      v-model="modelValue.timeLimitMs" 
                      :min="100" 
@@ -27,7 +27,7 @@ const props = defineProps({
                </el-form-item>
             </el-col>
             <el-col :span="12">
-               <el-form-item label="Memory Limit (MB)" prop="memoryLimitMb">
+               <el-form-item :label="$t('admin_problems.field_memory_limit')" prop="memoryLimitMb">
                   <el-input-number 
                      v-model="modelValue.memoryLimitMb" 
                      :min="1" 
@@ -42,11 +42,11 @@ const props = defineProps({
        </div>
        
        <div class="form-section mb-6">
-          <el-form-item label="Constraints Details" prop="constraints">
+          <el-form-item :label="$t('admin_problems.field_constraints')" prop="constraints">
              <div style="height: 500px; width: 100%;">
                 <RichTextEditor 
                    v-model:content="modelValue.constraints" 
-                   placeholder="e.g. 1 <= n <= 100"
+                   :placeholder="$t('admin_problems.placeholder_constraints')"
                 />
              </div>
           </el-form-item>
@@ -54,22 +54,22 @@ const props = defineProps({
 
        <div class="form-section mb-6">
           <el-row :gutter="32">
-             <el-col :span="12">
-                 <el-form-item label="Input Format (Optional)" prop="inputFormat">
-                     <div style="height: 300px; width: 100%;">
-                        <RichTextEditor 
-                           v-model:content="modelValue.inputFormat" 
-                           placeholder="Describe the input format..." 
+              <el-col :span="12">
+                  <el-form-item :label="$t('admin_problems.field_input_format')" prop="inputFormat">
+                      <div style="height: 300px; width: 100%;">
+                         <RichTextEditor 
+                            v-model:content="modelValue.inputFormat" 
+                            :placeholder="$t('admin_problems.placeholder_input_format')" 
                         />
                      </div>
                  </el-form-item>
              </el-col>
-             <el-col :span="12">
-                 <el-form-item label="Output Format (Optional)" prop="outputFormat">
-                     <div style="height: 300px; width: 100%;">
-                        <RichTextEditor 
-                           v-model:content="modelValue.outputFormat" 
-                           placeholder="Describe the output format..." 
+              <el-col :span="12">
+                  <el-form-item :label="$t('admin_problems.field_output_format')" prop="outputFormat">
+                      <div style="height: 300px; width: 100%;">
+                         <RichTextEditor 
+                            v-model:content="modelValue.outputFormat" 
+                            :placeholder="$t('admin_problems.placeholder_output_format')" 
                         />
                      </div>
                  </el-form-item>

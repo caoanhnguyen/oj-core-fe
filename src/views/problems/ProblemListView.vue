@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, RotateCcw, ChevronDown, CheckCircle, Check, LayoutGrid } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
@@ -18,6 +19,7 @@ const router = useRouter()
 const problemStore = useProblemStore()
 const topicStore = useTopicStore()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
 
 // Real problems data from store
@@ -213,10 +215,10 @@ const handleSizeChange = (val) => {
 }
 
 // Configs for TableControls
-const filterConfig = [
-  { key: 'difficulty', label: 'Difficulty', icon: Gauge, options: [{ label: 'Easy', value: 'EASY' }, { label: 'Medium', value: 'MEDIUM' }, { label: 'Hard', value: 'HARD' }] },
-  { key: 'ruleType', label: 'Rule Type', icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] }
-]
+const filterConfig = computed(() => [
+  { key: 'difficulty', label: t('problems.difficulty'), icon: Gauge, options: [{ label: t('problems.difficulty_levels.easy'), value: 'EASY' }, { label: t('problems.difficulty_levels.medium'), value: 'MEDIUM' }, { label: t('problems.difficulty_levels.hard'), value: 'HARD' }] },
+  { key: 'ruleType', label: t('problems.rule_type'), icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] }
+])
 
 const handleFilterChange = ({ key, value }) => {
   if (value === '') {
@@ -241,8 +243,8 @@ onMounted(async () => {
   <div class="public-layout-page">
     <div class="public-layout-container">
       <PageHeader 
-        title="Problems" 
-        subtitle="Browse and solve coding problems to improve your skills"
+        :title="$t('problems.title')" 
+        :subtitle="$t('problems.subtitle')"
       />
 
       <!-- Quick Topic Filters Row -->
@@ -262,24 +264,24 @@ onMounted(async () => {
           class="topics-expand-btn" 
           @click="isTopicsExtraExpanded = !isTopicsExtraExpanded"
         >
-          {{ isTopicsExtraExpanded ? 'Show Less' : 'Show More' }}
+          {{ isTopicsExtraExpanded ? $t('problems.show_less') : $t('problems.show_more') }}
           <ChevronDown :size="14" :style="{ transform: isTopicsExtraExpanded ? 'rotate(180deg)' : 'none' }" />
         </button>
       </div>
 
       <TableControls
         v-model="searchQuery"
-        search-placeholder="Search problems..."
+        :search-placeholder="$t('problems.search_placeholder')"
         :sort-options="[
-          { label: 'Title', value: 'title' },
-          { label: 'Difficulty', value: 'difficulty' }
+          { label: $t('problems.title_col'), value: 'title' },
+          { label: $t('problems.difficulty'), value: 'difficulty' }
         ]"
         :current-sort="currentSortField"
         :current-sort-dir="currentSortDirection"
         @sort="handleSort"
         @reset-sort="resetSort"
         :filter-config="filterConfig"
-        filter-title="Filter Problems"
+        :filter-title="$t('problems.filter_title')"
         @filter-change="handleFilterChange"
         @reset-filters="resetFilters"
       >
@@ -288,7 +290,7 @@ onMounted(async () => {
           v-model="filters.topics.value"
           v-model:active="filters.topics.active"
           :topics="topics"
-          label="Topics"
+          :label="$t('problems.topics')"
         />
       </template>
         <template #custom-total>
@@ -306,13 +308,13 @@ onMounted(async () => {
                   />
                 </svg>
               </div>
-              <span class="solved-text">Solved: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
+              <span class="solved-text">{{ $t('problems.solved') }}: {{ solvedCount }} / {{ problemStore.pagination.totalElements }}</span>
             </template>
             <!-- Filter state: Show total results -->
             <template v-else>
               <div class="results-badge">
                 <Search :size="14" class="search-indicator" />
-                <span class="results-count">Found: {{ problemStore.pagination.totalElements }} results</span>
+                <span class="results-count">{{ $t('problems.found') }}: {{ problemStore.pagination.totalElements }} {{ $t('problems.results') }}</span>
               </div>
             </template>
           </div>
@@ -327,14 +329,14 @@ onMounted(async () => {
         :columns="[
           { key: 'solved', label: '', width: 50, resizable: false },
           { key: 'index', label: '#', width: 60, resizable: false },
-          { key: 'title', label: 'Title', minWidth: 300 },
-          { key: 'ruleType', label: 'Rule Type', minWidth: 150 },
-          { key: 'difficulty', label: 'Difficulty', minWidth: 150 },
-          { key: 'score', label: 'Score', minWidth: 150 },
-          { key: 'rate', label: 'Accepted rate', minWidth: 150 }
+          { key: 'title', label: $t('problems.title_col'), minWidth: 300 },
+          { key: 'ruleType', label: $t('problems.rule_type'), minWidth: 150 },
+          { key: 'difficulty', label: $t('problems.difficulty'), minWidth: 150 },
+          { key: 'score', label: $t('problems.score'), minWidth: 150 },
+          { key: 'rate', label: $t('problems.ac_rate'), minWidth: 150 }
         ]"
         :loading="problemStore.loading" 
-        empty-text="No problems found"
+        :empty-text="$t('problems.no_problems')"
       >
         <template #cell-solved="{ row }">
           <Check v-if="row.userProblemState === 'SOLVED'" :size="20" class="solved-icon" />

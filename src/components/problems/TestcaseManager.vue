@@ -1,5 +1,6 @@
 <script setup>
 import { ref, defineProps, defineEmits, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { AlertCircle, UploadCloud, FileArchive, X } from 'lucide-vue-next'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage } from 'element-plus'
@@ -21,6 +22,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:file'])
 
+const { t } = useI18n()
+
 const testcaseFileRef = ref(null)
 
 const handleTestcaseUpload = (event) => {
@@ -28,7 +31,7 @@ const handleTestcaseUpload = (event) => {
   if (!file) return
 
   if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
-    ElMessage.error('Only ZIP files are allowed')
+    ElMessage.error(t('admin_problems.msg_only_zip'))
     return
   }
 
@@ -49,21 +52,21 @@ const clearFile = () => {
         <div class="rules-box">
            <div class="rules-title">
               <AlertCircle :size="18" />
-              <span>Testcase Rules</span>
+              <span>{{ $t('admin_problems.title_testcase_rules') }}</span>
            </div>
            <ul class="rules-list">
-              <li>Upload a <strong>single ZIP file</strong> containing paired input/output files.</li>
-              <li>Naming format: <strong>1.in / 1.out</strong> or <strong>input_1.txt / output_1.txt</strong>.</li>
-              <li>The system will automatically validate the ZIP file upon saving the problem.</li>
-              <li>Note: Sample testcases are now managed automatically from the Examples tab.</li>
-              <li v-if="mode === 'UPDATE'" class="text-warning">Uploading a new ZIP will <strong>REPLACE</strong> the current testcases directory entirely.</li>
+              <li v-html="$t('admin_problems.rule_1')"></li>
+              <li v-html="$t('admin_problems.rule_2')"></li>
+              <li v-html="$t('admin_problems.rule_3')"></li>
+              <li v-html="$t('admin_problems.rule_4')"></li>
+              <li v-if="mode === 'UPDATE'" class="text-warning" v-html="$t('admin_problems.rule_5')"></li>
            </ul>
         </div>
 
         <!-- Current File State Display -->
         <div v-if="existingDir && !testcaseFile" class="existing-state">
-           <p><strong>Current Testcase Directory:</strong> {{ existingDir }}</p>
-           <p class="hint-text">To replace the testcases, simply upload a new ZIP file below.</p>
+           <p><strong>{{ $t('admin_problems.current_dir') }}</strong> {{ existingDir }}</p>
+           <p class="hint-text">{{ $t('admin_problems.hint_replace') }}</p>
         </div>
 
         <!-- Selected File Banner -->
@@ -75,7 +78,7 @@ const clearFile = () => {
                 <span class="file-size">{{ (testcaseFile.size / 1024 / 1024).toFixed(2) }} MB</span>
              </div>
            </div>
-           <button class="clear-btn" @click="clearFile" title="Remove file">
+           <button class="clear-btn" @click="clearFile" :title="$t('admin_problems.tooltip_remove')">
              <X :size="18" />
            </button>
         </div>
@@ -87,8 +90,8 @@ const clearFile = () => {
         >
           <UploadCloud :size="48" class="upload-icon" />
           <div class="upload-text">
-            <p class="primary-text">Drop ZIP file here or click to upload</p>
-            <p class="secondary-text">Supports .zip containing .in/.out files</p>
+            <p class="primary-text">{{ $t('admin_problems.text_drop_zip') }}</p>
+            <p class="secondary-text">{{ $t('admin_problems.text_support_zip') }}</p>
           </div>
         </div>
         

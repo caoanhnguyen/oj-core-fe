@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, reactive, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, reactive, watch, onBeforeUnmount, computed } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useProblemStore } from '../../stores/problem'
 import AppButton from '@/components/common/AppButton.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -21,6 +22,7 @@ import { ArrowLeft } from 'lucide-vue-next'
 const router = useRouter()
 const route = useRoute()
 const problemStore = useProblemStore()
+const { t } = useI18n()
 
 // Form Data
 const formData = ref({
@@ -50,12 +52,12 @@ const activeTab = ref('general')
 const loading = ref(false)
 const isSaving = ref(false)
 
-const rules = reactive({
-  title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  difficulty: [{ required: true, message: 'Difficulty is required', trigger: 'change' }],
-  description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
-  constraints: [{ required: true, message: 'Constraints are required', trigger: 'blur' }]
-})
+const rules = computed(() => ({
+  title: [{ required: true, message: t('admin_problems.validation.title_req'), trigger: 'blur' }],
+  difficulty: [{ required: true, message: t('admin_problems.validation.difficulty_req'), trigger: 'change' }],
+  description: [{ required: true, message: t('admin_problems.validation.desc_req'), trigger: 'blur' }],
+  constraints: [{ required: true, message: t('admin_problems.validation.constraints_req'), trigger: 'blur' }]
+}))
 
 const isDirty = ref(false)
 
@@ -77,11 +79,11 @@ onBeforeRouteLeave(async (to, from, next) => {
     if (isDirty.value && !isSaving.value) {
         try {
             const action = await ElMessageBox.confirm(
-                'Bạn có thay đổi chưa lưu. Bạn có muốn lưu lại trước khi rời đi không?',
-                'Xác nhận rời khỏi trang',
+                t('admin_problems.leave_warning_msg'),
+                t('admin_problems.leave_warning_title'),
                 {
-                    confirmButtonText: 'Lưu thay đổi',
-                    cancelButtonText: 'Rời đi không lưu',
+                    confirmButtonText: t('admin_problems.leave_btn_save_draft'),
+                    cancelButtonText: t('admin_problems.leave_btn_leave'),
                     distinguishCancelAndClose: true,
                     type: 'warning',
                 }
@@ -233,11 +235,11 @@ const handleUpdate = async () => {
   await formRef.value.validate(async (valid, fields) => {
     if (valid) {
       if (formData.value.examples.length === 0) {
-        ElMessage.warning('Please add at least one example')
+        ElMessage.warning(t('admin_problems.validation.example_req'))
         return
       }
       if (formData.value.templates.length === 0) {
-        ElMessage.warning('Please add at least one code template')
+        ElMessage.warning(t('admin_problems.validation.template_req'))
         return
       }
 
@@ -288,12 +290,12 @@ const handleUpdate = async () => {
         allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
-        handleApiError(error, 'Cập nhật bài tập thất bại')
+        handleApiError(error, t('admin_problems.msg_create_fail'))
       } finally {
         isSaving.value = false
       }
     } else {
-      ElMessage.error('Please check all required fields')
+      ElMessage.error(t('admin_problems.validation.check_fields'))
     }
   })
 }
@@ -330,35 +332,35 @@ const handleBack = () => {
             <button type="button" class="back-btn" @click="handleBack">
                <ArrowLeft :size="20" />
             </button>
-            <h2 class="page-title">Edit Problem: {{ formData.title }}</h2>
+            <h2 class="page-title">{{ $t('admin_problems.update_title') }}: {{ formData.title }}</h2>
          </div>
          <div class="header-right">
-            <AppButton variant="text" @click="handleCancel" class="cancel-btn" :disabled="isSaving">Cancel</AppButton>
+            <AppButton variant="text" @click="handleCancel" class="cancel-btn" :disabled="isSaving">{{ $t('admin_problems.btn_cancel') }}</AppButton>
             <div class="divider-v"></div>
-            <AppButton variant="primary" @click="handleUpdate" :loading="isSaving" :disabled="isSaving">Save Changes</AppButton>
+            <AppButton variant="primary" @click="handleUpdate" :loading="isSaving" :disabled="isSaving">{{ $t('admin_problems.btn_update') }}</AppButton>
          </div>
       </div>
 
       <div class="tabs-container">
          <el-tabs v-model="activeTab" class="custom-tabs">
             
-            <el-tab-pane label="General Info" name="general">
+            <el-tab-pane :label="$t('admin_problems.tab_general')" name="general">
                <GeneralInfoTab v-model="formData" />
             </el-tab-pane>
 
-            <el-tab-pane label="Constraints" name="constraints">
+            <el-tab-pane :label="$t('admin_problems.tab_constraints')" name="constraints">
                <ConstraintsTab v-model="formData" />
             </el-tab-pane>
             
-            <el-tab-pane label="Examples" name="examples">
+            <el-tab-pane :label="$t('admin_problems.tab_examples')" name="examples">
                 <ExamplesTab :examples="formData.examples" />
             </el-tab-pane>
 
-            <el-tab-pane label="Language & Template" name="templates">
+            <el-tab-pane :label="$t('admin_problems.tab_templates')" name="templates">
                <TemplatesTab :templates="formData.templates" />
             </el-tab-pane>
 
-            <el-tab-pane label="Test Cases" name="testcases">
+            <el-tab-pane :label="$t('admin_problems.tab_testcases')" name="testcases">
                <TestcaseManager 
                   :testcaseFile="formData.testcaseFile" 
                   :existingDir="formData.testcaseDir"

@@ -7,11 +7,14 @@ import AppButton from '@/components/common/AppButton.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import WhitelistAddDrawer from './WhitelistAddDrawer.vue'
 import { exportStyledExcel } from '@/utils/excelExport'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
-  contestId: { type: String, required: true },
+  contestId:    { type: String, required: true },
   contestTitle: { type: String, default: '' },
-  readonly:  { type: Boolean, default: false }
+  readonly:     { type: Boolean, default: false }
 })
 
 const whitelistItems = ref([])
@@ -28,7 +31,6 @@ const load = async () => {
   finally { loading.value = false }
 }
 
-// Called from drawer when user confirms adding entries
 const handleAdd = (items) => {
   items.forEach(item => {
     const dup = whitelistItems.value.some(e => e.email.toLowerCase() === item.email.toLowerCase())
@@ -39,19 +41,21 @@ const handleAdd = (items) => {
 const removeItem = (index) => { whitelistItems.value.splice(index, 1) }
 
 const exportExcel = async () => {
-  if (whitelistItems.value.length === 0) { ElMessage.warning('Không có dữ liệu để xuất.'); return }
-  const headers = ['Email', 'Họ và Tên', 'Số điện thoại', 'Ghi chú']
+  if (whitelistItems.value.length === 0) { ElMessage.warning(t('admin_contests.tab_whitelist.msg_export_empty')); return }
+  const headers = [
+    t('admin_contests.tab_whitelist.excel_col_email'),
+    t('admin_contests.tab_whitelist.excel_col_fullname'),
+    t('admin_contests.tab_whitelist.excel_col_phone'),
+    t('admin_contests.tab_whitelist.excel_col_note')
+  ]
   const data = whitelistItems.value.map(i => [i.email, i.fullName || '', i.phoneNumber || '', i.note || ''])
-  
   const baseName = props.contestTitle || props.contestId.substring(0, 8)
   const safeName = baseName.replace(/[\/\\?%*:|"<>]/g, '_').substring(0, 50)
-
   await exportStyledExcel({
-    title: `Danh sách ứng viên còn lại - Contest: ${baseName}`,
+    title: t('admin_contests.tab_whitelist.excel_title', { name: baseName }),
     filename: `Remaining_Candidates_${safeName}.xlsx`,
     sheetName: 'Candidates',
-    headers,
-    data,
+    headers, data,
     columnWidths: [35, 25, 18, 50]
   })
 }
@@ -60,23 +64,27 @@ const saveWhitelist = async () => {
   try {
     saving.value = true
     if (whitelistItems.value.length === 0) {
-      await ElMessageBox.confirm('Danh sách đang trống. Xóa TOÀN BỘ ứng viên khỏi phòng thi?', 'Cảnh báo', { type: 'warning' })
+      await ElMessageBox.confirm(
+        t('admin_contests.tab_whitelist.confirm_clear_msg'),
+        t('admin_contests.tab_whitelist.confirm_clear_title'),
+        { type: 'warning' }
+      )
     }
     await contestsAPI.adminSaveWhitelist(props.contestId, whitelistItems.value)
-    ElMessage.success('Lưu cấu hình Whitelist thành công!')
+    ElMessage.success(t('admin_contests.tab_whitelist.msg_saved'))
     await load()
   } catch (err) {
-    if (err !== 'cancel') ElMessage.error('Lưu lỗi: ' + (err.message || ''))
+    if (err !== 'cancel') ElMessage.error(t('admin_contests.tab_whitelist.msg_save_fail', { error: err.message || '' }))
   } finally { saving.value = false }
 }
 
 const tableColumns = computed(() => {
   const cols = [
-    { key: 'index',       label: 'STT',            width: 60,  align: 'center' },
-    { key: 'email',       label: 'Email',           minWidth: 230 },
-    { key: 'fullName',    label: 'Họ và tên',       minWidth: 170 },
-    { key: 'phoneNumber', label: 'Số điện thoại',   minWidth: 130 },
-    { key: 'note',        label: 'Ghi chú',         minWidth: 160 },
+    { key: 'index',       label: t('admin_contests.tab_whitelist.col_num'),      width: 60,  align: 'center' },
+    { key: 'email',       label: t('admin_contests.tab_whitelist.col_email'),     minWidth: 230 },
+    { key: 'fullName',    label: t('admin_contests.tab_whitelist.col_fullname'),  minWidth: 170 },
+    { key: 'phoneNumber', label: t('admin_contests.tab_whitelist.col_phone'),     minWidth: 130 },
+    { key: 'note',        label: t('admin_contests.tab_whitelist.col_note'),      minWidth: 160 },
   ]
   if (!props.readonly) cols.push({ key: 'actions', label: '', width: 70, align: 'center' })
   return cols
@@ -87,37 +95,37 @@ onMounted(load)
 
 <template>
   <div class="wl-container" v-loading="loading">
-    <!-- ── Header ── -->
+    <!-- Header -->
     <div class="wl-header">
       <div class="wl-title-area">
-        <h3>Quản lý Whitelist</h3>
-        <p class="wl-desc">Danh sách ứng viên được cấp quyền tham gia contest. Thí sinh hoàn thành bài thi sẽ tự động bị xóa khỏi danh sách này.</p>
+        <h3>{{ $t('admin_contests.tab_whitelist.title') }}</h3>
+        <p class="wl-desc">{{ $t('admin_contests.tab_whitelist.description') }}</p>
       </div>
       <div class="wl-actions" v-if="!readonly">
         <AppButton variant="text" :icon="Download" @click="exportExcel">
-          Xuất danh sách còn lại
+          {{ $t('admin_contests.tab_whitelist.btn_export') }}
         </AppButton>
         <AppButton variant="secondary" :icon="Plus" @click="drawerOpen = true">
-          Thêm ứng viên
+          {{ $t('admin_contests.tab_whitelist.btn_add') }}
         </AppButton>
         <AppButton variant="primary" :icon="Save" :disabled="saving" @click="saveWhitelist">
-          {{ saving ? 'Đang lưu...' : 'Lưu danh sách' }}
+          {{ saving ? $t('admin_contests.tab_whitelist.btn_saving') : $t('admin_contests.tab_whitelist.btn_save') }}
         </AppButton>
       </div>
     </div>
 
-    <!-- ── Info banner ── -->
+    <!-- Info banner -->
     <div class="info-alert">
       <Info :size="15" />
-      <span><strong>Lưu ý:</strong> Hệ thống tự động xóa ứng viên khỏi danh sách sau khi họ nộp bài. Những người còn lại trong danh sách sau khi contest kết thúc là ứng viên chưa tham gia.</span>
+      <span v-html="$t('admin_contests.tab_whitelist.info_note')" />
     </div>
 
-    <!-- ── Table ── -->
+    <!-- Table -->
     <DataTable
       :data="whitelistItems"
       :columns="tableColumns"
       :loading="loading"
-      empty-text="Chưa có ứng viên nào trong Whitelist"
+      :empty-text="$t('admin_contests.tab_whitelist.empty')"
     >
       <template #cell-index="{ index }">
         <span class="cell-index">{{ index + 1 }}</span>
@@ -141,7 +149,7 @@ onMounted(load)
       </template>
     </DataTable>
 
-    <!-- ── Drawer ── -->
+    <!-- Drawer -->
     <WhitelistAddDrawer
       v-model="drawerOpen"
       :existing-items="whitelistItems"
@@ -152,31 +160,12 @@ onMounted(load)
 
 <style scoped>
 .wl-container { padding: 16px 0; }
-
-.wl-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  gap: 16px;
-  flex-wrap: wrap;
-}
+.wl-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
 .wl-title-area h3 { margin: 0 0 6px 0; font-size: 18px; color: var(--text-primary); }
 .wl-desc { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; max-width: 560px; }
 .wl-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
 
-.info-alert {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: rgba(255, 161, 22, 0.08); /* Yellow background */
-  border: 1px solid rgba(255, 161, 22, 0.2); /* Yellow border */
-  border-radius: 8px;
-  color: #ffa116; /* Yellow text */
-  font-size: 13px;
-  margin-bottom: 16px;
-}
+.info-alert { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(255,161,22,0.08); border: 1px solid rgba(255,161,22,0.2); border-radius: 8px; color: #ffa116; font-size: 13px; margin-bottom: 16px; }
 .info-alert strong { font-weight: 700; }
 
 .cell-index  { font-weight: 500; color: #8a8a8a; font-size: 13px; }

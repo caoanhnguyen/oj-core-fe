@@ -1,43 +1,38 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authAPI } from '../../api/auth'
 import { handleApiError } from '../../utils/errorHandler'
+import { useI18n } from 'vue-i18n'
+import AppButton from '@/components/common/AppButton.vue'
 
-// ...existing code...
-
+const { t } = useI18n()
 const router = useRouter()
 const formRef = ref(null)
 const loading = ref(false)
 
-const form = reactive({
-  email: ''
-})
+const form = reactive({ email: '' })
 
-const rules = {
+const rules = computed(() => ({
   email: [
-    { required: true, message: 'Please input email', trigger: 'blur' },
-    { type: 'email', message: 'Please input a valid email', trigger: 'blur' },
-    { max: 100, message: 'Email must not exceed 100 characters', trigger: 'blur' }
+    { required: true, message: t('auth.validation_req_email'),   trigger: 'blur' },
+    { type: 'email',  message: t('auth.validation_format_email'), trigger: 'blur' },
+    { max: 100,       message: t('auth.validation_len_email'),    trigger: 'blur' }
   ]
-}
+}))
 
 const handleSubmit = async (formEl) => {
   if (!formEl) return
-
   await formEl.validate(async (valid) => {
     if (valid) {
       try {
         loading.value = true
         await authAPI.forgotPassword(form.email)
-        ElMessage.success('OTP đã được gửi đến email của bạn!')
-        router.push({
-          name: 'reset-password',
-          query: { email: form.email }
-        })
+        ElMessage.success(t('auth.otp_sent'))
+        router.push({ name: 'reset-password', query: { email: form.email } })
       } catch (error) {
-        handleApiError(error, 'Gửi OTP thất bại')
+        handleApiError(error, t('auth.otp_send_fail'))
       } finally {
         loading.value = false
       }
@@ -45,9 +40,7 @@ const handleSubmit = async (formEl) => {
   })
 }
 
-const goToLogin = () => {
-  router.push('/login')
-}
+const goToLogin = () => { router.push('/login') }
 </script>
 
 <template>
@@ -55,8 +48,8 @@ const goToLogin = () => {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>Forgot Password</h1>
-          <p>Enter your email to receive OTP code</p>
+          <h1>{{ $t('auth.forgot_password') }}</h1>
+          <p>{{ $t('auth.forgot_desc') }}</p>
         </div>
 
         <el-form
@@ -65,29 +58,31 @@ const goToLogin = () => {
           :rules="rules"
           label-position="top"
           size="large"
+          @keypress.enter="handleSubmit(formRef)"
         >
-          <el-form-item label="Email" prop="email">
+          <el-form-item :label="$t('auth.email')" prop="email">
             <el-input
               v-model="form.email"
               type="email"
-              placeholder="Enter your email address"
+              :placeholder="$t('auth.enter_email')"
               autocomplete="email"
             />
           </el-form-item>
 
-          <el-button
-            type="primary"
+          <AppButton
+            variant="primary"
+            size="large"
             class="submit-btn"
             :loading="loading"
             @click="handleSubmit(formRef)"
           >
-            Send OTP
-          </el-button>
+            {{ $t('auth.send_otp') }}
+          </AppButton>
         </el-form>
 
         <div class="auth-footer">
-          <span>Remember your password?</span>
-          <a @click="goToLogin" class="link">Sign in</a>
+          <span>{{ $t('auth.remember_password') }}</span>
+          <a @click="goToLogin" class="link">{{ $t('auth.sign_in') }}</a>
         </div>
       </div>
     </div>
@@ -135,17 +130,8 @@ const goToLogin = () => {
 
 .submit-btn {
   width: 100%;
-  height: 42px;
-  font-size: 15px;
-  font-weight: 600;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-active) 100%);
-  border: none;
-  color: #000;
+  margin-top: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
-}
-
-.submit-btn:hover {
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-primary) 100%);
 }
 
 .auth-footer {
@@ -180,22 +166,13 @@ const goToLogin = () => {
   padding: 0px 12px;
 }
 
-:deep(.el-input__wrapper:hover) {
-  border-color: var(--border-secondary);
-}
+:deep(.el-input__wrapper:hover) { border-color: var(--border-secondary); }
 
 :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 2px rgba(255, 161, 22, 0.1);
 }
 
-:deep(.el-input__inner) {
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-:deep(.el-input__inner::placeholder) {
-  color: var(--text-tertiary);
-}
+:deep(.el-input__inner) { color: var(--text-primary); font-size: 14px; }
+:deep(.el-input__inner::placeholder) { color: var(--text-tertiary); }
 </style>
-

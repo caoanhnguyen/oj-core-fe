@@ -1,35 +1,38 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { Rocket, Trophy, Code, Users, Search, ChevronRight } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
-const features = [
+const features = computed(() => [
   {
     icon: Code,
-    title: 'Hệ thống chấm bài tự động',
-    description: 'Hỗ trợ đa ngôn ngữ lập trình (C++, Java, Python, Go...) với tốc độ phản hồi cực nhanh.',
+    title: t('home.features.auto_judge.title'),
+    description: t('home.features.auto_judge.desc'),
     color: '#ffa116'
   },
   {
     icon: Trophy,
-    title: 'Kỳ thi & Xếp hạng',
-    description: 'Tham gia các kỳ thi định kỳ và thử thách bản thân với hệ thống tính điểm chuẩn quốc tế.',
+    title: t('home.features.contests_rank.title'),
+    description: t('home.features.contests_rank.desc'),
     color: '#00b8a3'
   },
   {
     icon: Users,
-    title: 'Cộng đồng năng động',
-    description: 'Thảo luận, chia sẻ kinh nghiệm giải bài và học hỏi từ các chuyên gia hàng đầu.',
+    title: t('home.features.community.title'),
+    description: t('home.features.community.desc'),
     color: '#3b82f6'
   }
-]
+])
 
-const stats = [
-  { label: 'Bài tập', value: '500+' },
-  { label: 'Người dùng', value: '1,200+' },
-  { label: 'Bài nộp', value: '50,000+' }
-]
+const stats = computed(() => [
+  { label: t('home.stats_problems'), value: '500+' },
+  { label: t('home.stats_users'), value: '1,200+' },
+  { label: t('home.stats_submissions'), value: '50,000+' }
+])
 </script>
 
 <template>
@@ -39,22 +42,22 @@ const stats = [
       <div class="hero-content">
         <div class="hero-badge">
           <Rocket :size="14" />
-          <span>Hệ thống Kiểm tra Đánh giá Năng lực Doanh nghiệp</span>
+          <span>{{ $t('home.hero_badge') }}</span>
         </div>
         <h1 class="hero-title">
-          Chinh phục đỉnh cao <br />
-          <span class="gradient-text">Kỹ năng lập trình</span>
+          {{ $t('home.hero_title_1') }} <br />
+          <span class="gradient-text">{{ $t('home.hero_title_2') }}</span>
         </h1>
         <p class="hero-subtitle">
-          DevAssess Enterprise cung cấp giải pháp toàn diện giúp doanh nghiệp đánh giá chính xác năng lực ứng viên và nâng cao chất lượng đội ngũ kỹ sư phần mềm.
+          {{ $t('home.hero_subtitle') }}
         </p>
         <div class="hero-actions">
           <el-button type="primary" size="large" class="premium-btn" @click="router.push('/problems')">
-            Bắt đầu luyện tập
+            {{ $t('home.start_practicing') }}
             <ChevronRight :size="18" style="margin-left: 8px" />
           </el-button>
           <el-button size="large" class="outline-btn" @click="router.push('/submissions')">
-            Xem bảng tin bài nộp
+            {{ $t('home.view_submissions') }}
           </el-button>
         </div>
       </div>
@@ -71,7 +74,7 @@ const stats = [
     <!-- Features Section -->
     <section class="features-section">
       <div class="section-header">
-        <h2 class="section-title">Tại sao chọn DevAssess Enterprise?</h2>
+        <h2 class="section-title">{{ $t('home.why_choose') }}</h2>
         <div class="section-line"></div>
       </div>
       
@@ -90,11 +93,11 @@ const stats = [
     <section class="cta-section">
       <div class="cta-card">
         <div class="cta-content">
-          <h2 class="cta-title">Sẵn sàng để bắt đầu chưa?</h2>
-          <p class="cta-text">Tạo tài khoản ngay hôm nay để lưu trữ quá trình luyện tập và tham gia bảng xếp hạng.</p>
+          <h2 class="cta-title">{{ $t('home.ready_to_start') }}</h2>
+          <p class="cta-text">{{ $t('home.create_account_desc') }}</p>
         </div>
         <el-button type="primary" size="large" class="premium-btn" @click="router.push('/register')">
-          Đăng ký miễn phí
+          {{ $t('home.register_free') }}
         </el-button>
       </div>
     </section>

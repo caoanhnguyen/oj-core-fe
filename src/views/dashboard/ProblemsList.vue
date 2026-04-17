@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown, Send } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
@@ -19,6 +20,7 @@ import TopicFilterPicker from '@/components/common/TopicFilterPicker.vue'
 const router = useRouter()
 const problemStore = useProblemStore()
 const topicStore = useTopicStore()
+const { t } = useI18n()
 const { difficultyClass, difficultyLabel, estatusClass, problemStatusClass, ruleTypeClass } = useBadge()
 
 // Real problems data from store
@@ -124,12 +126,12 @@ const fetchProblemsData = async () => {
 
 const debouncedFetchProblems = debounce(fetchProblemsData, 500)
 
-const filterConfig = [
-  { key: 'status', label: 'Trạng thái', icon: CheckCircle, options: [{ label: 'Hoạt động', value: 'ACTIVE' }, { label: 'Đã xóa', value: 'DELETED' }] },
-  { key: 'problemStatus', label: 'Hiển thị', icon: CheckCircle, options: [{ label: 'Công khai', value: 'PUBLISHED' }, { label: 'Bản nháp', value: 'DRAFT' }] },
-  { key: 'difficulty', label: 'Độ khó', icon: Gauge, options: [{ label: 'Dễ', value: 'EASY' }, { label: 'Trung bình', value: 'MEDIUM' }, { label: 'Khó', value: 'HARD' }] },
-  { key: 'ruleType', label: 'Quy tắc', icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] },
-]
+const filterConfig = computed(() => [
+  { key: 'status', label: t('admin_problems.filter_status'), icon: CheckCircle, options: [{ label: t('admin_problems.status_active'), value: 'ACTIVE' }, { label: t('admin_problems.status_deleted'), value: 'DELETED' }] },
+  { key: 'problemStatus', label: t('admin_problems.filter_problem_status'), icon: CheckCircle, options: [{ label: t('admin_problems.visibility_published'), value: 'PUBLISHED' }, { label: t('admin_problems.visibility_draft'), value: 'DRAFT' }] },
+  { key: 'difficulty', label: t('admin_problems.col_difficulty'), icon: Gauge, options: [{ label: t('problems.difficulty_levels.easy'), value: 'EASY' }, { label: t('problems.difficulty_levels.medium'), value: 'MEDIUM' }, { label: t('problems.difficulty_levels.hard'), value: 'HARD' }] },
+  { key: 'ruleType', label: t('admin_problems.col_rule'), icon: LayoutGrid, options: [{ label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }] },
+])
 
 const handleFilterChange = ({ key, value }) => {
   if (value === '') {
@@ -206,11 +208,11 @@ const handleView = (row) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn xóa "${row.title}"? Hành động này không thể hoàn tác.`,
-      'Xác nhận xóa',
+      t('admin_problems.confirm_del_msg', { title: row.title }),
+      t('admin_problems.confirm_del_title'),
       {
-        confirmButtonText: 'Xóa',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: t('admin_problems.action_delete'),
+        cancelButtonText: t('admin_problems.btn_cancel'),
         type: 'warning',
         confirmButtonClass: 'el-button--danger'
       }
@@ -219,7 +221,7 @@ const handleDelete = async (row) => {
     await problemStore.deleteProblem(row.id)
     } catch (error) {
     if (error !== 'cancel') {
-      handleApiError(error, 'Xóa bài tập thất bại')
+      handleApiError(error, t('admin_problems.msg_delete_fail'))
     }
   }
 }
@@ -227,11 +229,11 @@ const handleDelete = async (row) => {
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn khôi phục "${row.title}"?`,
-      'Xác nhận khôi phục',
+      t('admin_problems.confirm_restore_msg', { title: row.title }),
+      t('admin_problems.confirm_restore_title'),
       {
-        confirmButtonText: 'Khôi phục',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: t('admin_problems.action_restore'),
+        cancelButtonText: t('admin_problems.btn_cancel'),
         type: 'info',
         confirmButtonClass: 'el-button--primary'
       }
@@ -239,7 +241,7 @@ const handleRestore = async (row) => {
     await problemStore.restoreProblem(row.id)
   } catch(error) {
     if (error !== 'cancel') {
-      handleApiError(error, 'Khôi phục bài tập thất bại')
+      handleApiError(error, t('admin_problems.msg_restore_fail'))
     }
   }
 }
@@ -247,11 +249,11 @@ const handleRestore = async (row) => {
 const handlePublish = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc chắn muốn công khai bài tập "${row.title}"?`,
-      'Xác nhận công khai',
+      t('admin_problems.confirm_pub_msg', { title: row.title }),
+      t('admin_problems.confirm_pub_title'),
       {
-        confirmButtonText: 'Công khai',
-        cancelButtonText: 'Hủy',
+        confirmButtonText: t('admin_problems.btn_publish'),
+        cancelButtonText: t('admin_problems.btn_cancel'),
         type: 'info',
         confirmButtonClass: 'el-button--primary'
       }
@@ -259,7 +261,7 @@ const handlePublish = async (row) => {
     await problemStore.publishProblem(row.id)
   } catch(error) {
     if (error !== 'cancel') {
-      handleApiError(error, 'Công khai bài tập thất bại')
+      handleApiError(error, t('admin_problems.msg_publish_fail'))
     }
   }
 }
@@ -290,29 +292,29 @@ onMounted(async () => {
 <template>
   <div class="admin-layout-container">
     <PageHeader 
-      title="Quản lý bài tập" 
-      subtitle="Tạo, chỉnh sửa và quản trị các bài tập lập trình"
+      :title="$t('admin_problems.title')" 
+      :subtitle="$t('admin_problems.subtitle')"
     >
       <AppButton variant="primary" :icon="FileText" @click="handleAddProblem">
-        Thêm bài tập
+        {{ $t('admin_problems.btn_add') }}
       </AppButton>
     </PageHeader>
 
     <TableControls
       v-model="searchQuery"
-      search-placeholder="Tìm kiếm bài tập..."
+      :search-placeholder="$t('admin_problems.search_placeholder')"
       :total-elements="problemStore.pagination.totalElements"
-      item-name="Bài tập"
+      :item-name="$t('admin_problems.item_name')"
       :sort-options="[
-        { label: 'Độ khó', value: 'difficulty' },
-        { label: 'Ngày tạo', value: 'createdDate' }
+        { label: $t('admin_problems.col_difficulty'), value: 'difficulty' },
+        { label: $t('admin_problems.col_created'), value: 'createdDate' }
       ]"
       :current-sort="currentSortField"
       :current-sort-dir="currentSortDirection"
       @sort="handleSort"
       @reset-sort="resetSort"
       :filter-config="filterConfig"
-      filter-title="Bộ lọc bài tập"
+      :filter-title="$t('admin_problems.filter_title')"
       @filter-change="handleFilterChange"
       @reset-filters="resetFilters"
     >
@@ -321,7 +323,7 @@ onMounted(async () => {
           v-model="filters.topics.value"
           v-model:active="filters.topics.active"
           :topics="topics"
-          label="Chủ đề"
+          :label="$t('problem_detail.topics')"
         />
       </template>
     </TableControls>
@@ -333,16 +335,17 @@ onMounted(async () => {
       :columns="[
         { key: 'index', label: '#', width: 60, align: 'center' },
         { key: 'id', label: 'ID', width: 320 },
-        { key: 'title', label: 'Tiêu đề', minWidth: 280 },
-        { key: 'createdDate', label: 'Ngày tạo', width: 120, align: 'center' },
-        { key: 'difficulty', label: 'Độ khó', width: 100, align: 'center' },
-        { key: 'ruleType', label: 'Rule', width: 80, align: 'center' },
-        { key: 'status', label: 'Trạng thái', width: 100, align: 'center' },
-        { key: 'problemStatus', label: 'Hiển thị', width: 120, align: 'center' },
-        { key: 'actions', label: 'Hành động', width: 140, align: 'center', fixed: 'right' }
+        { key: 'title', label: $t('admin_problems.col_title'), minWidth: 280 },
+        { key: 'createdDate', label: $t('admin_problems.col_created'), width: 120, align: 'center' },
+        { key: 'difficulty', label: $t('admin_problems.col_difficulty'), width: 100, align: 'center' },
+        { key: 'ruleType', label: $t('admin_problems.col_rule'), width: 80, align: 'center' },
+        { key: 'status', label: $t('admin_problems.col_status'), width: 100, align: 'center' },
+        { key: 'problemStatus', label: $t('admin_problems.col_visibility'), width: 120, align: 'center' }
       ]"
+      :action-width="140"
+      :action-label="$t('admin_problems.col_actions')"
       :loading="problemStore.loading" 
-      empty-text="Không tìm thấy bài tập nào"
+      :empty-text="$t('admin_problems.empty_text')"
     >
       <template #cell-index="{ index }">
         <span class="cell-index">{{ (pagination.page - 1) * pagination.size + index + 1 }}</span>
@@ -374,21 +377,21 @@ onMounted(async () => {
       </template>
       <template #cell-actions="{ row }">
         <div class="action-buttons" v-if="row.status === 'DELETED'">
-          <el-tooltip content="Khôi phục bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip :content="$t('admin_problems.action_restore')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
           </el-tooltip>
         </div>
         <div class="action-buttons" v-else>
-          <el-tooltip content="Xem chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip :content="$t('admin_problems.action_view')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Eye" @click="handleView(row)" class="action-btn action-view" />
           </el-tooltip>
-          <el-tooltip content="Sửa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip :content="$t('admin_problems.action_edit')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Edit" @click="handleEdit(row)" class="action-btn" />
           </el-tooltip>
-          <el-tooltip v-if="row.problemStatus === 'DRAFT'" content="Công khai bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip v-if="row.problemStatus === 'DRAFT'" :content="$t('admin_problems.action_publish')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Send" @click="handlePublish(row)" class="action-btn action-publish" />
           </el-tooltip>
-          <el-tooltip v-else content="Xóa bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+          <el-tooltip v-else :content="$t('admin_problems.action_delete')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Trash2" @click="handleDelete(row)" class="action-btn action-danger" />
           </el-tooltip>
         </div>

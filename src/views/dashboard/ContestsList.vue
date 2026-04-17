@@ -9,12 +9,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DarkPagination from '@/components/common/DarkPagination.vue'
+import DataTable from '@/components/common/DataTable.vue'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import { useI18n } from 'vue-i18n'
 
 const contestStore = useContestStore()
 const problemStore = useProblemStore()
 const router = useRouter()
+const { t } = useI18n()
 
 // Main List State
 // ====================
@@ -152,15 +155,15 @@ const defaultForm = () => ({
 const form = ref(defaultForm())
 const formRef = ref(null)
 
-const formRules = {
-  title: [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
-  description: [{ required: true, message: 'Vui lòng nhập mô tả', trigger: 'blur' }],
-  startTime: [{ required: true, message: 'Vui lòng chọn thời gian bắt đầu', trigger: 'change' }],
-  endTime: [{ required: true, message: 'Vui lòng chọn thời gian kết thúc', trigger: 'change' }],
-  ruleType: [{ required: true, message: 'Vui lòng chọn loại', trigger: 'change' }],
-  visibility: [{ required: true, message: 'Vui lòng chọn visibility', trigger: 'change' }],
-  scoreboardVisibility: [{ required: true, message: 'Vui lòng chọn chế độ Xếp hạng', trigger: 'change' }],
-}
+const formRules = computed(() => ({
+  title: [{ required: true, message: t('admin_contests.messages.req_title'), trigger: 'blur' }],
+  description: [{ required: true, message: t('admin_contests.messages.req_desc'), trigger: 'blur' }],
+  startTime: [{ required: true, message: t('admin_contests.messages.req_start'), trigger: 'change' }],
+  endTime: [{ required: true, message: t('admin_contests.messages.req_end'), trigger: 'change' }],
+  ruleType: [{ required: true, message: t('admin_contests.messages.req_rule'), trigger: 'change' }],
+  visibility: [{ required: true, message: t('admin_contests.messages.req_vis'), trigger: 'change' }],
+  scoreboardVisibility: [{ required: true, message: t('admin_contests.messages.req_sb'), trigger: 'change' }],
+}))
 
 const openCreateForm = () => {
   formMode.value = 'create'
@@ -235,28 +238,28 @@ const submitForm = async () => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Bạn có chắc muốn xóa contest "${row.title}"?`,
-      'Xác nhận xóa',
-      { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning', confirmButtonClass: 'el-button--danger' }
+      t('admin_contests.messages.confirm_del', { title: row.title }),
+      t('common.confirm') || 'Confirmation',
+      { confirmButtonText: t('common.delete') || 'Delete', cancelButtonText: t('common.cancel') || 'Cancel', type: 'warning', confirmButtonClass: 'el-button--danger' }
     )
     await contestStore.deleteContest(row.id)
     loadContests()
   } catch (error) {
-    if (error !== 'cancel') handleApiError(error, 'Xóa contest thất bại')
+    if (error !== 'cancel') handleApiError(error, t('admin_contests.messages.del_fail'))
   }
 }
 
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Khôi phục contest "${row.title}" về trạng thái inactive?`,
-      'Xác nhận khôi phục',
-      { confirmButtonText: 'Khôi phục', cancelButtonText: 'Hủy', type: 'info' }
+      t('admin_contests.messages.confirm_restore', { title: row.title }),
+      t('common.confirm') || 'Confirmation',
+      { confirmButtonText: t('common.restore') || 'Restore', cancelButtonText: t('common.cancel') || 'Cancel', type: 'info' }
     )
     await contestStore.restoreContest(row.id)
     loadContests()
   } catch (error) {
-    if (error !== 'cancel') handleApiError(error, 'Khôi phục thất bại')
+    if (error !== 'cancel') handleApiError(error, t('admin_contests.messages.del_fail'))
   }
 }
 
@@ -284,7 +287,7 @@ const loadContestProblems = async () => {
     problemsLoading.value = true
     contestProblems.value = await contestsAPI.adminGetProblems(selectedContest.value.id)
   } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách bài tập')
+    handleApiError(error, t('admin_contests.messages.del_fail'))
   } finally {
     problemsLoading.value = false
   }
@@ -312,7 +315,7 @@ const loadAllProblemsForPicker = async () => {
     }, false, true)
     allProblems.value = problemStore.problems
   } catch (error) {
-    console.error('Lỗi khi tải danh sách bài tập:', error)
+    console.error(t('admin_contests.messages.err_load_tasks') || 'Error loading tasks:', error)
   }
 }
 
@@ -355,7 +358,7 @@ const toggleProblemSelection = (p) => {
 }
 
 const handleAddProblem = async () => {
-  if (selectedProblemsToAdd.value.length === 0) { ElMessage.warning('Vui lòng chọn bài tập'); return }
+  if (selectedProblemsToAdd.value.length === 0) { ElMessage.warning(t('admin_contests.add_problem.empty_selected')); return }
   try {
     await contestStore.addProblems(selectedContest.value.id, selectedProblemsToAdd.value)
     addProblemDialogVisible.value = false
@@ -365,16 +368,16 @@ const handleAddProblem = async () => {
 }
 
 const handleRemoveProblems = async () => {
-  if (selectedProblemIds.value.length === 0) { ElMessage.warning('Vui lòng chọn ít nhất một bài'); return }
+  if (selectedProblemIds.value.length === 0) { ElMessage.warning(t('admin_contests.messages.select_at_least_one_problem') || 'Please select at least one problem'); return }
   try {
-    await ElMessageBox.confirm('Xóa các bài đã chọn khỏi contest?', 'Xác nhận', { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning' })
+    await ElMessageBox.confirm(t('admin_contests.messages.confirm_del_problems') || 'Remove selected problems from contest?', t('common.confirm') || 'Confirmation', { confirmButtonText: t('common.delete') || 'Delete', cancelButtonText: t('common.cancel') || 'Cancel', type: 'warning' })
     // selectedProblemIds is the ContestProblem IDs within the contest, not problemIds. We need problemId.
     const problemIds = contestProblems.value.filter(p => selectedProblemIds.value.includes(p.id)).map(p => p.problemId)
     await contestStore.removeProblems(selectedContest.value.id, problemIds)
     selectedProblemIds.value = []
     await loadContestProblems()
   } catch (e) {
-    if (e !== 'cancel') handleApiError(e, 'Xóa bài thất bại')
+    if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.del_fail'))
   }
 }
 
@@ -411,7 +414,7 @@ const loadParticipants = async () => {
     participants.value = data.content || []
     participantsPagination.value.totalElements = data.totalElements || 0
   } catch (error) {
-    handleApiError(error, 'Không thể tải danh sách người tham gia')
+    handleApiError(error, t('admin_contests.messages.del_fail'))
   } finally {
     participantsLoading.value = false
   }
@@ -422,20 +425,20 @@ const openParticipantsView = (row) => {
 }
 
 const handleBanUsers = async () => {
-  if (selectedParticipantRows.value.length === 0) { ElMessage.warning('Vui lòng chọn ít nhất một người'); return }
+  if (selectedParticipantRows.value.length === 0) { ElMessage.warning(t('admin_contests.messages.select_at_least_one_user') || 'Please select at least one user'); return }
   try {
     const ids = selectedParticipantRows.value.map(r => r.userId)
-    await ElMessageBox.confirm('Cấm các người dùng đã chọn khỏi contest?', 'Xác nhận', { type: 'warning' })
+    await ElMessageBox.confirm(t('admin_contests.messages.confirm_ban_users') || 'Ban selected users from contest?', t('common.confirm') || 'Confirmation', { type: 'warning' })
     await contestStore.banUsers(selectedContest.value.id, ids)
     selectedParticipantRows.value = []
     await loadParticipants()
   } catch (e) {
-    if (e !== 'cancel') handleApiError(e, 'Cấm người dùng thất bại')
+    if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.del_fail'))
   }
 }
 
 const handleUnbanUsers = async () => {
-  if (selectedParticipantRows.value.length === 0) { ElMessage.warning('Vui lòng chọn ít nhất một người'); return }
+  if (selectedParticipantRows.value.length === 0) { ElMessage.warning(t('admin_contests.messages.select_at_least_one_user') || 'Please select at least one user'); return }
   try {
     const ids = selectedParticipantRows.value.map(r => r.userId)
     await contestStore.unbanUsers(selectedContest.value.id, ids)
@@ -463,7 +466,7 @@ const loadContestSubmissions = async () => {
     contestSubmissions.value = data.content || []
     submissionsPagination.value.totalElements = data.totalElements || 0
   } catch (error) {
-    handleApiError(error, 'Không thể tải lịch sử nộp bài')
+    handleApiError(error, t('admin_contests.messages.del_fail'))
   } finally {
     submissionsLoading.value = false
   }
@@ -501,9 +504,9 @@ const getContestStatusClass = (s) => ({
 }[s] || '')
 
 const getContestStatusLabel = (s) => ({
-  ONGOING: 'Đang diễn ra',
-  UPCOMING: 'Sắp diễn ra',
-  ENDED: 'Đã kết thúc'
+  ONGOING: t('admin_contests.status_opts.ongoing'),
+  UPCOMING: t('admin_contests.status_opts.upcoming'),
+  ENDED: t('admin_contests.status_opts.ended')
 }[s] || s)
 
 const getVerdictClass = (v) => ({
@@ -511,40 +514,40 @@ const getVerdictClass = (v) => ({
   RE: 'verdict-wa', CE: 'verdict-info', PENDING: 'verdict-info', SE: 'verdict-wa'
 }[v] || '')
 
-const mainColumns = [
+const mainColumns = computed(() => [
   { key: 'index', label: '#', width: 50 },
-  { key: 'title', label: 'Tiêu đề', minWidth: 220 },
-  { key: 'ruleType', label: 'Rule', width: 100 },
-  { key: 'contestStatus', label: 'Trạng thái', width: 150 },
-  { key: 'visibility', label: 'Visibility', width: 100 },
-  { key: 'scoreboardVisibility', label: 'Scoreboard', width: 120 },
-  { key: 'startTime', label: 'Ngày bắt đầu', width: 160 },
-  { key: 'endTime', label: 'Ngày kết thúc', width: 160 },
-  { key: 'participantCount', label: 'Thí sinh', width: 80 },
-  { key: 'status', label: 'Trạng thái bản ghi', width: 150 }
-]
+  { key: 'title', label: t('admin_contests.col_title'), minWidth: 220 },
+  { key: 'ruleType', label: t('admin_contests.col_rule'), width: 100 },
+  { key: 'contestStatus', label: t('admin_contests.col_status'), width: 150 },
+  { key: 'visibility', label: t('admin_contests.col_visibility'), width: 100 },
+  { key: 'scoreboardVisibility', label: t('admin_contests.col_scoreboard'), width: 120 },
+  { key: 'startTime', label: t('admin_contests.col_start'), width: 160 },
+  { key: 'endTime', label: t('admin_contests.col_end'), width: 160 },
+  { key: 'participantCount', label: t('admin_contests.col_participants'), width: 80 },
+  { key: 'status', label: t('admin_contests.col_record_status'), width: 150 }
+])
 
-const problemColumns = [
+const problemColumns = computed(() => [
   { type: 'selection', width: 50 },
   { key: 'displayId', label: 'ID', width: 90 },
-  { key: 'originalTitle', label: 'Tiêu đề bài tập', minWidth: 200 },
-  { key: 'points', label: 'Điểm', width: 90 },
-  { key: 'sortOrder', label: 'Thứ tự', width: 90 }
-]
+  { key: 'originalTitle', label: t('admin_contests.tab_problems.col_title'), minWidth: 200 },
+  { key: 'points', label: t('admin_contests.tab_problems.col_points'), width: 90 },
+  { key: 'sortOrder', label: t('admin_contests.tab_problems.col_order'), width: 90 }
+])
 
-const participantColumns = [
+const participantColumns = computed(() => [
   { type: 'selection', width: 50 },
-  { key: 'username', label: 'Người dùng', minWidth: 150 },
-  { key: 'status', label: 'Trạng thái', width: 140 }
-]
+  { key: 'username', label: t('admin_contests.tab_participants.col_user'), minWidth: 150 },
+  { key: 'status', label: t('admin_contests.col_status'), width: 140 }
+])
 
-const submissionColumns = [
-  { key: 'time', label: 'Thời gian', minWidth: 160 },
-  { key: 'user', label: 'User', minWidth: 140 },
-  { key: 'problem', label: 'Bài', minWidth: 160 },
-  { key: 'verdict', label: 'Kết quả', width: 120 },
-  { key: 'language', label: 'Lang', width: 90 }
-]
+const submissionColumns = computed(() => [
+  { key: 'time', label: t('admin_contests.tab_submissions.col_time'), minWidth: 160 },
+  { key: 'user', label: t('admin_contests.tab_submissions.col_user'), minWidth: 140 },
+  { key: 'problem', label: t('admin_contests.tab_submissions.col_problem'), minWidth: 160 },
+  { key: 'verdict', label: t('admin_contests.tab_submissions.col_verdict'), width: 120 },
+  { key: 'language', label: t('admin_contests.tab_submissions.col_lang'), width: 90 }
+])
 
 onMounted(loadContests)
 </script>
@@ -555,11 +558,11 @@ onMounted(loadContests)
     <template v-if="viewMode === 'list'">
       <div class="section-header">
         <div>
-          <h1 class="section-title">Quản lý Contest</h1>
-          <p class="section-subtitle">Tạo và quản trị các cuộc thi lập trình</p>
+          <h1 class="section-title">{{ $t('admin_contests.page_title') }}</h1>
+          <p class="section-subtitle">{{ $t('admin_contests.page_subtitle') }}</p>
         </div>
         <AppButton variant="primary" :icon="Plus" @click="openCreateForm">
-          Tạo Contest
+          {{ $t('admin_contests.btn_create') }}
         </AppButton>
       </div>
 
@@ -571,7 +574,7 @@ onMounted(loadContests)
             type="text" 
             v-model="searchQuery" 
             @keyup.enter="handleSearch" 
-            placeholder="Tìm kiếm contest..." 
+            :placeholder="$t('admin_contests.search_placeholder')" 
             class="search-input" 
           />
         </div>
@@ -586,7 +589,7 @@ onMounted(loadContests)
         >
           <template #reference>
             <div style="display: inline-block;">
-              <el-tooltip content="Lọc contest" placement="top" effect="dark" :hide-after="0">
+              <el-tooltip :content="$t('admin_contests.filter_tooltip')" placement="top" effect="dark" :hide-after="0">
                 <button class="control-btn" :class="{ active: hasActiveFilters }">
                   <Filter :size="16" />
                 </button>
@@ -596,7 +599,7 @@ onMounted(loadContests)
           
           <div class="filter-content">
             <div class="filter-header">
-              <span>Bộ lọc Contest</span>
+              <span>{{ $t('admin_contests.filter_title') }}</span>
             </div>
             
             <div class="filter-list">
@@ -604,7 +607,7 @@ onMounted(loadContests)
               <div class="filter-row">
                 <el-checkbox v-model="filters.contestStatus.active" @change="handleFilterChange" class="dark-checkbox" />
                 <span class="filter-label" :class="{ 'is-active': filters.contestStatus.active }">
-                  <Clock :size="14" /> Trạng thái
+                  <Clock :size="14" /> {{ $t('admin_contests.filter_labels.status') }}
                 </span>
                 <el-select 
                   v-model="filters.contestStatus.value" 
@@ -614,9 +617,9 @@ onMounted(loadContests)
                   @change="handleFilterChange"
                   popper-class="dark-select-dropdown"
                 >
-                  <el-option label="Sắp diễn ra" value="UPCOMING" />
-                  <el-option label="Đang diễn ra" value="ONGOING" />
-                  <el-option label="Đã kết thúc" value="ENDED" />
+                  <el-option :label="$t('admin_contests.status_opts.upcoming')" value="UPCOMING" />
+                  <el-option :label="$t('admin_contests.status_opts.ongoing')" value="ONGOING" />
+                  <el-option :label="$t('admin_contests.status_opts.ended')" value="ENDED" />
                 </el-select>
               </div>
 
@@ -624,7 +627,7 @@ onMounted(loadContests)
               <div class="filter-row">
                 <el-checkbox v-model="filters.visibility.active" @change="handleFilterChange" class="dark-checkbox" />
                 <span class="filter-label" :class="{ 'is-active': filters.visibility.active }">
-                  <Eye :size="14" /> Visibility
+                  <Eye :size="14" /> {{ $t('admin_contests.filter_labels.visibility') }}
                 </span>
                 <el-select 
                   v-model="filters.visibility.value" 
@@ -634,8 +637,8 @@ onMounted(loadContests)
                   @change="handleFilterChange"
                   popper-class="dark-select-dropdown"
                 >
-                  <el-option label="Công khai" value="PUBLIC" />
-                  <el-option label="Riêng tư" value="PRIVATE" />
+                  <el-option :label="$t('admin_contests.visibility_opts.public')" value="PUBLIC" />
+                  <el-option :label="$t('admin_contests.visibility_opts.private')" value="PRIVATE" />
                 </el-select>
               </div>
 
@@ -643,7 +646,7 @@ onMounted(loadContests)
               <div class="filter-row">
                 <el-checkbox v-model="filters.scoreboardVisibility.active" @change="handleFilterChange" class="dark-checkbox" />
                 <span class="filter-label" :class="{ 'is-active': filters.scoreboardVisibility.active }">
-                  <BarChart2 :size="14" /> Xếp hạng
+                  <BarChart2 :size="14" /> {{ $t('admin_contests.filter_labels.scoreboard') }}
                 </span>
                 <el-select 
                   v-model="filters.scoreboardVisibility.value" 
@@ -653,9 +656,9 @@ onMounted(loadContests)
                   @change="handleFilterChange"
                   popper-class="dark-select-dropdown"
                 >
-                  <el-option label="Hiện toàn thời gian" value="VISIBLE" />
-                  <el-option label="Đóng băng lúc thi" value="HIDDEN_DURING_CONTEST" />
-                  <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
+                  <el-option :label="$t('admin_contests.scoreboard_opts.visible')" value="VISIBLE" />
+                  <el-option :label="$t('admin_contests.scoreboard_opts.frozen')" value="HIDDEN_DURING_CONTEST" />
+                  <el-option :label="$t('admin_contests.scoreboard_opts.hidden')" value="HIDDEN_PERMANENTLY" />
                 </el-select>
               </div>
 
@@ -663,7 +666,7 @@ onMounted(loadContests)
               <div class="filter-row">
                 <el-checkbox v-model="filters.ruleType.active" @change="handleFilterChange" class="dark-checkbox" />
                 <span class="filter-label" :class="{ 'is-active': filters.ruleType.active }">
-                  <BookOpen :size="14" /> Quy tắc
+                  <BookOpen :size="14" /> {{ $t('admin_contests.filter_labels.rule') }}
                 </span>
                 <el-select 
                   v-model="filters.ruleType.value" 
@@ -682,7 +685,7 @@ onMounted(loadContests)
               <div class="filter-row">
                 <el-checkbox v-model="filters.status.active" @change="handleFilterChange" class="dark-checkbox" />
                 <span class="filter-label" :class="{ 'is-active': filters.status.active }">
-                  <FileText :size="14" /> Record
+                  <FileText :size="14" /> {{ $t('admin_contests.filter_labels.record') }}
                 </span>
                 <el-select 
                   v-model="filters.status.value" 
@@ -692,14 +695,14 @@ onMounted(loadContests)
                   @change="handleFilterChange"
                   popper-class="dark-select-dropdown"
                 >
-                  <el-option label="Active" value="ACTIVE" />
-                  <el-option label="Deleted" value="DELETED" />
+                  <el-option :label="$t('admin_contests.record_opts.active')" value="ACTIVE" />
+                  <el-option :label="$t('admin_contests.record_opts.deleted')" value="DELETED" />
                 </el-select>
               </div>
 
               <div class="filter-footer">
                 <AppButton variant="text" :icon="RotateCcw" class="reset-filters" @click="resetFilters">
-                  Đặt lại
+                  {{ $t('admin_contests.filter_reset') }}
                 </AppButton>
               </div>
             </div>
@@ -707,7 +710,7 @@ onMounted(loadContests)
         </el-popover>
 
         <div class="spacer" />
-        <span class="count-text">{{ totalElements }} contests</span>
+        <span class="count-text">{{ $t('admin_contests.item_count', { total: totalElements }) }}</span>
       </div>
 
       <TableSkeleton v-if="contestStore.loading && contests.length === 0" :columns="6" :rows="10" />
@@ -717,7 +720,7 @@ onMounted(loadContests)
         :data="contests" 
         :columns="mainColumns"
         v-loading="contestStore.loading"
-        empty-text="Không tìm thấy contest nào"
+        :empty-text="$t('admin_contests.empty_text')"
         action-width="170"
       >
         <template #cell-index="{ index }">
@@ -741,7 +744,7 @@ onMounted(loadContests)
         </template>
 
         <template #cell-scoreboardVisibility="{ row }">
-          <el-tooltip :content="row.scoreboardVisibility === 'VISIBLE' ? 'Hiện toàn thời gian' : (row.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'Ẩn vĩnh viễn' : 'Đóng băng lúc thi')" placement="top" effect="dark">
+          <el-tooltip :content="row.scoreboardVisibility === 'VISIBLE' ? t('admin_contests.scoreboard_opts.visible') : (row.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? t('admin_contests.scoreboard_opts.hidden') : t('admin_contests.scoreboard_opts.frozen'))" placement="top" effect="dark">
             <span :class="['sb-badge', row.scoreboardVisibility === 'VISIBLE' ? 'sb-visible' : 'sb-hidden']">
               {{ row.scoreboardVisibility === 'VISIBLE' ? 'VISIBLE' : (row.scoreboardVisibility === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
             </span>
@@ -768,23 +771,23 @@ onMounted(loadContests)
           <div class="action-buttons" style="display: flex; gap: 4px; justify-content: center;">
             <!-- DELETED: chỉ hiển thị Chi tiết + Khôi phục -->
             <template v-if="row.status === 'DELETED'">
-              <el-tooltip content="Chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-tooltip :content="$t('admin_contests.action_detail')" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="Eye" @click="openDetail(row)" class="action-btn" />
               </el-tooltip>
-              <el-tooltip content="Khôi phục" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-tooltip :content="$t('admin_contests.action_restore')" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />
               </el-tooltip>
             </template>
 
             <!-- ACTIVE: 3 primary + dropdown 3 chấm -->
             <template v-else>
-              <el-tooltip content="Chi tiết" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-tooltip :content="$t('admin_contests.action_detail')" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="Eye" @click="openDetail(row)" class="action-btn" />
               </el-tooltip>
-              <el-tooltip content="Bài tập" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-tooltip :content="$t('admin_contests.action_problems')" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="BookOpen" @click="openProblemsView(row)" class="action-btn" />
               </el-tooltip>
-              <el-tooltip content="Thí sinh" placement="top" effect="dark" :hide-after="0" :show-after="200">
+              <el-tooltip :content="$t('admin_contests.action_participants')" placement="top" effect="dark" :hide-after="0" :show-after="200">
                 <el-button link :icon="Users" @click="openParticipantsView(row)" class="action-btn" />
               </el-tooltip>
 
@@ -796,17 +799,17 @@ onMounted(loadContests)
                 <template #dropdown>
                   <el-dropdown-menu class="dark-action-menu">
                     <el-dropdown-item @click="openEditForm(row)">
-                      <Edit :size="14" style="margin-right:8px;" /> Chỉnh sửa
+                      <Edit :size="14" style="margin-right:8px;" /> {{ $t('admin_contests.action_edit') }}
                     </el-dropdown-item>
                     <el-dropdown-item @click="openSubmissionsView(row)">
                       <FileText :size="14" style="margin-right:8px;" /> Submissions
                     </el-dropdown-item>
                     <el-dropdown-item @click="handleToggleVisibility(row)" divided>
                       <component :is="row.status === 'ACTIVE' ? EyeOff : Eye" :size="14" style="margin-right:8px;" />
-                      {{ row.status === 'ACTIVE' ? 'Gỡ bỏ (Ẩn)' : 'Công khai (Hiển thị)' }}
+                      {{ row.status === 'ACTIVE' ? $t('admin_contests.action_hide') || 'Hide' : $t('admin_contests.action_publish') || 'Publish' }}
                     </el-dropdown-item>
                     <el-dropdown-item @click="handleDelete(row)" class="danger-item">
-                      <Trash2 :size="14" style="margin-right:8px;" /> Xóa contest
+                      <Trash2 :size="14" style="margin-right:8px;" /> {{ $t('admin_contests.action_delete') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -828,16 +831,16 @@ onMounted(loadContests)
     <!-- ===== CONTEST DETAIL VIEW (WITH TABS) ===== -->
     <template v-if="viewMode === 'detail' && selectedContest">
       <div class="back-bar">
-        <el-button link @click="goBackToList"><RotateCcw :size="16" style="margin-right:6px;" /> Danh sách</el-button>
-        <span class="sub-title">Quản trị Contest: <strong>{{ selectedContest.title }}</strong></span>
+        <el-button link @click="goBackToList"><RotateCcw :size="16" style="margin-right:6px;" /> {{ $t('admin_contests.detail.back') }}</el-button>
+        <span class="sub-title">{{ $t('admin_contests.detail.title') }}<strong>{{ selectedContest.title }}</strong></span>
         <div class="spacer" />
         <div class="detail-actions-inline">
           <el-button size="small" class="detail-action-btn edit-btn" @click="openEditForm(selectedContest)">
-            <Edit :size="14" style="margin-right:6px;" /> Chỉnh sửa
+            <Edit :size="14" style="margin-right:6px;" /> {{ $t('admin_contests.detail.btn_edit') }}
           </el-button>
           <el-button size="small" class="detail-action-btn toggle-btn" @click="handleToggleVisibility(selectedContest)">
             <component :is="selectedContest.status === 'ACTIVE' ? EyeOff : Eye" :size="14" style="margin-right:6px;" />
-            {{ selectedContest.status === 'ACTIVE' ? 'Gỡ bỏ (Ẩn)' : 'Công khai (Hiển thị)' }}
+            {{ selectedContest.status === 'ACTIVE' ? $t('admin_contests.action_hide') : $t('admin_contests.action_show') }}
           </el-button>
         </div>
       </div>
@@ -865,15 +868,15 @@ onMounted(loadContests)
 
           <div v-show="!isDetailHeaderCollapsed" class="header-content">
             <div class="detail-meta-grid">
-              <div class="meta-item"><span class="meta-label">Bắt đầu</span><span class="meta-value">{{ formatDateTime(selectedContest.startTime) }}</span></div>
-              <div class="meta-item"><span class="meta-label">Kết thúc</span><span class="meta-value">{{ formatDateTime(selectedContest.endTime) }}</span></div>
-              <div class="meta-item"><span class="meta-label">Người tạo</span><span class="meta-value">{{ selectedContest.authorUsername }}</span></div>
-              <div class="meta-item" v-if="selectedContest.durationMinutes"><span class="meta-label">Thời hạn làm bài</span><span class="meta-value">{{ selectedContest.durationMinutes }} phút</span></div>
-              <div class="meta-item"><span class="meta-label">Thí sinh</span><span class="meta-value">{{ selectedContest.participantCount || 0 }}</span></div>
-              <div class="meta-item" v-if="selectedContest.password"><span class="meta-label">Mật khẩu</span><span class="meta-value">{{ selectedContest.password }}</span></div>
+              <div class="meta-item"><span class="meta-label">{{ $t('admin_contests.detail.meta_start') }}</span><span class="meta-value">{{ formatDateTime(selectedContest.startTime) }}</span></div>
+              <div class="meta-item"><span class="meta-label">{{ $t('admin_contests.detail.meta_end') }}</span><span class="meta-value">{{ formatDateTime(selectedContest.endTime) }}</span></div>
+              <div class="meta-item"><span class="meta-label">{{ $t('admin_contests.detail.meta_author') }}</span><span class="meta-value">{{ selectedContest.authorUsername }}</span></div>
+              <div class="meta-item" v-if="selectedContest.durationMinutes"><span class="meta-label">{{ $t('admin_contests.detail.meta_duration') }}</span><span class="meta-value">{{ selectedContest.durationMinutes }} {{ $t('contest_detail.time_minutes') || 'minutes' }}</span></div>
+              <div class="meta-item"><span class="meta-label">{{ $t('admin_contests.detail.meta_participants') }}</span><span class="meta-value">{{ selectedContest.participantCount || 0 }}</span></div>
+              <div class="meta-item" v-if="selectedContest.password"><span class="meta-label">{{ $t('admin_contests.detail.meta_password') }}</span><span class="meta-value">{{ selectedContest.password }}</span></div>
             </div>
             <div class="detail-description">
-              <div class="meta-label" style="margin-bottom: 8px;">Mô tả</div>
+              <div class="meta-label" style="margin-bottom: 8px;">{{ $t('admin_contests.detail.desc') }}</div>
               <div class="desc-content" v-html="selectedContest.description" />
             </div>
           </div>
@@ -885,14 +888,14 @@ onMounted(loadContests)
             <el-tabs v-model="activeDetailTab" @tab-change="switchDetailTab" class="dark-tabs-system">
             <!-- Problems Tab -->
             <el-tab-pane name="problems">
-              <template #label><span class="tab-label-custom"><BookOpen :size="14" /> Bài tập</span></template>
+              <template #label><span class="tab-label-custom"><BookOpen :size="14" /> {{ $t('admin_contests.tabs.problems') }}</span></template>
               <div class="tab-pane-content">
                 <div class="tab-toolbar">
                   <el-button class="add-button-light" size="small" @click="addProblemDialogVisible = true">
-                    <Plus :size="14" style="margin-right:6px;" /> Thêm bài tập
+                    <Plus :size="14" style="margin-right:6px;" /> {{ $t('admin_contests.tab_problems.btn_add') }}
                   </el-button>
                   <el-button class="delete-btn-custom" size="small" :disabled="selectedProblemIds.length === 0" @click="handleRemoveProblems">
-                    <Trash2 :size="14" style="margin-right:6px;" /> Xóa ({{ selectedProblemIds.length }})
+                    <Trash2 :size="14" style="margin-right:6px;" /> {{ $t('admin_contests.tab_problems.btn_remove', { count: selectedProblemIds.length }) }}
                   </el-button>
                 </div>
                 <DataTable 
@@ -900,7 +903,7 @@ onMounted(loadContests)
                   :columns="problemColumns"
                   v-loading="problemsLoading" 
                   @selection-change="(val) => selectedProblemIds = val.map(r => r.id)"
-                  empty-text="Chưa có bài tập nào"
+                  :empty-text="$t('admin_contests.tab_problems.empty')"
                 >
                   <template #cell-displayId="{ row }">
                     <span class="cell-date">{{ row.displayId }}</span>
@@ -920,23 +923,23 @@ onMounted(loadContests)
 
             <!-- Participants Tab -->
             <el-tab-pane name="participants">
-              <template #label><span class="tab-label-custom"><Users :size="14" /> Thí sinh</span></template>
+              <template #label><span class="tab-label-custom"><Users :size="14" /> {{ $t('admin_contests.tabs.participants') }}</span></template>
               <div class="tab-pane-content">
                 <div class="tab-toolbar">
                   <div class="search-wrap">
                     <Search class="search-icon" :size="16" />
-                    <input type="text" v-model="participantSearch" @keyup.enter="() => { participantsPagination.page = 0; loadParticipants() }" placeholder="Tìm thí sinh..." class="search-input-sm" />
+                    <input type="text" v-model="participantSearch" @keyup.enter="() => { participantsPagination.page = 0; loadParticipants() }" :placeholder="$t('admin_contests.tab_participants.search')" class="search-input-sm" />
                   </div>
-                  <el-select v-model="filterDisqualified" placeholder="Tất cả" clearable size="small" class="filter-select-sm dark-select" @change="() => { participantsPagination.page = 0; loadParticipants() }" popper-class="dark-select-dropdown">
-                    <el-option label="Đang tham gia" :value="false" />
-                    <el-option label="Đã bị cấm" :value="true" />
+                  <el-select v-model="filterDisqualified" placeholder="All" clearable size="small" class="filter-select-sm dark-select" @change="() => { participantsPagination.page = 0; loadParticipants() }" popper-class="dark-select-dropdown">
+                    <el-option :label="$t('admin_contests.tab_participants.filter_active')" :value="false" />
+                    <el-option :label="$t('admin_contests.tab_participants.filter_banned')" :value="true" />
                   </el-select>
                   <div class="spacer" />
                   <el-button class="delete-btn-custom" size="small" :disabled="!canBanSelected" @click="handleBanUsers">
-                    <X :size="14" style="margin-right:4px;" /> Cấm thi
+                    <X :size="14" style="margin-right:4px;" /> {{ $t('admin_contests.tab_participants.btn_ban') }}
                   </el-button>
                   <el-button class="action-btn-custom" size="small" :disabled="!canUnbanSelected" @click="handleUnbanUsers">
-                    <Check :size="14" style="margin-right:4px;" /> Bỏ cấm
+                    <Check :size="14" style="margin-right:4px;" /> {{ $t('admin_contests.tab_participants.btn_unban') }}
                   </el-button>
                 </div>
                 <DataTable 
@@ -944,7 +947,7 @@ onMounted(loadContests)
                   :columns="participantColumns"
                   v-loading="participantsLoading" 
                   @selection-change="(val) => selectedParticipantRows = val"
-                  empty-text="Chưa có thí sinh nào"
+                  :empty-text="$t('admin_contests.tab_participants.empty')"
                 >
                   <template #cell-username="{ row }">
                     <div class="user-cell">
@@ -954,7 +957,7 @@ onMounted(loadContests)
                   </template>
                   <template #cell-status="{ row }">
                     <span :class="['status-badge', row.isDisqualified ? 'status-deleted' : 'status-active']">
-                      {{ row.isDisqualified ? 'Đã bị cấm' : 'Đang tham gia' }}
+                      {{ row.isDisqualified ? $t('admin_contests.tab_participants.filter_banned') : $t('admin_contests.tab_participants.filter_active') }}
                     </span>
                   </template>
                 </DataTable>
@@ -972,13 +975,13 @@ onMounted(loadContests)
 
             <!-- Submissions Tab -->
             <el-tab-pane name="submissions">
-              <template #label><span class="tab-label-custom"><FileText :size="14" /> Submissions</span></template>
+              <template #label><span class="tab-label-custom"><FileText :size="14" /> {{ $t('admin_contests.tabs.submissions') }}</span></template>
               <div class="tab-pane-content">
                 <DataTable 
                   :data="contestSubmissions" 
                   :columns="submissionColumns"
                   v-loading="submissionsLoading"
-                  empty-text="Chưa có submission nào"
+                  :empty-text="$t('admin_contests.tab_submissions.empty')"
                 >
                   <template #cell-time="{ row }"><span class="cell-date">{{ new Date(row.createdDate).toLocaleString('vi-VN') }}</span></template>
                   <template #cell-user="{ row }">
@@ -1008,19 +1011,19 @@ onMounted(loadContests)
     </template>
 
     <!-- ===== CREATE/EDIT FORM DIALOG ===== -->
-    <el-dialog v-model="formDialogVisible" :title="formMode === 'create' ? 'Tạo Contest mới' : 'Chỉnh sửa Contest'" width="700px" class="dark-dialog custom-message-box-theme" :close-on-click-modal="false">
+    <el-dialog v-model="formDialogVisible" :title="formMode === 'create' ? $t('admin_contests.form.title_create') : $t('admin_contests.form.title_edit')" width="700px" class="dark-dialog custom-message-box-theme" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="formRules" label-position="top" class="dark-form">
-        <el-form-item label="Tiêu đề" prop="title">
-          <el-input v-model="form.title" placeholder="Nhập tiêu đề contest..." />
+        <el-form-item :label="$t('admin_contests.form.field_title')" prop="title">
+          <el-input v-model="form.title" :placeholder="$t('admin_contests.form.placeholder_title')" />
         </el-form-item>
 
         <div class="form-row-2">
-          <el-form-item label="Thời gian bắt đầu" prop="startTime">
+          <el-form-item :label="$t('admin_contests.form.field_start')" prop="startTime">
             <!-- No value-format: returns Date object so we can convert local→UTC in submitForm -->
-            <el-date-picker v-model="form.startTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" />
+            <el-date-picker v-model="form.startTime" type="datetime" :placeholder="$t('admin_contests.form.placeholder_time')" style="width: 100%;" />
           </el-form-item>
-          <el-form-item label="Thời gian kết thúc" prop="endTime">
-            <el-date-picker v-model="form.endTime" type="datetime" placeholder="Chọn thời gian" style="width: 100%;" />
+          <el-form-item :label="$t('admin_contests.form.field_end')" prop="endTime">
+            <el-date-picker v-model="form.endTime" type="datetime" :placeholder="$t('admin_contests.form.placeholder_time')" style="width: 100%;" />
           </el-form-item>
         </div>
 
@@ -1031,52 +1034,52 @@ onMounted(loadContests)
               <el-option label="OI" value="OI" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Thời gian làm bài (Phút)">
-            <el-input-number v-model="form.durationMinutes" :min="1" placeholder="Để trống nếu không giới hạn" style="width: 100%;" />
+          <el-form-item :label="$t('admin_contests.form.field_duration')">
+            <el-input-number v-model="form.durationMinutes" :min="1" :placeholder="$t('admin_contests.form.placeholder_duration')" style="width: 100%;" />
           </el-form-item>
         </div>
 
         <div class="form-row-2">
-          <el-form-item label="Quyền truy cập" prop="visibility">
+          <el-form-item :label="$t('admin_contests.form.field_visibility')" prop="visibility">
             <el-select v-model="form.visibility" style="width: 100%;" popper-class="dark-select-dropdown">
               <el-option label="Public" value="PUBLIC" />
               <el-option label="Private" value="PRIVATE" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Chế độ Xếp hạng" prop="scoreboardVisibility">
+          <el-form-item :label="$t('admin_contests.form.field_scoreboard')" prop="scoreboardVisibility">
             <el-select v-model="form.scoreboardVisibility" style="width: 100%;" popper-class="dark-select-dropdown">
-              <el-option label="Hiện toàn thời gian" value="VISIBLE" />
-              <el-option label="Đóng băng lúc thi" value="HIDDEN_DURING_CONTEST" />
-              <el-option label="Ẩn vĩnh viễn" value="HIDDEN_PERMANENTLY" />
+              <el-option :label="$t('admin_contests.scoreboard_opts.visible')" value="VISIBLE" />
+              <el-option :label="$t('admin_contests.scoreboard_opts.frozen')" value="HIDDEN_DURING_CONTEST" />
+              <el-option :label="$t('admin_contests.scoreboard_opts.hidden')" value="HIDDEN_PERMANENTLY" />
             </el-select>
           </el-form-item>
         </div>
 
-        <el-form-item v-if="form.visibility === 'PRIVATE'" label="Mật khẩu">
-          <el-input v-model="form.password" show-password placeholder="Mật khẩu cho contest private..." />
+        <el-form-item v-if="form.visibility === 'PRIVATE'" :label="$t('admin_contests.form.field_password')">
+          <el-input v-model="form.password" show-password :placeholder="$t('admin_contests.form.placeholder_pass')" />
         </el-form-item>
 
-        <el-form-item label="Mô tả" prop="description">
+        <el-form-item :label="$t('admin_contests.form.field_desc')" prop="description">
           <RichTextEditor v-model:content="form.description" />
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="formDialogVisible = false" class="dark-btn-cancel">Hủy</el-button>
+        <el-button @click="formDialogVisible = false" class="dark-btn-cancel">{{ $t('admin_contests.form.btn_cancel') }}</el-button>
         <el-button type="primary" :loading="formLoading" @click="submitForm" class="dark-btn-submit">
-          {{ formMode === 'create' ? 'Tạo mới' : 'Lưu thay đổi' }}
+          {{ formMode === 'create' ? $t('admin_contests.form.btn_create') : $t('admin_contests.form.btn_save') }}
         </el-button>
       </template>
     </el-dialog>
 
     <!-- ===== ADD PROBLEM DIALOG ===== -->
-    <el-dialog v-model="addProblemDialogVisible" title="Bulk Add Bài tập vào Contest" width="1150px" class="dark-dialog custom-message-box-theme" top="5vh">
+    <el-dialog v-model="addProblemDialogVisible" :title="$t('admin_contests.add_problem.title')" width="1150px" class="dark-dialog custom-message-box-theme" top="5vh">
       <div class="problem-add-container">
         <!-- Pick Problems Column -->
         <div class="problem-source-col">
           <div class="problem-picker-search">
             <Search :size="16" class="search-icon" />
-            <input type="text" v-model="problemSearchQuery" placeholder="Tìm bài tập..." class="search-input" style="width: 100%; box-sizing: border-box;" />
+            <input type="text" v-model="problemSearchQuery" :placeholder="$t('admin_contests.add_problem.search')" class="search-input" style="width: 100%; box-sizing: border-box;" />
           </div>
 
           <div class="problem-picker-list thin-scrollbar">
@@ -1094,13 +1097,13 @@ onMounted(loadContests)
               <span class="picker-title" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.title }}</span>
               <span :class="['picker-diff', `diff-${p.difficulty?.toLowerCase()}`]">{{ p.difficulty }}</span>
             </div>
-            <div v-if="filteredAllProblems.length === 0" style="text-align: center; color: #8a8a8a; margin-top: 20px;">Không tìm thấy bài tập</div>
+            <div v-if="filteredAllProblems.length === 0" style="text-align: center; color: #8a8a8a; margin-top: 20px;">{{ $t('admin_contests.add_problem.not_found') }}</div>
           </div>
         </div>
 
         <!-- Selected Problems Column -->
         <div class="problem-target-col">
-          <div class="target-col-header">Đã chọn ({{ selectedProblemsToAdd.length }})</div>
+          <div class="target-col-header">{{ $t('admin_contests.add_problem.selected', { count: selectedProblemsToAdd.length }) }}</div>
           <div class="target-col-list thin-scrollbar" v-if="selectedProblemsToAdd.length > 0">
              <div v-for="(item, idx) in selectedProblemsToAdd" :key="item.problemId" class="selected-target-item">
                <div class="target-item-header">
@@ -1109,29 +1112,29 @@ onMounted(loadContests)
                </div>
                <div class="target-item-configs">
                  <div class="cfg-group">
-                   <span class="cfg-label">ID HIỂN THỊ</span>
+                   <span class="cfg-label">{{ $t('admin_contests.add_problem.lbl_id') }}</span>
                    <el-input v-model="item.displayId" size="large" class="cfg-input input-display" />
                  </div>
                  <div class="cfg-group">
-                   <span class="cfg-label">ĐIỂM</span>
+                   <span class="cfg-label">{{ $t('admin_contests.add_problem.lbl_points') }}</span>
                    <el-input-number v-model="item.points" :min="1" size="large" class="cfg-input input-points" :controls="false" />
                  </div>
                  <div class="cfg-group">
-                   <span class="cfg-label">THỨ TỰ</span>
+                   <span class="cfg-label">{{ $t('admin_contests.add_problem.lbl_order') }}</span>
                    <el-input-number v-model="item.sortOrder" :min="1" size="large" class="cfg-input input-sort" :controls="false" />
                  </div>
                </div>
              </div>
           </div>
           <div v-else class="target-col-empty">
-             Chưa có bài tập nào được chọn
+             {{ $t('admin_contests.add_problem.empty_selected') }}
           </div>
         </div>
       </div>
 
       <template #footer>
-        <el-button @click="addProblemDialogVisible = false" class="dark-btn-cancel">Hủy</el-button>
-        <el-button type="primary" @click="handleAddProblem" :loading="contestStore.loading" class="dark-btn-submit" :disabled="selectedProblemsToAdd.length === 0">Thêm {{ selectedProblemsToAdd.length }} bài</el-button>
+        <el-button @click="addProblemDialogVisible = false" class="dark-btn-cancel">{{ $t('admin_contests.form.btn_cancel') }}</el-button>
+        <el-button type="primary" @click="handleAddProblem" :loading="contestStore.loading" class="dark-btn-submit" :disabled="selectedProblemsToAdd.length === 0">{{ $t('admin_contests.add_problem.btn_add', { count: selectedProblemsToAdd.length }) }}</el-button>
       </template>
     </el-dialog>
   </div>

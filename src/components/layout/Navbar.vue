@@ -8,11 +8,15 @@ import { useContestSessionStore } from '../../stores/contestSession'
 import { useSyncedTimer } from '../../composables/useSyncedTimer'
 import { handleApiError } from '../../utils/errorHandler'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import AppButton from '@/components/common/AppButton.vue'
+import { Globe } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const sessionStore = useContestSessionStore()
+const { t, locale } = useI18n()
 
 // Active state theo route
 const isProblemsActive = computed(() => route.path.startsWith('/problems'))
@@ -22,11 +26,17 @@ const isProblemsActive = computed(() => route.path.startsWith('/problems'))
 const handleLogout = async () => {
   try {
     await authStore.logout()
-    ElMessage.success('Đăng xuất thành công!')
+    ElMessage.success(t('messages.logout_success'))
     router.push('/login')
   } catch (error) {
-    handleApiError(error, 'Đăng xuất thất bại')
+    handleApiError(error, t('messages.logout_failed'))
   }
+}
+
+const toggleLanguage = () => {
+  const newLocale = locale.value === 'vi' ? 'en' : 'vi';
+  locale.value = newLocale;
+  localStorage.setItem('locale', newLocale);
 }
 </script>
 
@@ -42,38 +52,38 @@ const handleLogout = async () => {
 
         <RouterLink to="/" class="nav-link" :class="{ 'is-active': route.path === '/' }">
           <Home :size="16" style="margin-right: 6px;" />
-          <span>Home</span>
+          <span>{{ $t('nav.home') }}</span>
         </RouterLink>
 
 
 
         <RouterLink to="/problems" class="nav-link" :class="{ 'is-active': isProblemsActive }">
           <BookOpen :size="16" style="margin-right: 6px;" />
-          <span>Problems</span>
+          <span>{{ $t('nav.problems') }}</span>
         </RouterLink>
 
         <RouterLink to="/submissions" class="nav-link" :class="{ 'is-active': route.path.startsWith('/submissions') }">
           <Send :size="16" style="margin-right: 6px;" />
-          <span>Submissions</span>
+          <span>{{ $t('nav.submissions') }}</span>
         </RouterLink>
 
         <!-- Rank Dropdown -->
         <el-dropdown trigger="hover" placement="bottom" :show-timeout="120" :hide-timeout="120">
           <div class="nav-link rank-link" :class="{ 'is-active': route.path.startsWith('/rankings') }">
             <Trophy :size="16" style="margin-right: 6px;" />
-            <span>Rank</span>
+            <span>{{ $t('nav.rank') }}</span>
             <ChevronDown :size="14" style="margin-left: 4px;" />
           </div>
           <template #dropdown>
             <el-dropdown-menu class="user-dropdown">
               <el-dropdown-item>
                 <RouterLink to="/rankings/acm" class="dropdown-link">
-                  <span>ACM Rank</span>
+                  <span>{{ $t('nav.acm_rank') }}</span>
                 </RouterLink>
               </el-dropdown-item>
               <el-dropdown-item>
                 <RouterLink to="/rankings/oi" class="dropdown-link">
-                  <span>OI Rank</span>
+                  <span>{{ $t('nav.oi_rank') }}</span>
                 </RouterLink>
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -82,11 +92,20 @@ const handleLogout = async () => {
 
         <RouterLink to="/contests" class="nav-link" :class="{ 'is-active': route.path.startsWith('/contests') }">
           <Swords :size="16" style="margin-right: 6px;" />
-          <span>Contest</span>
+          <span>{{ $t('nav.contest') }}</span>
         </RouterLink>
       </div>
 
       <div class="nav-actions">
+        <AppButton 
+          variant="primary" 
+          size="small" 
+          :icon="Globe"
+          @click="toggleLanguage"
+        >
+          {{ locale === 'vi' ? 'EN' : 'VI' }}
+        </AppButton>
+        <div class="divider"></div>
         <template v-if="authStore.isAuthenticated">
           <!-- open on hover -->
           <el-dropdown trigger="hover" placement="bottom-end" :show-timeout="120" :hide-timeout="120">
@@ -101,19 +120,19 @@ const handleLogout = async () => {
                 <el-dropdown-item v-if="authStore.canAccessDashboard" @click="router.push('/dashboard')">
                   <div class="dropdown-link">
                     <LayoutDashboard :size="16" />
-                    <span>Dashboard</span>
+                    <span>{{ $t('nav.dashboard') }}</span>
                   </div>
                 </el-dropdown-item>
                 <el-dropdown-item :divided="authStore.canAccessDashboard" @click="router.push('/profile')">
                   <div class="dropdown-link">
                     <User :size="16" />
-                    <span>Profile</span>
+                    <span>{{ $t('nav.profile') }}</span>
                   </div>
                 </el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">
                   <div class="dropdown-link">
                     <LogOut :size="16" />
-                    <span>Logout</span>
+                    <span>{{ $t('nav.logout') }}</span>
                   </div>
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -123,10 +142,10 @@ const handleLogout = async () => {
         <template v-else>
           <div class="auth-buttons">
             <RouterLink to="/login">
-              <el-button text class="action-btn">Sign in</el-button>
+              <el-button text class="action-btn">{{ $t('nav.signin') }}</el-button>
             </RouterLink>
             <RouterLink to="/register">
-              <el-button type="warning" class="action-btn-primary">Sign up</el-button>
+              <el-button type="warning" class="action-btn-primary">{{ $t('nav.signup') }}</el-button>
             </RouterLink>
           </div>
         </template>
@@ -224,6 +243,19 @@ const handleLogout = async () => {
   align-items: center;
   justify-content: flex-end;
   min-width: 240px;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.1);
+  margin: 0 12px;
+}
+
+.lang-btn {
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 12px;
 }
 
 .auth-buttons {

@@ -23,7 +23,7 @@ const props = defineProps({
   },
   actionLabel: {
     type: String,
-    default: 'Hành động'
+    default: ''
   },
   loading: {
     type: Boolean,
@@ -130,7 +130,7 @@ const getActionClass = (type) => {
       <!-- Actions Column -->
       <el-table-column 
         v-if="actions && actions.length > 0 || $slots.actions" 
-        :label="actionLabel" 
+        :label="actionLabel || $t('common.actions')" 
         :width="actionWidth" 
         align="center" 
         fixed="right"

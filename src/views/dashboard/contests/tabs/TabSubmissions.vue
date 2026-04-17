@@ -1,12 +1,15 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { contestsAPI } from '@/api/contests'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import DataTable from '@/components/common/DataTable.vue'
+import { useI18n } from 'vue-i18n'
 
-const props  = defineProps({ contestId: { type: String, required: true } })
-const emit   = defineEmits(['count'])
+const { t } = useI18n()
+
+const props = defineProps({ contestId: { type: String, required: true } })
+const emit  = defineEmits(['count'])
 const router = useRouter()
 
 const submissions = ref([])
@@ -43,26 +46,24 @@ const load = async () => {
 }
 watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true })
 
-const viewSubmission = (row) => {
-  router.push(`/submissions/${row.submissionId}`)
-}
+const viewSubmission = (row) => { router.push(`/submissions/${row.submissionId}`) }
 
-const tableColumns = [
-  { key: 'index', label: '#', width: 60, align: 'center', fixed: 'left' },
-  { key: 'createdDate', label: 'Thời gian nộp', minWidth: 180 },
-  { key: 'username', label: 'Người nộp', minWidth: 150 },
-  { key: 'problem', label: 'Bài tập', minWidth: 200 },
-  { key: 'verdict', label: 'Kết quả', width: 100, align: 'center' },
-  { key: 'score', label: 'Điểm', width: 100, align: 'center' },
-  { key: 'test', label: 'Test', width: 100, align: 'center' },
-  { key: 'executionTimeMs', label: 'Thời gian', width: 100, align: 'center' },
-  { key: 'executionMemoryMb', label: 'Bộ nhớ', width: 100, align: 'center' },
-  { key: 'languageKey', label: 'Ngôn ngữ', width: 120, align: 'center' }
-]
+const tableColumns = computed(() => [
+  { key: 'index',            label: '#',                                                   width: 60,  align: 'center', fixed: 'left' },
+  { key: 'createdDate',      label: t('admin_contests.tab_submissions.col_time'),          minWidth: 180 },
+  { key: 'username',         label: t('admin_contests.tab_submissions.col_user'),          minWidth: 150 },
+  { key: 'problem',          label: t('admin_contests.tab_submissions.col_problem'),       minWidth: 200 },
+  { key: 'verdict',          label: t('admin_contests.tab_submissions.col_verdict'),       width: 100, align: 'center' },
+  { key: 'score',            label: t('admin_contests.tab_submissions.col_score'),         width: 100, align: 'center' },
+  { key: 'test',             label: t('admin_contests.tab_submissions.col_test'),          width: 100, align: 'center' },
+  { key: 'executionTimeMs',  label: t('admin_contests.tab_submissions.col_exec_time'),     width: 100, align: 'center' },
+  { key: 'executionMemoryMb',label: t('admin_contests.tab_submissions.col_exec_mem'),      width: 100, align: 'center' },
+  { key: 'languageKey',      label: t('admin_contests.tab_submissions.col_lang'),          width: 120, align: 'center' },
+])
 
-const tableActions = [
-  { type: 'view', label: 'Xem chi tiết', handler: (row) => viewSubmission(row) }
-]
+const tableActions = computed(() => [
+  { type: 'view', label: t('admin_contests.tab_submissions.action_view'), handler: (row) => viewSubmission(row) }
+])
 </script>
 
 <template>
@@ -72,9 +73,9 @@ const tableActions = [
       :columns="tableColumns"
       :actions="tableActions"
       :action-width="110"
-      action-label="Hành động"
+      :action-label="$t('admin_contests.tab_submissions.action_label')"
       :loading="loading"
-      empty-text="Chưa có submission nào"
+      :empty-text="$t('admin_contests.tab_submissions.empty')"
     >
       <template #cell-index="{ index }"><span class="cell-index">{{ (page - 1) * pageSize + index + 1 }}</span></template>
       <template #cell-createdDate="{ row }"><span class="cell-date">{{ fmtDt(row.createdDate) }}</span></template>
@@ -100,21 +101,18 @@ const tableActions = [
       <template #cell-languageKey="{ row }"><span class="lang-tag">{{ row.languageKey }}</span></template>
     </DataTable>
 
-    <DarkPagination 
-      v-model:current-page="page" 
-      v-model:page-size="pageSize" 
-      :total="total" 
-      @current-change="load" 
-      @size-change="() => { page = 1; load() }" 
+    <DarkPagination
+      v-model:current-page="page"
+      v-model:page-size="pageSize"
+      :total="total"
+      @current-change="load"
+      @size-change="() => { page = 1; load() }"
     />
   </div>
 </template>
 
-
-
 <style scoped>
 .tab-submissions { display: flex; flex-direction: column; gap: 16px; }
-
 .cell-index { font-weight: 500; color: #8a8a8a; font-size: 13px; }
 .cell-date { font-size: 12px; color: #8a8a8a; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 .cell-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: #8a8a8a; }
@@ -123,15 +121,11 @@ const tableActions = [
 .cell-link:hover { color: var(--accent-primary); }
 .highlight-score { font-size: 14px; font-weight: 700; color: #00b8a3; }
 .cell-test { font-size: 12px; color: #8a8a8a; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
-
 .verdict-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .verdict-ac      { background: rgba(0,184,163,0.15); color: #00b8a3; }
 .verdict-wa      { background: rgba(239,71,67,0.15); color: #ef4743; }
 .verdict-tle     { background: rgba(255,192,30,0.15); color: #ffc01e; }
 .verdict-info    { background: rgba(255,255,255,0.08); color: #8a8a8a; }
 .verdict-pending { background: rgba(96,165,250,0.15); color: #60a5fa; }
-
 .lang-tag { font-size: 11px; font-weight: 700; background: rgba(163,85,245,0.15); color: #a355f5; padding: 4px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-
 </style>

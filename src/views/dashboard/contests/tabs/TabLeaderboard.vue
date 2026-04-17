@@ -9,62 +9,48 @@ import { Download } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import * as XLSX from 'xlsx'
 import { exportStyledExcel } from '@/utils/excelExport'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
-  contestId: { type: String, required: true },
+  contestId:    { type: String, required: true },
   contestTitle: { type: String, default: '' },
-  ruleType: { type: String, default: 'ACM' }
+  ruleType:     { type: String, default: 'ACM' }
 })
 const emit = defineEmits(['count'])
 const router = useRouter()
 
 const leaderboard = ref([])
-const problems = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
+const problems    = ref([])
+const loading     = ref(false)
+const page        = ref(1)
+const pageSize    = ref(20)
+const total       = ref(0)
 
 const columns = computed(() => {
   const cols = [
-    { key: '_rank', label: 'Hạng', width: 80, align: 'center', fixed: 'left' },
-    { key: 'username', label: 'Thí sinh', minWidth: 200 },
-    { key: 'score', label: 'Điểm', width: 100, align: 'center' }
+    { key: '_rank',    label: t('admin_contests.tab_leaderboard.col_rank'),        width: 80,  align: 'center', fixed: 'left' },
+    { key: 'username', label: t('admin_contests.tab_leaderboard.col_participant'), minWidth: 200 },
+    { key: 'score',    label: t('admin_contests.tab_leaderboard.col_score'),       width: 100, align: 'center' }
   ]
-  
   if (props.ruleType === 'ACM' || props.ruleType === 'OI') {
-    cols.push({ key: 'penalty', label: 'Penalty', width: 110, align: 'center' })
+    cols.push({ key: 'penalty', label: t('admin_contests.tab_leaderboard.col_penalty'), width: 110, align: 'center' })
   }
-
-  // Add problem columns
   problems.value.forEach(p => {
-    cols.push({
-      key: `p_${p.displayId}`,
-      label: p.displayId,
-      width: '90',
-      align: 'center'
-    })
+    cols.push({ key: `p_${p.displayId}`, label: p.displayId, width: '90', align: 'center' })
   })
-  
   return cols
 })
 
-// Rank is now fetched directly from the backend API
-
-const getMedal = (rank) => {
-  const medals = { 1: '🥇', 2: '🥈', 3: '🥉' }
-  return medals[rank] || rank
-}
+const getMedal = (rank) => ({ 1: '🥇', 2: '🥈', 3: '🥉' }[rank] || rank)
 
 const formatPenaltyDisplay = (minutes) => {
   if (minutes === undefined || minutes === null) return ''
   const mTotal = Math.max(0, Math.floor(minutes))
-  const h = Math.floor(mTotal / 60)
-  const m = mTotal % 60
-  
+  const h = Math.floor(mTotal / 60); const m = mTotal % 60
   const hStr = h > 0 ? h + ':' : ''
   const mStr = (h > 0 ? m.toString().padStart(2, '0') : m.toString())
-  
   return hStr ? `${hStr}${mStr}` : `${mStr}m`
 }
 
@@ -100,10 +86,7 @@ const getMatrixScore = (result) => {
 const getMatrixSubtext = (result) => {
   if (!result) return ''
   if (props.ruleType === 'ACM') {
-    if (result.isAc) {
-      const solveTime = result.penalty - (result.tries * 20)
-      return formatPenaltyDisplay(Math.max(0, solveTime))
-    }
+    if (result.isAc) { const st = result.penalty - (result.tries * 20); return formatPenaltyDisplay(Math.max(0, st)) }
     return ''
   } else {
     if (result.score > 0) return formatPenaltyDisplay(result.penalty)
@@ -114,19 +97,12 @@ const getMatrixSubtext = (result) => {
 const load = async () => {
   try {
     loading.value = true
-    const data = await contestsAPI.adminGetLeaderboard(props.contestId, {
-      page: page.value - 1,
-      size: pageSize.value
-    })
+    const data = await contestsAPI.adminGetLeaderboard(props.contestId, { page: page.value - 1, size: pageSize.value })
     leaderboard.value = data.content || []
     total.value = data.totalElements || 0
-    if (data.problems) {
-      problems.value = data.problems
-    }
+    if (data.problems) problems.value = data.problems
     emit('count', total.value)
-  } finally {
-    loading.value = false
-  }
+  } finally { loading.value = false }
 }
 
 const exporting = ref(false)
@@ -135,41 +111,23 @@ const handleExport = async () => {
     exporting.value = true
     const response = await contestsAPI.adminExportLeaderboard(props.contestId)
     const textData = await response.text()
-    // Parse CSV response using XLSX
     const workbook = XLSX.read(textData, { type: 'string' })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
-    
-    if (rows.length < 1) {
-       ElMessage.warning('Không có dữ liệu để xuất.')
-       return
-    }
-
-    const headers = rows[0]
-    const data = rows.slice(1)
-
-    // Set column widths: Rank(10), Username(25), Score(15), Penalty(15), and 15 for each problem
+    if (rows.length < 1) { ElMessage.warning(t('admin_contests.tab_leaderboard.msg_export_empty')); return }
+    const headers = rows[0]; const data = rows.slice(1)
     const columnWidths = [10, 25, 15, 15, ...Array(headers.length > 4 ? headers.length - 4 : 0).fill(15)]
-
     const baseName = props.contestTitle || props.contestId.substring(0, 8)
-    // Replace invalid characters for filenames
     const safeName = baseName.replace(/[\/\\?%*:|"<>]/g, '_').substring(0, 50)
-
     await exportStyledExcel({
-        title: `Kết quả bảng xếp hạng Contest: ${baseName}`,
-        filename: `Leaderboard_${safeName}.xlsx`,
-        sheetName: 'Leaderboard',
-        headers,
-        data,
-        columnWidths
+      title: t('admin_contests.tab_leaderboard.excel_title', { name: baseName }),
+      filename: `Leaderboard_${safeName}.xlsx`,
+      sheetName: 'Leaderboard',
+      headers, data, columnWidths
     })
-    
-    ElMessage.success('Xuất dữ liệu thành công!')
-  } catch (error) {
-    ElMessage.error('Xuất kết quả thất bại.')
-  } finally {
-    exporting.value = false
-  }
+    ElMessage.success(t('admin_contests.tab_leaderboard.msg_export_success'))
+  } catch { ElMessage.error(t('admin_contests.tab_leaderboard.msg_export_fail')) }
+  finally { exporting.value = false }
 }
 
 watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true })
@@ -179,28 +137,27 @@ watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true
   <div class="tab-leaderboard">
     <div class="sub-toolbar">
       <div class="spacer" />
-      <span class="count-text">Tổng thí sinh tham gia: {{ total }}</span>
-      <AppButton variant="secondary" :icon="Download" :loading="exporting" @click="handleExport">Xuất kết quả (Excel)</AppButton>
+      <span class="count-text">{{ $t('admin_contests.tab_leaderboard.count_total', { n: total }) }}</span>
+      <AppButton variant="secondary" :icon="Download" :loading="exporting" @click="handleExport">
+        {{ $t('admin_contests.tab_leaderboard.btn_export') }}
+      </AppButton>
     </div>
 
     <DataTable
       :data="leaderboard"
       :columns="columns"
       :loading="loading"
-      empty-text="Chưa có dữ liệu xếp hạng."
+      :empty-text="$t('admin_contests.tab_leaderboard.empty')"
     >
       <template #cell-_rank="{ row }">
         <span class="lb-rank">{{ getMedal(row.rank) }}</span>
       </template>
-
       <template #cell-username="{ row }">
         <span class="cell-link" @click="router.push(`/profile/${row.username}`)">{{ row.username }}</span>
       </template>
-
       <template #cell-score="{ row }">
         <span class="lb-total-score">{{ row.score ?? 0 }}</span>
       </template>
-
       <template #cell-penalty="{ row }">
         <span class="lb-total-penalty">{{ formatPenaltyDisplay(row.penalty) || '0m' }}</span>
       </template>
@@ -236,88 +193,31 @@ watch(() => props.contestId, () => { page.value = 1; load() }, { immediate: true
 </template>
 
 <style scoped>
-.tab-leaderboard {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.sub-toolbar { 
-  display: flex; 
-  align-items: center; 
-  gap: 12px; 
-  margin-bottom: 4px;
-}
-
+.tab-leaderboard { display: flex; flex-direction: column; gap: 16px; }
+.sub-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
 .spacer { flex: 1; }
-
-.count-text {
-  font-size: 13px;
-  color: #8a8a8a;
-}
-
-.cell-link {
-  font-size: 14px;
-  font-weight: 500;
-  color: #eff2f6;
-  cursor: pointer;
-  transition: color 0.2s;
-}
+.count-text { font-size: 13px; color: #8a8a8a; }
+.cell-link { font-size: 14px; font-weight: 500; color: #eff2f6; cursor: pointer; transition: color 0.2s; }
 .cell-link:hover { color: var(--accent-primary); }
+.lb-rank { font-weight: 700; font-size: 14px; color: #8a8a8a; }
+.lb-total-score { font-size: 15px; font-weight: 700; color: #00b8a3; }
+.lb-total-penalty { font-size: 13px; font-weight: 500; color: #8a8a8a; }
 
-.lb-rank {
-  font-weight: 700;
-  font-size: 14px;
-  color: #8a8a8a;
-}
-
-.lb-total-score {
-  font-size: 15px;
-  font-weight: 700;
-  color: #00b8a3;
-}
-
-.lb-total-penalty {
-  font-size: 13px;
-  font-weight: 500;
-  color: #8a8a8a;
-}
-
-/* Matrix Styles */
-.lb-matrix-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-}
+.lb-matrix-header { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .lmh-id { font-weight: 700; font-size: 13px; color: #eff2f6; line-height: 1; }
 .lmh-divider { width: 20px; height: 1px; background: #444; margin: 2px 0; }
 .lmh-points { font-size: 11px; color: #8a8a8a; font-weight: 500; line-height: 1; }
 
-.lb-matrix-cell {
-  min-height: 48px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.2s;
-  padding: 4px;
-}
-
+.lb-matrix-cell { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; padding: 4px; }
 .lm-score { font-size: 15px; font-weight: 600; line-height: 1.1; }
 .lm-subtext { font-size: 10px; color: var(--text-secondary); margin-top: 3px; opacity: 0.8; line-height: 1; }
 
-.lm-cell-ac { background-color: rgba(44, 187, 93, 0.18); border: 1px solid rgba(44, 187, 93, 0.1); }
+.lm-cell-ac { background-color: rgba(44,187,93,0.18); border: 1px solid rgba(44,187,93,0.1); }
 .lm-cell-ac .lm-score { color: #2cbb5d; }
-.lm-cell-wa { background-color: rgba(239, 71, 67, 0.1); border: 1px solid rgba(239, 71, 67, 0.1); }
+.lm-cell-wa { background-color: rgba(239,71,67,0.1); border: 1px solid rgba(239,71,67,0.1); }
 .lm-cell-wa .lm-score { color: #ef4743; }
-.lm-cell-partial { background-color: rgba(255, 161, 22, 0.1); border: 1px solid rgba(255, 161, 22, 0.1); }
+.lm-cell-partial { background-color: rgba(255,161,22,0.1); border: 1px solid rgba(255,161,22,0.1); }
 .lm-cell-partial .lm-score { color: #ffa116; }
 
-/* Customizing DataTable headers for Matrix style */
-:deep(.dashboard-table th.el-table__cell) {
-  background-color: #0d0d0d !important;
-}
+:deep(.dashboard-table th.el-table__cell) { background-color: #0d0d0d !important; }
 </style>
-

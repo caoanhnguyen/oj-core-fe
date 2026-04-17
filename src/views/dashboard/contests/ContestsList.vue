@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { contestsAPI } from '@/api/contests'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
-import { Plus, Settings, Trash2, Eye, EyeOff, Trophy, LayoutGrid, RotateCcw, ArrowLeft } from 'lucide-vue-next'
+import { Plus, Settings, Trash2, Eye, EyeOff, Trophy, LayoutGrid, RotateCcw } from 'lucide-vue-next'
 import DarkPagination from '@/components/common/DarkPagination.vue'
 import TableControls  from '@/components/common/TableControls.vue'
 import DataTable      from '@/components/common/DataTable.vue'
@@ -11,242 +11,300 @@ import PageHeader     from '@/components/common/PageHeader.vue'
 import AppButton      from '@/components/common/AppButton.vue'
 import { useRouter } from 'vue-router'
 import { useBadge } from '@/composables/useBadge'
+import { useI18n } from 'vue-i18n'
 
-const columns = [
-  { key: 'index', label: '#', width: 60, align: 'center', fixed: 'left' },
-  { key: 'title', label: 'Tiêu đề', minWidth: 250 },
-  { key: 'ruleType', label: 'Rule', width: 100, align: 'center' },
-  { key: 'durationMinutes', label: 'Thời gian làm bài', width: 100, align: 'center' },
-  { key: 'contestStatus', label: 'Cuộc thi', width: 150, align: 'center' },
-  { key: 'scoreboardVisibility', label: 'Scoreboard', width: 120, align: 'center' },
-  { key: 'status', label: 'Trạng thái', width: 120, align: 'center' },
-  { key: 'startTime', label: 'Bắt đầu', minWidth: 150 },
-  { key: 'endTime', label: 'Kết thúc', minWidth: 150 }
-]
+const { t } = useI18n()
 
-// ── Navigation ───────────────────────────────────────────────────
+// ── Columns (computed so they react to locale change) ────────────────────────
+const columns = computed(() => [
+  { key: 'index',               label: '#',                                          width: 60,  align: 'center', fixed: 'left' },
+  { key: 'title',               label: t('admin_contests.col_title'),                minWidth: 250 },
+  { key: 'ruleType',            label: t('admin_contests.col_rule'),                 width: 100, align: 'center' },
+  { key: 'durationMinutes',     label: t('admin_contests.col_duration'),             width: 130, align: 'center' },
+  { key: 'contestStatus',       label: t('admin_contests.col_contest_status'),       width: 150, align: 'center' },
+  { key: 'scoreboardVisibility',label: t('admin_contests.col_scoreboard'),           width: 130, align: 'center' },
+  { key: 'status',              label: t('admin_contests.col_status'),               width: 120, align: 'center' },
+  { key: 'startTime',           label: t('admin_contests.col_start'),                minWidth: 150 },
+  { key: 'endTime',             label: t('admin_contests.col_end'),                  minWidth: 150 },
+])
+
+// ── Filter config (computed so labels react to locale) ───────────────────────
+const filterConfig = computed(() => [
+  {
+    key: 'contestStatus',
+    label: t('admin_contests.filter_labels.status'),
+    icon: Trophy,
+    options: [
+      { label: t('admin_contests.status_opts.ongoing'),  value: 'ONGOING' },
+      { label: t('admin_contests.status_opts.upcoming'), value: 'UPCOMING' },
+      { label: t('admin_contests.status_opts.ended'),    value: 'ENDED' },
+    ]
+  },
+  {
+    key: 'ruleType',
+    label: t('admin_contests.filter_labels.rule'),
+    icon: LayoutGrid,
+    options: [
+      { label: 'ACM', value: 'ACM' },
+      { label: 'OI',  value: 'OI' },
+    ]
+  },
+  {
+    key: 'status',
+    label: t('admin_contests.filter_labels.record'),
+    icon: Eye,
+    options: [
+      { label: t('admin_contests.record_opts.active'),   value: 'ACTIVE' },
+      { label: t('admin_contests.record_opts.inactive'), value: 'INACTIVE' },
+      { label: t('admin_contests.record_opts.deleted'),  value: 'DELETED' },
+    ]
+  }
+])
+
+// ── Navigation ───────────────────────────────────────────────────────────────
 const router = useRouter()
 const { contestStatusClass, estatusClass, ruleTypeClass, scoreboardClass } = useBadge()
-const getContestStatusLabel = (s) => ({ ONGOING: 'Đang diễn ra', UPCOMING: 'Sắp diễn ra', ENDED: 'Đã kết thúc' }[s] || s)
+
+const getContestStatusLabel = (s) => ({
+  ONGOING:  t('admin_contests.status_opts.ongoing'),
+  UPCOMING: t('admin_contests.status_opts.upcoming'),
+  ENDED:    t('admin_contests.status_opts.ended'),
+}[s] || s)
+
 const openDetail = (id) => { router.push(`/dashboard/contests/${id}`) }
-const openCreate = () => { router.push(`/dashboard/contests/create`) }
+const openCreate = () =>  { router.push(`/dashboard/contests/create`) }
 
-// ── UTC helpers ──────────────────────────────────────────────────
-const parseUTC = (s) => { if (!s) return null; return new Date((s.includes('Z') || s.includes('+')) ? s : s + 'Z') }
-const fmtDt = (s) => { const d = parseUTC(s); if (!d) return '—'; return d.toLocaleString(undefined, { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) }
+// ── UTC helpers ──────────────────────────────────────────────────────────────
+const parseUTC = (s) => {
+  if (!s) return null
+  return new Date((s.includes('Z') || s.includes('+')) ? s : s + 'Z')
+}
+const fmtDt = (s) => {
+  const d = parseUTC(s)
+  if (!d) return '—'
+  return d.toLocaleString(undefined, { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false })
+}
 
-// ── List state ───────────────────────────────────────────────────
+// ── List state ───────────────────────────────────────────────────────────────
 const contests    = ref([])
 const listLoading = ref(false)
 const keyword     = ref('')
 const page        = ref(1)
 const pageSize    = ref(20)
 const total       = ref(0)
-
-// Filter
 const filterValues = ref({ contestStatus: '', ruleType: '', status: '' })
-const filterConfig = [
-  { key: 'contestStatus', label: 'Cuộc thi', icon: Trophy, options: [
-    { label: 'Đang diễn ra', value: 'ONGOING' }, { label: 'Sắp diễn ra', value: 'UPCOMING' }, { label: 'Đã kết thúc', value: 'ENDED' }
-  ]},
-  { key: 'ruleType', label: 'Rule Type', icon: LayoutGrid, options: [
-    { label: 'ACM', value: 'ACM' }, { label: 'OI', value: 'OI' }
-  ]},
-  { key: 'status', label: 'Trạng thái', icon: Eye, options: [
-    { label: 'Active', value: 'ACTIVE' }, { label: 'Inactive', value: 'INACTIVE' }, { label: 'Deleted', value: 'DELETED' }
-  ]}
-]
-const handleFilterChange = ({ key, value }) => { filterValues.value[key] = value; page.value = 1; load() }
-const handleResetFilters = () => { filterValues.value = { contestStatus: '', ruleType: '', status: '' }; page.value = 1; load() }
 
-// ── Load ─────────────────────────────────────────────────────────
+const handleFilterChange = ({ key, value }) => {
+  filterValues.value[key] = value
+  page.value = 1
+  load()
+}
+const handleResetFilters = () => {
+  filterValues.value = { contestStatus: '', ruleType: '', status: '' }
+  page.value = 1
+  load()
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────────
 const load = async () => {
   try {
     listLoading.value = true
     const params = { page: page.value - 1, size: pageSize.value, sort: 'startTime,desc' }
-    if (keyword.value) params.keyword = keyword.value
+    if (keyword.value)                    params.keyword       = keyword.value
     if (filterValues.value.contestStatus) params.contestStatus = filterValues.value.contestStatus
-    if (filterValues.value.ruleType) params.ruleType = filterValues.value.ruleType
-    if (filterValues.value.status) params.status = filterValues.value.status
+    if (filterValues.value.ruleType)      params.ruleType      = filterValues.value.ruleType
+    if (filterValues.value.status)        params.status        = filterValues.value.status
     const data = await contestsAPI.adminSearch(params)
     contests.value = data.content || []
     total.value    = data.totalElements || 0
-  } catch (e) { handleApiError(e, 'Không thể tải danh sách') }
-  finally { listLoading.value = false }
+  } catch (e) {
+    handleApiError(e, t('admin_contests.messages.err_load'))
+  } finally {
+    listLoading.value = false
+  }
 }
+
 onMounted(load)
 let kwTimer = null
-watch(keyword, () => { clearTimeout(kwTimer); kwTimer = setTimeout(() => { page.value = 1; load() }, 350) })
+watch(keyword, () => {
+  clearTimeout(kwTimer)
+  kwTimer = setTimeout(() => { page.value = 1; load() }, 350)
+})
 
-// ── Helpers ──────────────────────────────────────────────────────
-// Badge helpers replaced by useBadge composable
-
-// ── Actions with confirm ─────────────────────────────────────────
+// ── Actions ──────────────────────────────────────────────────────────────────
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Xóa mềm contest "${row.title}"? Contest sẽ chuyển sang trạng thái DELETED.`,
-      'Xác nhận xóa mềm',
-      { confirmButtonText: 'Xóa', cancelButtonText: 'Hủy', type: 'warning', confirmButtonClass: 'el-button--danger' }
+      t('admin_contests.messages.soft_del_msg', { title: row.title }),
+      t('admin_contests.messages.soft_del_title'),
+      { confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel'), type: 'warning', confirmButtonClass: 'el-button--danger' }
     )
     await contestsAPI.adminDelete(row.id)
-    ElMessage.success('Đã xóa mềm contest')
+    ElMessage.success(t('admin_contests.messages.soft_del_success'))
     load()
-  } catch (e) { if (e !== 'cancel') handleApiError(e, 'Xóa thất bại') }
+  } catch (e) {
+    if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.soft_del_fail'))
+  }
 }
 
 const handleRestore = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `Khôi phục contest "${row.title}"? Contest sẽ chuyển về trạng thái INACTIVE.`,
-      'Xác nhận khôi phục',
-      { confirmButtonText: 'Khôi phục', cancelButtonText: 'Hủy', type: 'info' }
+      t('admin_contests.messages.restore_msg', { title: row.title }),
+      t('admin_contests.messages.restore_title'),
+      { confirmButtonText: t('common.restore'), cancelButtonText: t('common.cancel'), type: 'info' }
     )
     await contestsAPI.adminRestore(row.id)
-    ElMessage.success('Đã khôi phục contest')
+    ElMessage.success(t('admin_contests.messages.restore_success'))
     load()
-  } catch (e) { if (e !== 'cancel') handleApiError(e, 'Khôi phục thất bại') }
+  } catch (e) {
+    if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.restore_fail'))
+  }
 }
 
 const handleToggleVisibility = async (row) => {
   const isActive = row.status === 'ACTIVE'
-  const action = isActive ? 'ẩn (INACTIVE)' : 'công khai (ACTIVE)'
+  const title = isActive ? t('admin_contests.messages.toggle_hide_title') : t('admin_contests.messages.toggle_show_title')
+  const msg   = isActive
+    ? t('admin_contests.messages.toggle_hide_msg', { title: row.title })
+    : t('admin_contests.messages.toggle_show_msg', { title: row.title })
+  const btnText = isActive ? t('admin_contests.action_toggle_hide') : t('admin_contests.action_toggle_show')
   try {
-    await ElMessageBox.confirm(
-      `Chuyển contest "${row.title}" sang trạng thái ${action}?`,
-      `Xác nhận ${isActive ? 'ẩn' : 'công khai'}`,
-      { confirmButtonText: isActive ? 'Ẩn contest' : 'Công khai', cancelButtonText: 'Hủy', type: 'info' }
-    )
+    await ElMessageBox.confirm(msg, title, {
+      confirmButtonText: btnText,
+      cancelButtonText: t('common.cancel'),
+      type: 'info'
+    })
     await contestsAPI.adminToggleVisibility(row.id)
-    ElMessage.success(`Đã ${action} contest`)
+    ElMessage.success(t('admin_contests.messages.toggle_success'))
     load()
-  } catch (e) { if (e !== 'cancel') handleApiError(e, 'Thao tác thất bại') }
+  } catch (e) {
+    if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.toggle_fail'))
+  }
 }
 </script>
 
 <template>
   <div class="admin-layout-container">
-      <PageHeader 
-        title="Quản lý Contest" 
-        subtitle="Tạo và quản trị các cuộc thi lập trình"
-      >
-        <AppButton variant="primary" :icon="Plus" @click="openCreate">Tạo Contest</AppButton>
-      </PageHeader>
+    <PageHeader
+      :title="$t('admin_contests.page_title')"
+      :subtitle="$t('admin_contests.page_subtitle')"
+    >
+      <AppButton variant="primary" :icon="Plus" @click="openCreate">
+        {{ $t('admin_contests.btn_create') }}
+      </AppButton>
+    </PageHeader>
 
-      <TableControls
-        v-model="keyword"
-        search-placeholder="Tìm kiếm contest..."
-        :filter-config="filterConfig"
-        :total-elements="total"
-        item-name="Contests"
-        filter-title="Lọc Contest"
-        @filter-change="handleFilterChange"
-        @reset-filters="handleResetFilters"
-      />
+    <TableControls
+      v-model="keyword"
+      :search-placeholder="$t('admin_contests.search_placeholder')"
+      :filter-config="filterConfig"
+      :total-elements="total"
+      :item-name="$t('admin_contests.item_name')"
+      :filter-title="$t('admin_contests.filter_title')"
+      @filter-change="handleFilterChange"
+      @reset-filters="handleResetFilters"
+    />
 
-      <DataTable
-        :data="contests"
-        :columns="columns"
-        :loading="listLoading"
-        empty-text="Không tìm thấy contest nào"
-      >
-        <template #cell-index="{ index }">
-          <span class="cell-index">{{ (page - 1) * pageSize + index + 1 }}</span>
-        </template>
-        
-        <template #cell-title="{ row, value }">
-          <span class="cell-title" @click="openDetail(row.id)">{{ value }}</span>
-        </template>
+    <DataTable
+      :data="contests"
+      :columns="columns"
+      :loading="listLoading"
+      :empty-text="$t('admin_contests.empty_text')"
+    >
+      <template #cell-index="{ index }">
+        <span class="cell-index">{{ (page - 1) * pageSize + index + 1 }}</span>
+      </template>
 
-        <template #cell-ruleType="{ value }">
-          <span :class="['oj-badge', ruleTypeClass(value)]">{{ value }}</span>
-        </template>
+      <template #cell-title="{ row, value }">
+        <span class="cell-title" @click="openDetail(row.id)">{{ value }}</span>
+      </template>
 
-        <template #cell-durationMinutes="{ row }">
-          <span v-if="row.format === 'STRICT' || !row.durationMinutes" class="cell-date mute">Cố định</span>
-          <span v-else class="cell-date highlight-dur">{{ row.durationMinutes }}m</span>
-        </template>
+      <template #cell-ruleType="{ value }">
+        <span :class="['oj-badge', ruleTypeClass(value)]">{{ value }}</span>
+      </template>
 
-        <template #cell-scoreboardVisibility="{ value }">
-          <el-tooltip :content="value === 'VISIBLE' ? 'Hiện toàn thời gian' : (value === 'HIDDEN_PERMANENTLY' ? 'Ẩn vĩnh viễn' : 'Đóng băng lúc thi')" placement="top" effect="dark">
-            <span :class="['oj-badge', scoreboardClass(value)]">
-              {{ value === 'VISIBLE' ? 'VISIBLE' : (value === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
-            </span>
+      <template #cell-durationMinutes="{ row }">
+        <span v-if="row.format === 'STRICT' || !row.durationMinutes" class="cell-date mute">
+          {{ $t('admin_contests.col_duration_fixed') }}
+        </span>
+        <span v-else class="cell-date highlight-dur">{{ row.durationMinutes }}m</span>
+      </template>
+
+      <template #cell-scoreboardVisibility="{ value }">
+        <el-tooltip
+          :content="value === 'VISIBLE'
+            ? $t('admin_contests.scoreboard_opts.visible')
+            : (value === 'HIDDEN_PERMANENTLY'
+              ? $t('admin_contests.scoreboard_opts.hidden')
+              : $t('admin_contests.scoreboard_opts.frozen'))"
+          placement="top" effect="dark"
+        >
+          <span :class="['oj-badge', scoreboardClass(value)]">
+            {{ value === 'VISIBLE' ? 'VISIBLE' : (value === 'HIDDEN_PERMANENTLY' ? 'HIDDEN' : 'FROZEN') }}
+          </span>
+        </el-tooltip>
+      </template>
+
+      <template #cell-contestStatus="{ value }">
+        <span :class="['oj-badge', contestStatusClass(value)]">{{ getContestStatusLabel(value) }}</span>
+      </template>
+
+      <template #cell-status="{ value }">
+        <span :class="['oj-badge', estatusClass(value)]">{{ value }}</span>
+      </template>
+
+      <template #cell-startTime="{ value }"><span class="cell-date">{{ fmtDt(value) }}</span></template>
+      <template #cell-endTime="{ value }"><span class="cell-date">{{ fmtDt(value) }}</span></template>
+
+      <template #actions="{ row }">
+        <!-- DELETED row -->
+        <div v-if="row.status === 'DELETED'" class="action-buttons" @click.stop>
+          <el-tooltip :content="$t('admin_contests.action_manage')" placement="top" :hide-after="0" :show-after="200">
+            <el-button link class="action-btn" @click="openDetail(row.id)"><Settings :size="15" /></el-button>
           </el-tooltip>
-        </template>
+          <el-tooltip :content="$t('admin_contests.action_restore')" placement="top" :hide-after="0" :show-after="200">
+            <el-button link class="action-btn action-restore" @click="handleRestore(row)"><RotateCcw :size="15" /></el-button>
+          </el-tooltip>
+        </div>
+        <!-- ACTIVE / INACTIVE row -->
+        <div v-else class="action-buttons" @click.stop>
+          <el-tooltip :content="$t('admin_contests.action_manage')" placement="top" :hide-after="0" :show-after="200">
+            <el-button link class="action-btn" @click="openDetail(row.id)"><Settings :size="15" /></el-button>
+          </el-tooltip>
+          <el-tooltip
+            :content="row.status === 'ACTIVE' ? $t('admin_contests.action_toggle_hide') : $t('admin_contests.action_toggle_show')"
+            placement="top" :hide-after="0" :show-after="200"
+          >
+            <el-button link class="action-btn" @click="handleToggleVisibility(row)">
+              <EyeOff v-if="row.status === 'ACTIVE'" :size="15" />
+              <Eye v-else :size="15" />
+            </el-button>
+          </el-tooltip>
+          <el-tooltip :content="$t('admin_contests.action_soft_delete')" placement="top" :hide-after="0" :show-after="200">
+            <el-button link class="action-btn action-danger" @click="handleDelete(row)"><Trash2 :size="15" /></el-button>
+          </el-tooltip>
+        </div>
+      </template>
+    </DataTable>
 
-        <template #cell-contestStatus="{ value }">
-          <span :class="['oj-badge', contestStatusClass(value)]">{{ getContestStatusLabel(value) }}</span>
-        </template>
-
-        <template #cell-status="{ value }">
-          <span :class="['oj-badge', estatusClass(value)]">{{ value }}</span>
-        </template>
-
-        <template #cell-startTime="{ value }"><span class="cell-date">{{ fmtDt(value) }}</span></template>
-        <template #cell-endTime="{ value }"><span class="cell-date">{{ fmtDt(value) }}</span></template>
-
-        <template #actions="{ row }">
-          <!-- DELETED row -->
-          <div v-if="row.status === 'DELETED'" class="action-buttons" @click.stop>
-            <el-tooltip content="Quản trị" placement="top" :hide-after="0" :show-after="200">
-              <el-button link class="action-btn" @click="openDetail(row.id)"><Settings :size="15" /></el-button>
-            </el-tooltip>
-            <el-tooltip content="Khôi phục" placement="top" :hide-after="0" :show-after="200">
-              <el-button link class="action-btn action-restore" @click="handleRestore(row)"><RotateCcw :size="15" /></el-button>
-            </el-tooltip>
-          </div>
-          <!-- ACTIVE / INACTIVE row -->
-          <div v-else class="action-buttons" @click.stop>
-            <el-tooltip content="Quản trị" placement="top" :hide-after="0" :show-after="200">
-              <el-button link class="action-btn" @click="openDetail(row.id)"><Settings :size="15" /></el-button>
-            </el-tooltip>
-            <el-tooltip :content="row.status === 'ACTIVE' ? 'Ẩn (Inactive)' : 'Công khai (Active)'" placement="top" :hide-after="0" :show-after="200">
-              <el-button link class="action-btn" @click="handleToggleVisibility(row)">
-                <EyeOff v-if="row.status === 'ACTIVE'" :size="15" />
-                <Eye v-else :size="15" />
-              </el-button>
-            </el-tooltip>
-            <el-tooltip content="Xóa mềm" placement="top" :hide-after="0" :show-after="200">
-              <el-button link class="action-btn action-danger" @click="handleDelete(row)"><Trash2 :size="15" /></el-button>
-            </el-tooltip>
-          </div>
-        </template>
-      </DataTable>
-
-      <DarkPagination :current-page="page" :page-size="pageSize" :total="total" @current-change="(p) => { page = p; load() }" />
-    </div>
+    <DarkPagination
+      :current-page="page"
+      :page-size="pageSize"
+      :total="total"
+      @current-change="(p) => { page = p; load() }"
+    />
+  </div>
 </template>
 
 <style scoped>
-
-.add-button { background: var(--accent-primary) !important; border-color: var(--accent-primary) !important; color: #000 !important; font-weight: 600; }
-.add-button:hover { background: #ff8800 !important; border-color: #ff8800 !important; }
-
-/* Back bar — consistent with detail view */
-.back-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #3e3e3e; }
-.back-btn { color: var(--text-secondary) !important; display: flex; align-items: center; gap: 6px; font-size: 14px; }
-.back-btn:hover { color: var(--accent-primary) !important; }
-.sub-title { font-size: 14px; color: var(--text-secondary); }
-.sub-title strong { color: var(--text-primary); }
-
-.create-form-container { padding: 12px 0; }
-
-
-
 .cell-index { color: #8a8a8a; font-size: 13px; }
 .cell-title { font-size: 14px; font-weight: 500; color: #eff2f6; cursor: pointer; transition: color 0.2s; }
 .cell-title:hover { color: var(--accent-primary); }
 .cell-date { font-size: 13px; color: #8a8a8a; }
 .highlight-dur { color: #ffa116; font-weight: 600; }
 .mute { opacity: 0.4; }
-
-/* Contest status/rule/sb badges → global badges.css */
-
-/* Actions */
 .action-buttons { display: flex; gap: 2px; justify-content: center; flex-wrap: nowrap; }
-
-/* sb badges → global badges.css */
 </style>
 
 <style>

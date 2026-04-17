@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
 import usersApi from '@/api/users'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
@@ -13,6 +14,7 @@ import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -45,7 +47,7 @@ const loadProfile = async () => {
       }
     })
   } catch (error) {
-    handleApiError(error, 'Không thể tải thông tin cá nhân')
+    handleApiError(error, t('profile.msg_load_fail'))
     router.push('/profile')
   } finally {
     loading.value = false
@@ -56,13 +58,13 @@ const handleUpdateProfile = async () => {
   try {
     saving.value = true
     await usersApi.updateProfile(form.value)
-    ElMessage.success('Cập nhật thông tin thành công!')
+    ElMessage.success(t('profile.msg_update_success'))
     // Update auth store as well
     await authStore.getCurrentUser()
     // Redirect back to profile
     router.push('/profile')
   } catch (error) {
-    handleApiError(error, 'Cập nhật thất bại')
+    handleApiError(error, t('profile.msg_update_fail'))
   } finally {
     saving.value = false
   }
@@ -70,10 +72,10 @@ const handleUpdateProfile = async () => {
 
 const beforeAvatarUpload = (rawFile) => {
   if (rawFile.type !== 'image/jpeg' && rawFile.type !== 'image/png') {
-    ElMessage.error('Avatar must be JPG or PNG format!')
+    ElMessage.error(t('profile.msg_avatar_format'))
     return false
   } else if (rawFile.size / 1024 / 1024 > 5) {
-    ElMessage.error('Dung lượng ảnh đại diện không được vượt quá 5MB!')
+    ElMessage.error(t('profile.msg_avatar_size'))
     return false
   }
   return true
@@ -83,11 +85,11 @@ const handleAvatarUpload = async (file) => {
   try {
     loading.value = true
     const res = await usersApi.uploadAvatar(file.file)
-    ElMessage.success('Cập nhật ảnh đại diện thành công!')
+    ElMessage.success(t('profile.msg_avatar_success'))
     authStore.getCurrentUser()
     loadProfile()
   } catch (error) {
-    handleApiError(error, 'Không thể tải ảnh đại diện')
+    handleApiError(error, t('profile.msg_avatar_fail'))
   } finally {
     loading.value = false
   }
@@ -101,9 +103,9 @@ onMounted(loadProfile)
     <div class="edit-container" v-loading="loading">
       <div class="header">
         <AppButton variant="text" :icon="ArrowLeft" @click="router.back()">
-          Quay lại
+          {{ $t('profile.btn_back') }}
         </AppButton>
-        <h1>Chỉnh sửa hồ sơ</h1>
+        <h1>{{ $t('profile.title_edit') }}</h1>
       </div>
 
       <div class="edit-grid">
@@ -123,7 +125,7 @@ onMounted(loadProfile)
               </el-avatar>
               <div class="camera-overlay">
                 <Camera :size="20" />
-                <span>Thay đổi</span>
+                <span>{{ $t('profile.btn_change_avatar') }}</span>
               </div>
             </el-upload>
             <h2 class="sidebar-username">@{{ authStore.user?.username }}</h2>
@@ -131,13 +133,13 @@ onMounted(loadProfile)
 
           <div class="edit-nav">
              <button :class="{ active: activeTab === 'basic' }" @click="activeTab = 'basic'">
-               <User :size="18" /> Thông tin cơ bản
+               <User :size="18" /> {{ $t('profile.tab_basic') }}
              </button>
              <button :class="{ active: activeTab === 'education' }" @click="activeTab = 'education'">
-               <School :size="18" /> Giáo dục & Vị trí
+               <School :size="18" /> {{ $t('profile.tab_education') }}
              </button>
              <button :class="{ active: activeTab === 'social' }" @click="activeTab = 'social'">
-               <Globe :size="18" /> Liên kết xã hội
+               <Globe :size="18" /> {{ $t('profile.tab_social') }}
              </button>
           </div>
         </div>
@@ -148,27 +150,27 @@ onMounted(loadProfile)
             
             <div v-show="activeTab === 'basic'" class="form-section">
               <div class="grid-2">
-                <el-form-item label="Họ và tên">
-                  <el-input v-model="form.fullName" placeholder="Nhập họ tên của bạn..." />
+                <el-form-item :label="$t('profile.label_fullname')">
+                  <el-input v-model="form.fullName" :placeholder="$t('profile.placeholder_fullname')" />
                 </el-form-item>
-                <el-form-item label="Giới tính">
+                <el-form-item :label="$t('profile.label_gender')">
                   <el-select v-model="form.gender" style="width: 100%">
-                    <el-option label="Nam" value="MALE" />
-                    <el-option label="Nữ" value="FEMALE" />
-                    <el-option label="Khác" value="OTHER" />
+                    <el-option :label="$t('profile.gender_male')" value="MALE" />
+                    <el-option :label="$t('profile.gender_female')" value="FEMALE" />
+                    <el-option :label="$t('profile.gender_other')" value="OTHER" />
                   </el-select>
                 </el-form-item>
               </div>
-              <el-form-item label="Số điện thoại">
-                <el-input v-model="form.phoneNumber" placeholder="Nhập số điện thoại..." />
+              <el-form-item :label="$t('profile.label_phone')">
+                <el-input v-model="form.phoneNumber" :placeholder="$t('profile.placeholder_phone')" />
               </el-form-item>
-              <el-form-item label="Giới thiệu bản thân">
+              <el-form-item :label="$t('profile.label_bio')">
                 <div class="bio-editor-container">
                   <QuillEditor 
                     v-model:content="form.bio" 
                     contentType="html"
                     theme="snow"
-                    placeholder="Hãy giới thiệu một chút về bạn..."
+                    :placeholder="$t('profile.placeholder_bio')"
                     class="dark-quill-editor"
                   />
                 </div>
@@ -177,41 +179,41 @@ onMounted(loadProfile)
 
             <div v-show="activeTab === 'education'" class="form-section">
               <div class="grid-2">
-                <el-form-item label="Trường học">
-                  <el-input v-model="form.school" placeholder="Nhập tên trường..." />
+                <el-form-item :label="$t('profile.label_school')">
+                  <el-input v-model="form.school" :placeholder="$t('profile.placeholder_school')" />
                 </el-form-item>
-                <el-form-item label="Chuyên ngành">
-                  <el-input v-model="form.major" placeholder="Nhập chuyên ngành..." />
+                <el-form-item :label="$t('profile.label_major')">
+                  <el-input v-model="form.major" :placeholder="$t('profile.placeholder_major')" />
                 </el-form-item>
               </div>
-              <el-form-item label="Địa chỉ">
-                <el-input v-model="form.address" placeholder="Nhập địa chỉ của bạn..." />
+              <el-form-item :label="$t('profile.label_address')">
+                <el-input v-model="form.address" :placeholder="$t('profile.placeholder_address')" />
               </el-form-item>
               <div class="grid-2">
-                <el-form-item label="Thành phố">
-                  <el-input v-model="form.city" placeholder="Nhập thành phố..." />
+                <el-form-item :label="$t('profile.label_city')">
+                  <el-input v-model="form.city" :placeholder="$t('profile.placeholder_city')" />
                 </el-form-item>
-                <el-form-item label="Quốc gia">
-                  <el-input v-model="form.country" placeholder="Nhập quốc gia..." />
+                <el-form-item :label="$t('profile.label_country')">
+                  <el-input v-model="form.country" :placeholder="$t('profile.placeholder_country')" />
                 </el-form-item>
               </div>
             </div>
 
             <div v-show="activeTab === 'social'" class="form-section">
-              <el-form-item label="GitHub URL">
-                <el-input v-model="form.githubUrl" placeholder="https://github.com/..." />
+              <el-form-item :label="$t('profile.label_github')">
+                <el-input v-model="form.githubUrl" :placeholder="$t('profile.placeholder_github')" />
               </el-form-item>
-              <el-form-item label="LinkedIn URL">
-                <el-input v-model="form.linkedInUrl" placeholder="https://linkedin.com/in/..." />
+              <el-form-item :label="$t('profile.label_linkedin')">
+                <el-input v-model="form.linkedInUrl" :placeholder="$t('profile.placeholder_linkedin')" />
               </el-form-item>
-              <el-form-item label="Website cá nhân">
-                <el-input v-model="form.website" placeholder="https://..." />
+              <el-form-item :label="$t('profile.label_website')">
+                <el-input v-model="form.website" :placeholder="$t('profile.placeholder_website')" />
               </el-form-item>
             </div>
 
             <div class="form-actions">
               <AppButton variant="primary" :icon="Save" :loading="saving" :disabled="saving" @click="handleUpdateProfile">
-                {{ saving ? 'Đang lưu...' : 'Lưu thay đổi' }}
+                {{ saving ? $t('profile.btn_saving') : $t('profile.btn_save') }}
               </AppButton>
             </div>
           </el-form>
@@ -411,43 +413,37 @@ onMounted(loadProfile)
   width: 100%;
 }
 
-:deep(.dark-quill-editor) {
-  width: 100%;
-}
-
-:deep(.dark-quill-editor .ql-toolbar) {
+:deep(.bio-editor-container .ql-toolbar.ql-snow) {
   background: #1a1a1a;
-  border-color: #333;
-  border-top: none;
-  border-left: none;
-  border-right: none;
+  border-color: #333 !important;
+  border-width: 0 0 1px 0 !important;
 }
 
-:deep(.dark-quill-editor .ql-container) {
-  border: none;
-  min-height: 200px; /* Increased height */
+:deep(.bio-editor-container .ql-container.ql-snow) {
+  border: none !important;
+  min-height: 200px;
   font-family: inherit;
   display: flex;
   flex-direction: column;
 }
 
-:deep(.dark-quill-editor .ql-editor) {
+:deep(.bio-editor-container .ql-editor) {
   color: #eff2f6;
   font-size: 14px;
   flex: 1;
-  padding: 15px 20px; /* Improved padding */
+  padding: 15px 20px;
   min-height: 200px;
 }
 
-:deep(.dark-quill-editor .ql-stroke) {
+:deep(.bio-editor-container .ql-stroke) {
   stroke: #8a8a8a;
 }
 
-:deep(.dark-quill-editor .ql-fill) {
+:deep(.bio-editor-container .ql-fill) {
   fill: #8a8a8a;
 }
 
-:deep(.dark-quill-editor .ql-picker) {
+:deep(.bio-editor-container .ql-picker) {
   color: #8a8a8a;
 }
 </style>

@@ -1,15 +1,18 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { authAPI } from '../../api/auth'
 import { handleApiError } from '../../utils/errorHandler'
+import { useI18n } from 'vue-i18n'
+import AppButton from '@/components/common/AppButton.vue'
 
 // ...existing code...
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const formRef = ref(null)
 const loading = ref(false)
@@ -26,27 +29,27 @@ const form = reactive({
 // Validator cho password mạnh
 const validateStrongPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('Vui lòng nhập mật khẩu'))
+    callback(new Error(t('auth.validation_req_password')))
     return
   }
   
   if (value.length < 10) {
-    callback(new Error('Mật khẩu phải có ít nhất 10 ký tự'))
+    callback(new Error(t('auth.validation_len_password')))
     return
   }
   
   if (!/[A-Z]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 chữ in hoa'))
+    callback(new Error(t('auth.validation_upper_password')))
     return
   }
   
   if (!/[0-9]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 chữ số'))
+    callback(new Error(t('auth.validation_digit_password')))
     return
   }
   
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
-    callback(new Error('Mật khẩu phải có ít nhất 1 ký tự đặc biệt'))
+    callback(new Error(t('auth.validation_special_password')))
     return
   }
   
@@ -60,12 +63,12 @@ const validateStrongPassword = (rule, value, callback) => {
 
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('Vui lòng nhập lại mật khẩu'))
+    callback(new Error(t('auth.validation_req_confirm_password')))
     return
   }
   
   if (value !== form.password) {
-    callback(new Error('Mật khẩu không khớp!'))
+    callback(new Error(t('auth.validation_match_password')))
     return
   }
   
@@ -75,14 +78,14 @@ const validateConfirmPassword = (rule, value, callback) => {
 // Validator kiểm tra email đã tồn tại
 const validateEmailExists = async (rule, value, callback) => {
   if (!value) {
-    callback(new Error('Vui lòng nhập email'))
+    callback(new Error(t('auth.validation_req_email')))
     return
   }
   
   // Validate email format trước
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(value)) {
-    callback(new Error('Email không hợp lệ'))
+    callback(new Error(t('auth.validation_format_email')))
     return
   }
   
@@ -92,7 +95,7 @@ const validateEmailExists = async (rule, value, callback) => {
     
     // Nếu backend trả về { exists: true }
     if (result.exists || result === true) {
-      callback(new Error('Email đã được sử dụng'))
+      callback(new Error(t('auth.validation_email_exists')))
       return
     }
     
@@ -106,10 +109,10 @@ const validateEmailExists = async (rule, value, callback) => {
   }
 }
 
-const rules = {
+const rules = computed(() => ({
   username: [
-    { required: true, message: 'Vui lòng nhập username', trigger: 'blur' },
-    { min: 3, max: 50, message: 'Username phải từ 3-50 ký tự', trigger: 'blur' }
+    { required: true, message: t('auth.validation_req_username'), trigger: 'blur' },
+    { min: 3, max: 50, message: t('auth.validation_len_username'), trigger: 'blur' }
   ],
   email: [
     { required: true, validator: validateEmailExists, trigger: 'blur' }
@@ -121,10 +124,10 @@ const rules = {
     { required: true, validator: validateConfirmPassword, trigger: 'blur' }
   ],
   fullName: [
-    { required: true, message: 'Vui lòng nhập họ tên', trigger: 'blur' },
-    { max: 100, message: 'Họ tên không quá 100 ký tự', trigger: 'blur' }
+    { required: true, message: t('auth.validation_req_fullname'), trigger: 'blur' },
+    { max: 100, message: t('auth.validation_len_fullname'), trigger: 'blur' }
   ],
-}
+}))
 
 const handleRegister = async (formEl) => {
   if (!formEl) return
@@ -140,13 +143,13 @@ const handleRegister = async (formEl) => {
           fullName: form.fullName
         })
         ElMessage.success({
-          message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.',
+          message: t('auth.register_success'),
           duration: 5000
         })
         // Redirect về login thay vì home (vì không auto-login nữa)
         router.push('/login')
       } catch (error) {
-        handleApiError(error, 'Đăng ký thất bại')
+        handleApiError(error, t('auth.register_failed'))
       } finally {
         loading.value = false
       }
@@ -168,8 +171,8 @@ const handleGitHubLogin = () => {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>Create Account</h1>
-          <p>Join our community of developers</p>
+          <h1>{{ $t('auth.create_account') }}</h1>
+          <p>{{ $t('auth.join_community') }}</p>
         </div>
 
         <el-form
@@ -180,66 +183,67 @@ const handleGitHubLogin = () => {
           size="large"
           @keypress.enter="handleRegister(formRef)"
         >
-          <el-form-item label="Username" prop="username">
+          <el-form-item :label="$t('auth.username')" prop="username">
             <el-input
               v-model="form.username"
-              placeholder="Choose a username"
+              :placeholder="$t('auth.choose_username')"
               autocomplete="username"
             />
           </el-form-item>
 
-          <el-form-item label="Full Name" prop="fullName">
+          <el-form-item :label="$t('auth.full_name')" prop="fullName">
             <el-input
               v-model="form.fullName"
-              placeholder="Enter your full name"
+              :placeholder="$t('auth.enter_full_name')"
               autocomplete="name"
             />
           </el-form-item>
 
-          <el-form-item label="Email" prop="email">
+          <el-form-item :label="$t('auth.email')" prop="email">
             <el-input
               v-model="form.email"
-              placeholder="name@example.com"
+              :placeholder="$t('auth.enter_email')"
               autocomplete="email"
             />
           </el-form-item>
 
-          <el-form-item label="Password" prop="password">
+          <el-form-item :label="$t('auth.password')" prop="password">
             <el-input
               v-model="form.password"
               type="password"
-              placeholder="Create a password"
+              :placeholder="$t('auth.create_password')"
               show-password
               autocomplete="new-password"
             />
           </el-form-item>
 
-          <el-form-item label="Confirm Password" prop="confirmPassword">
+          <el-form-item :label="$t('auth.confirm_password')" prop="confirmPassword">
             <el-input
               v-model="form.confirmPassword"
               type="password"
-              placeholder="Confirm your password"
+              :placeholder="$t('auth.enter_confirm_password')"
               show-password
               autocomplete="new-password"
             />
           </el-form-item>
 
-          <el-button
-            type="primary"
+          <AppButton
+            variant="primary"
+            size="large"
             class="submit-btn"
             :loading="loading"
             @click="handleRegister(formRef)"
           >
-            Sign Up
-          </el-button>
+            {{ $t('auth.sign_up') }}
+          </AppButton>
         </el-form>
 
         <div class="divider">
-          <span>or continue with</span>
+          <span>{{ $t('auth.or_continue_with') }}</span>
         </div>
 
         <div class="social-buttons">
-          <button class="social-btn" @click="handleGoogleLogin">
+          <AppButton variant="secondary" class="social-btn" @click="handleGoogleLogin">
             <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
                 <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z" />
@@ -249,19 +253,19 @@ const handleGitHubLogin = () => {
               </g>
             </svg>
             <span>Google</span>
-          </button>
+          </AppButton>
 
-          <button class="social-btn" @click="handleGitHubLogin">
+          <AppButton variant="secondary" class="social-btn" @click="handleGitHubLogin">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
             </svg>
             <span>GitHub</span>
-          </button>
+          </AppButton>
         </div>
 
         <div class="auth-footer">
-          <span>Already have an account?</span>
-          <RouterLink to="/login" class="link">Sign in</RouterLink>
+          <span>{{ $t('auth.have_account') }}</span>
+          <RouterLink to="/login" class="link">{{ $t('auth.sign_in') }}</RouterLink>
         </div>
       </div>
     </div>
@@ -309,18 +313,8 @@ const handleGitHubLogin = () => {
 
 .submit-btn {
   width: 100%;
-  height: 42px;
-  font-size: 15px;
-  font-weight: 600;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-active) 100%);
-  border: none;
-  color: #000;
-  margin-bottom: var(--spacing-xl);
   margin-top: var(--spacing-md);
-}
-
-.submit-btn:hover {
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-primary) 100%);
+  margin-bottom: var(--spacing-xl);
 }
 
 .divider {
@@ -355,24 +349,7 @@ const handleGitHubLogin = () => {
 
 .social-btn {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: var(--spacing-sm);
-  height: 42px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.social-btn:hover {
-  background: var(--bg-elevated);
-  border-color: var(--border-secondary);
 }
 
 .auth-footer {

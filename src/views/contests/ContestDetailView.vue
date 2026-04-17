@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useContestStore } from '@/stores/contest'
 import { useContestSessionStore } from '@/stores/contestSession'
@@ -22,6 +23,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const contestStore = useContestStore()
 const sessionStore = useContestSessionStore()
+const { t } = useI18n()
 const { ruleTypeClass, contestStatusClass, verdictClass } = useBadge()
 
 const contestId = computed(() => route.params.id)
@@ -50,7 +52,7 @@ const getDuration = (start, end) => {
   const diff = parseServerDate(end) - parseServerDate(start)
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
-  return h > 0 ? `${h} giờ${m > 0 ? ` ${m} phút` : ''}` : `${m} phút`
+  return h > 0 ? `${h} ${t('contest_detail.time_hours')}${m > 0 ? ` ${m} ${t('contest_detail.time_minutes')}` : ''}` : `${m} ${t('contest_detail.time_minutes')}`
 }
 
 // =====================
@@ -125,7 +127,7 @@ const isTabDisabled = (id) => {
 // =====================
 const countdownLabel = computed(() => {
   if (!contest.value) return ''
-  return sessionStore.getServerNow() < parseServerDate(contest.value.startTime) ? 'Bắt đầu sau' : 'Kết thúc sau'
+  return sessionStore.getServerNow() < parseServerDate(contest.value.startTime) ? t('contest_detail.starts_in') : t('contest_detail.ends_in')
 })
 
 const targetTime = computed(() => {
@@ -154,7 +156,7 @@ const loadContest = async () => {
     if (err?.response?.status === 403 || err?.response?.data?.code === 'AUTH_002') {
       accessDenied.value = true
     } else {
-      handleApiError(err, 'Không thể tải thông tin contest')
+      handleApiError(err, t('contest_detail.err_load_contest'))
       router.replace('/contests')
     }
   } finally {
@@ -188,14 +190,14 @@ const startLoading = ref(false)
 const handleStartContest = async () => {
   try {
     await ElMessageBox.confirm(
-      'Một khi đã bắt đầu, đồng hồ sẽ chạy liên tục cho đến khi bạn nộp bài hoặc hết giờ. Bạn đã sẵn sàng?',
-      'Bắt đầu thi',
-      { confirmButtonText: 'Bắt đầu ngay', cancelButtonText: 'Để sau', type: 'warning' }
+      t('contest_detail.msg_start_confirm'),
+      t('contest_detail.title_start_confirm'),
+      { confirmButtonText: t('contest_detail.btn_start_now'), cancelButtonText: t('contest_detail.btn_later'), type: 'warning' }
     )
     startLoading.value = true
     await sessionStore.startSession(contest.value.id, contest.value.contestKey, contest.value.title)
     await loadContest()
-    ElMessage.success('Bắt đầu thi thành công!')
+    ElMessage.success(t('contest_detail.msg_start_success'))
     router.push(`/contests/${contestId.value}/problems`)
   } catch (err) {
     if (err !== 'cancel') handleApiError(err)
@@ -211,9 +213,9 @@ const handleRejoinContest = () => {
 
 const handleLeaveContest = () => {
   ElMessageBox.confirm(
-    'Đồng hồ vẫn sẽ tiếp tục chạy ngầm phía Server. Lần tới quay lại bạn sẽ mất đi thời gian đã trôi qua. Bạn có chắc chắn muốn rời phòng thi không?',
-    'Rời phòng thi',
-    { confirmButtonText: 'Rời đi', cancelButtonText: 'Ở lại', type: 'warning' }
+    t('contest_detail.msg_leave_confirm'),
+    t('contest_detail.title_leave_confirm'),
+    { confirmButtonText: t('contest_detail.btn_leave_room'), cancelButtonText: t('contest_detail.btn_stay'), type: 'warning' }
   ).then(() => {
     sessionStore.clearSession()
     router.push('/contests')
@@ -230,16 +232,16 @@ const loadProblems = async () => {
   try {
     problemsLoading.value = true
     problems.value = await contestsAPI.getProblems(contestId.value)
-  } catch (err) { handleApiError(err, 'Không thể tải danh sách bài tập') }
+  } catch (err) { handleApiError(err, t('contest_detail.err_load_problems')) }
   finally { problemsLoading.value = false }
 }
 
-const problemColumns = [
+const problemColumns = computed(() => [
   { key: '_ac',           label: '',          width: '50',  align: 'center' },
   { key: 'displayId',     label: '#',         width: '80', align: 'center' },
-  { key: 'originalTitle', label: 'Bài tập',  minWidth: '300' },
-  { key: 'points',        label: 'Điểm',      width: '100', align: 'center' }
-]
+  { key: 'originalTitle', label: t('contest_detail.col_problem'),  minWidth: '300' },
+  { key: 'points',        label: t('contest_detail.col_points'),      width: '100', align: 'center' }
+])
 
 
 // =====================
@@ -263,7 +265,7 @@ const loadLeaderboard = async () => {
     if (data.problems) {
       problems.value = data.problems
     }
-  } catch (err) { handleApiError(err, 'Không thể tải bảng xếp hạng') }
+  } catch (err) { handleApiError(err, t('contest_detail.err_load_lb')) }
   finally { leaderboardLoading.value = false }
 }
 
@@ -271,12 +273,12 @@ const loadLeaderboard = async () => {
 
 const lbColumns = computed(() => {
   const cols = [
-    { key: '_rank',    label: 'Hạng',      width: '80',  align: 'center' },
-    { key: 'username', label: 'Thí sinh',  minWidth: '200' },
-    { key: 'score',    label: 'Điểm',       width: '100', align: 'center' }
+    { key: '_rank',    label: t('contest_detail.col_rank'),      width: '80',  align: 'center' },
+    { key: 'username', label: t('contest_detail.col_participant'),  minWidth: '200' },
+    { key: 'score',    label: t('contest_detail.col_points'),       width: '100', align: 'center' }
   ]
   if (contest.value?.ruleType === 'ACM' || contest.value?.ruleType === 'OI') {
-     cols.push({ key: 'penalty', label: 'Penalty', width: '100', align: 'center' })
+     cols.push({ key: 'penalty', label: t('contest_detail.col_penalty'), width: '100', align: 'center' })
   }
   // Add problem columns
   problems.value.forEach(p => {
@@ -362,17 +364,17 @@ const loadMySubmissions = async () => {
     })
     mySubmissions.value = data.content || []
     mySubsPagination.value.total = data.totalElements || 0
-  } catch (err) { handleApiError(err, 'Không thể tải lịch sử nộp bài') }
+  } catch (err) { handleApiError(err, t('contest_detail.err_load_subs')) }
   finally { mySubsLoading.value = false }
 }
 
-const submissionColumns = [
-  { key: 'createdDate',   label: 'Thời gian nộp',  minWidth: '170' },
-  { key: 'problemTitle',  label: 'Bài tập',         minWidth: '200' },
-  { key: 'verdict',       label: 'Kết quả',         width: '130', align: 'center' },
-  { key: 'score',         label: 'Điểm',            width: '90',  align: 'center' },
-  { key: 'languageKey',   label: 'Ngôn ngữ',        width: '120', align: 'center' }
-]
+const submissionColumns = computed(() => [
+  { key: 'createdDate',   label: t('contest_detail.col_submit_time'),  minWidth: '170' },
+  { key: 'problemTitle',  label: t('contest_detail.col_problem'),         minWidth: '200' },
+  { key: 'verdict',       label: t('contest_detail.col_verdict'),         width: '130', align: 'center' },
+  { key: 'score',         label: t('contest_detail.col_points'),            width: '90',  align: 'center' },
+  { key: 'languageKey',   label: t('contest_detail.col_language'),        width: '120', align: 'center' }
+])
 
 // =====================
 // Tab switching
@@ -408,7 +410,7 @@ onMounted(async () => {
       router.replace({ ...route, query: restQuery })
     } else {
       showPasswordInput.value = true
-      ElMessage.info('Vui lòng đăng nhập để tham gia Contest này.')
+      ElMessage.info(t('contest_detail.register_msg'))
     }
   }
 })
@@ -425,17 +427,14 @@ onUnmounted(() => {})
   <div v-else-if="accessDenied" class="page-loading access-denied-page">
     <div class="access-denied-card">
       <Lock :size="52" class="ad-icon" />
-      <h2 class="ad-title">Kỳ thi Riêng tư</h2>
-      <p class="ad-desc">
-        Bạn không có quyền truy cập vào kỳ thi này.<br />
-        Vui lòng liên hệ ban tổ chức để được thêm vào danh sách tham dự.
-      </p>
+      <h2 class="ad-title">{{ $t('contest_detail.private_title') }}</h2>
+      <p class="ad-desc" v-html="$t('contest_detail.private_desc')"></p>
       <div class="ad-actions">
         <button class="ad-btn-secondary" @click="router.push('/contests')">
-          <ChevronLeft :size="16" /> Quay lại danh sách
+          <ChevronLeft :size="16" /> {{ $t('contest_detail.back_list') }}
         </button>
         <button v-if="!authStore.isAuthenticated" class="ad-btn-primary" @click="router.push('/login')">
-          Đăng nhập
+          {{ $t('contest_detail.login_join') }}
         </button>
       </div>
     </div>
@@ -447,7 +446,7 @@ onUnmounted(() => {})
       <!-- ===== BREADCRUMB ===== -->
       <div class="breadcrumb-row">
         <button class="back-btn" @click="router.push('/contests')">
-          <ChevronLeft :size="14" /> Contests
+          <ChevronLeft :size="14" /> {{ $t('nav.contest') }}
         </button>
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-current">{{ contest.title }}</span>
@@ -462,7 +461,7 @@ onUnmounted(() => {})
             </span>
             <span :class="['oj-badge', contestStatusClass(contest.contestStatus)]">
               <span v-if="contest.contestStatus === 'ONGOING'" class="pulse-dot" />
-              {{ contest.contestStatus === 'ONGOING' ? 'Đang diễn ra' : contest.contestStatus === 'UPCOMING' ? 'Sắp diễn ra' : 'Đã kết thúc' }}
+              {{ contest.contestStatus === 'ONGOING' ? $t('contest_detail.status_ongoing') : contest.contestStatus === 'UPCOMING' ? $t('contest_detail.status_upcoming') : $t('contest_detail.status_ended') }}
             </span>
             <span v-if="contest.visibility === 'PRIVATE'" class="badge-private">
               <Lock :size="11" /> Private
@@ -473,9 +472,9 @@ onUnmounted(() => {})
             <span><Calendar :size="13" /> {{ formatDateTime(contest.startTime) }} – {{ formatDateTime(contest.endTime) }}</span>
             <span><RefreshCw :size="13" /> {{ getDuration(contest.startTime, contest.endTime) }}</span>
             <span v-if="contest.durationMinutes" class="chip-windowed">
-              <Zap :size="12" /> Làm bài: {{ contest.durationMinutes }} phút
+              <Zap :size="12" /> {{ $t('contest_detail.info_duration') }}: {{ contest.durationMinutes }} {{ $t('contests.minutes') }}
             </span>
-            <span><Users :size="13" /> {{ (contest.participantCount || 0).toLocaleString() }} thí sinh</span>
+            <span><Users :size="13" /> {{ (contest.participantCount || 0).toLocaleString() }} {{ $t('contest_detail.info_participants') }}</span>
           </div>
         </div>
 
@@ -486,10 +485,10 @@ onUnmounted(() => {})
         <div class="tab-nav-inner">
           <button
             v-for="tab in [
-              { id: 'info',         label: 'Thông tin',       icon: Trophy },
-              { id: 'problems',     label: 'Bài tập',         icon: BookOpen },
-              { id: 'leaderboard',  label: 'Xếp hạng',        icon: BarChart2 },
-              ...(isRegistered ? [{ id: 'submissions', label: 'Kết quả của tôi', icon: List }] : [])
+              { id: 'info',         label: $t('contest_detail.tab_info'),       icon: Trophy },
+              { id: 'problems',     label: $t('contest_detail.tab_problems'),         icon: BookOpen },
+              { id: 'leaderboard',  label: $t('contest_detail.tab_leaderboard'),        icon: BarChart2 },
+              ...(isRegistered ? [{ id: 'submissions', label: $t('contest_detail.tab_submissions'), icon: List }] : [])
             ]"
             :key="tab.id"
             class="tab-btn"
@@ -507,7 +506,7 @@ onUnmounted(() => {})
           <!-- Case 1: Contest already finished -->
           <template v-if="isFinished">
             <AppButton variant="secondary" disabled :icon="Lock">
-              Đã kết thúc
+              {{ $t('contest_detail.status_ended') }}
             </AppButton>
           </template>
 
@@ -518,13 +517,13 @@ onUnmounted(() => {})
               <!-- If actually in Exam Mode (FE session active) -->
               <template v-if="isThisContestActive">
                 <AppButton variant="secondary" :icon="LogOut" @click="handleLeaveContest">
-                  Rời phòng
+                  {{ $t('contest_detail.btn_leave') }}
                 </AppButton>
               </template>
               <!-- If session exists on BE but FE store is clear (e.g. user returned to page) -->
               <template v-else>
                 <AppButton variant="primary" :icon="Zap" @click="handleRejoinContest">
-                  Vào phòng thi
+                  {{ $t('contest_detail.btn_resume') }}
                 </AppButton>
               </template>
             </template>
@@ -532,14 +531,14 @@ onUnmounted(() => {})
             <!-- Subcase: User is registered but hasn't clicked "Start" yet -->
             <template v-else-if="!hasJoined">
               <AppButton variant="primary" :loading="startLoading" :icon="Zap" @click="handleStartContest">
-                Bắt đầu thi
+                {{ $t('contest_detail.btn_start') }}
               </AppButton>
             </template>
 
             <!-- Subcase: Session ended (for windowed contests) -->
             <template v-else-if="hasJoined && !isPersonalSessionActive">
               <AppButton variant="secondary" disabled :icon="Check">
-                Đã hoàn thành
+                {{ $t('contest_detail.reg_completed') }}
               </AppButton>
             </template>
           </template>
@@ -552,18 +551,18 @@ onUnmounted(() => {})
                 <el-input 
                   v-model="registerPassword" 
                   type="password" 
-                  placeholder="Mật khẩu..." 
+                  placeholder="Password..." 
                   show-password
                   class="pw-el-input"
                 />
               </div>
               <AppButton variant="primary" :loading="registerLoading" :icon="Shield" @click="handleRegister">
-                {{ showPasswordInput ? 'Xác nhận' : (authStore.isAuthenticated ? 'Đăng ký tham gia' : 'Đăng nhập để đăng ký') }}
+                {{ showPasswordInput ? $t('contest_detail.btn_confirm') : (authStore.isAuthenticated ? $t('contest_detail.btn_register') : $t('contest_detail.btn_login_register')) }}
               </AppButton>
             </template>
             <template v-else>
               <AppButton variant="secondary" disabled :icon="Lock">
-                Đã quá hạn đăng ký
+                {{ $t('contest_detail.status_late') }}
               </AppButton>
             </template>
           </template>
@@ -577,55 +576,51 @@ onUnmounted(() => {})
       <div v-if="activeTab === 'info'" class="info-layout">
         <div class="info-main">
           <section class="content-block">
-            <h3 class="block-title">Mô tả</h3>
-            <div class="desc-body" v-html="contest.description || '<p style=\'color:#8a8a8a\'>Chưa có mô tả.</p>'" />
+            <h3 class="block-title">{{ $t('contest_detail.desc_title') }}</h3>
+            <div class="desc-body" v-html="contest.description || `<p style='color:#8a8a8a'>${$t('contest_detail.no_description')}</p>`" />
           </section>
           <section class="content-block">
-            <h3 class="block-title">Thể lệ: {{ contest.ruleType }}</h3>
+            <h3 class="block-title">{{ $t('contest_detail.rule_title') }}: {{ contest.ruleType }}</h3>
             <div class="rule-box">
-              <p v-if="contest.ruleType === 'ACM'">
-                Hệ thống <strong>ACM/ICPC</strong>: Mỗi bài tập được chấm theo nguyên tắc "tất cả hoặc không". Kết quả <em>AC</em> khi toàn bộ test case đúng. Xếp hạng theo số bài giải được, tiebreak theo tổng thời gian + penalty (mỗi lần nộp sai: +20 phút).
-              </p>
-              <p v-else>
-                Hệ thống <strong>OI</strong>: Điểm được tính theo tỉ lệ số test case đúng. Mỗi thí sinh chỉ được nộp một lần cho mỗi bài. Không có penalty thời gian.
-              </p>
+              <p v-if="contest.ruleType === 'ACM'" v-html="$t('contest_detail.rule_acm')"></p>
+              <p v-else v-html="$t('contest_detail.rule_oi')"></p>
             </div>
           </section>
         </div>
         <aside class="info-sidebar">
           <div class="info-card">
-            <h4 class="info-card-title">Thông tin cuộc thi</h4>
+            <h4 class="info-card-title">{{ $t('contest_detail.info_title') }}</h4>
             <div class="info-rows">
               <div class="info-row">
                 <span class="ir-label">Rule</span>
                 <span :class="['oj-badge', ruleTypeClass(contest.ruleType)]">{{ contest.ruleType }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Bắt đầu</span>
+                <span class="ir-label">Start</span>
                 <span class="ir-val">{{ formatDateTime(contest.startTime) }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Kết thúc</span>
+                <span class="ir-label">End</span>
                 <span class="ir-val">{{ formatDateTime(contest.endTime) }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Thời lượng</span>
+                <span class="ir-label">{{ $t('contest_detail.info_duration') }}</span>
                 <span class="ir-val">{{ getDuration(contest.startTime, contest.endTime) }}</span>
               </div>
               <div v-if="contest.durationMinutes" class="info-row">
-                <span class="ir-label ir-highlight">Làm bài</span>
-                <span class="ir-val ir-highlight">{{ contest.durationMinutes }} phút</span>
+                <span class="ir-label ir-highlight">{{ $t('contest_detail.info_duration') }}</span>
+                <span class="ir-val ir-highlight">{{ contest.durationMinutes }} {{ $t('contests.minutes') }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Thí sinh</span>
+                <span class="ir-label">{{ $t('contest_detail.info_participants') }}</span>
                 <span class="ir-val">{{ (contest.participantCount || 0).toLocaleString() }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Quyền truy cập</span>
-                <span class="ir-val">{{ contest.visibility === 'PUBLIC' ? 'Công khai' : 'Riêng tư' }}</span>
+                <span class="ir-label">{{ $t('contest_detail.info_access') }}</span>
+                <span class="ir-val">{{ contest.visibility === 'PUBLIC' ? 'Public' : 'Private' }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Tổ chức bởi</span>
+                <span class="ir-label">{{ $t('contest_detail.info_author') }}</span>
                 <span class="ir-val">{{ contest.authorUsername }}</span>
               </div>
             </div>
@@ -633,16 +628,16 @@ onUnmounted(() => {})
 
           <!-- Registration state card -->
           <div class="info-card" v-if="!isFinished">
-            <h4 class="info-card-title">Trạng thái tham gia</h4>
+            <h4 class="info-card-title">{{ $t('contest_detail.reg_state_title') }}</h4>
             <div v-if="isRegistered" class="reg-state">
               <div class="reg-check-icon"><Check :size="20" stroke-width="3" /></div>
-              <p class="reg-status-text">Đã đăng ký</p>
-              <p v-if="contest.contestParticipation?.isFinished" class="reg-sub">Bạn đã hoàn thành.</p>
-              <p v-else-if="hasJoined" class="reg-sub ongoing">Phiên thi đang chạy.</p>
-              <p v-else-if="!isStarted" class="reg-sub">Chờ contest bắt đầu.</p>
+              <p class="reg-status-text">{{ $t('contest_detail.reg_registered') }}</p>
+              <p v-if="contest.contestParticipation?.isFinished" class="reg-sub">{{ $t('contest_detail.reg_completed') }}</p>
+              <p v-else-if="hasJoined" class="reg-sub ongoing">{{ $t('contest_detail.reg_running') }}</p>
+              <p v-else-if="!isStarted" class="reg-sub">{{ $t('contest_detail.reg_wait') }}</p>
             </div>
             <div v-else class="reg-state">
-              <p class="reg-sub">Bạn chưa đăng ký thi.</p>
+              <p class="reg-sub">{{ $t('contest_detail.reg_not_registered') }}</p>
             </div>
           </div>
         </aside>
@@ -653,7 +648,7 @@ onUnmounted(() => {})
         <!-- Locked state -->
         <div v-if="isResourceLocked" class="lb-locked-container">
           <Lock :size="48" class="lb-locked-icon" />
-          <h3 class="lb-locked-title">Đề thi đã bị khoá</h3>
+          <h3 class="lb-locked-title">{{ $t('contest_detail.resource_locked_msg') }}</h3>
           <p class="lb-locked-desc">{{ resourceLockMessage }}</p>
         </div>
         <!-- Normal state -->
@@ -662,7 +657,7 @@ onUnmounted(() => {})
           :columns="problemColumns"
           :data="problems"
           :loading="problemsLoading"
-          empty-text="Chưa có bài tập nào."
+          :empty-text="$t('contest_detail.empty_problems')"
         >
           <template #cell-_ac="{ row }">
             <div v-if="row.submissionVerdict === 'AC'" class="ac-orb">
@@ -690,11 +685,11 @@ onUnmounted(() => {})
         <template v-if="isLeaderboardHidden">
           <div class="lb-locked-container">
             <Lock :size="48" class="lb-locked-icon" />
-            <h3 class="lb-locked-title">Bảng xếp hạng bị ẩn</h3>
+            <h3 class="lb-locked-title">{{ $t('contest_detail.lb_hidden_title') }}</h3>
             <p class="lb-locked-desc">
               {{ contest?.scoreboardVisibility === 'HIDDEN_PERMANENTLY' 
-                  ? 'Ban tổ chức đã ẩn bảng xếp hạng của kỳ thi này vĩnh viễn.' 
-                  : 'Bảng xếp hạng đang bị đóng băng trong thời gian diễn ra cuộc thi.' 
+                  ? $t('contest_detail.lb_hidden_msg_perm') 
+                  : $t('contest_detail.lb_hidden_msg_frozen') 
               }}
             </p>
           </div>
@@ -705,7 +700,7 @@ onUnmounted(() => {})
             :columns="lbColumns"
             :data="leaderboard"
             :loading="leaderboardLoading"
-            empty-text="Chưa có dữ liệu xếp hạng."
+            :empty-text="$t('contest_detail.empty_lb')"
           >
             <!-- Rank Column -->
             <template #cell-_rank="{ row }">
@@ -762,7 +757,7 @@ onUnmounted(() => {})
         <!-- Locked state -->
         <div v-if="isResourceLocked" class="lb-locked-container">
           <Lock :size="48" class="lb-locked-icon" />
-          <h3 class="lb-locked-title">Lịch sử nộp bài đã bị khoá</h3>
+          <h3 class="lb-locked-title">{{ $t('contest_detail.resource_locked_msg') }}</h3>
           <p class="lb-locked-desc">{{ resourceLockMessage }}</p>
         </div>
         <!-- Normal state -->
@@ -771,7 +766,7 @@ onUnmounted(() => {})
           :columns="submissionColumns"
           :data="mySubmissions"
           :loading="mySubsLoading"
-          empty-text="Bạn chưa nộp bài nào trong contest này."
+          :empty-text="$t('contest_detail.empty_submissions')"
           row-class-name="clickable-row"
           @row-click="(row) => router.push(`/submissions/${row.submissionId}`)"
         >

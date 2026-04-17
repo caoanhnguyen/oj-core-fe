@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Trophy, Clock, Users, ChevronRight, Calendar, Zap, Flame, AlertCircle, Archive, LayoutGrid } from 'lucide-vue-next'
@@ -13,13 +14,14 @@ import DarkPagination from '@/components/common/DarkPagination.vue'
 import { useBadge } from '@/composables/useBadge'
 
 const router = useRouter()
+const { t } = useI18n()
 const { ruleTypeClass, contestStatusClass } = useBadge()
 
 const allContests = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
-const pageSize = ref(12)
+const pageSize = ref(20)
 const totalElements = ref(0)
 
 const authStore = useAuthStore()
@@ -70,10 +72,10 @@ const getRemainingTime = (endTimeStr) => {
 // =====================
 const filterValues = ref({ ruleType: '', status: '' })
 
-const contestFilterConfig = [
+const contestFilterConfig = computed(() => [
   {
     key: 'ruleType',
-    label: 'Rule Type',
+    label: t('problems.rule_type'),
     icon: LayoutGrid,
     options: [
       { label: 'OI',  value: 'OI' },
@@ -82,15 +84,15 @@ const contestFilterConfig = [
   },
   {
     key: 'status',
-    label: 'Trạng thái',
+    label: t('contests.filter_status'),
     icon: Trophy,
     options: [
-      { label: 'Đang diễn ra', value: 'ONGOING' },
-      { label: 'Sắp diễn ra',  value: 'UPCOMING' },
-      { label: 'Đã kết thúc',  value: 'ENDED' }
+      { label: t('contests.ongoing'), value: 'ONGOING' },
+      { label: t('contests.upcoming'),  value: 'UPCOMING' },
+      { label: t('contests.ended'),  value: 'ENDED' }
     ]
   }
-]
+])
 
 const handleFilterChange = ({ key, value }) => {
   filterValues.value[key] = value
@@ -179,16 +181,16 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
 
       <!-- Header -->
       <PageHeader 
-        title="Contests" 
-        subtitle="Tham gia các cuộc thi lập trình và thách thức bản thân!"
+        :title="$t('contests.title')" 
+        :subtitle="$t('contests.subtitle')"
       />
 
       <TableControls
         v-model="searchQuery"
-        search-placeholder="Tìm kiếm contest..."
+        :search-placeholder="$t('contests.search_placeholder')"
         :filter-config="contestFilterConfig"
         :total-elements="totalElements"
-        item-name="Contests"
+        :item-name="$t('contests.title')"
         @filter-change="handleFilterChange"
         @reset-filters="handleResetFilters"
       />
@@ -197,7 +199,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
       <div v-if="activeContests.length > 0" class="active-sessions-banner">
         <div class="banner-label">
           <span class="live-dot" />
-          ĐANG THAM GIA
+          {{ $t('contests.active_sessions') }}
         </div>
         <div class="sessions-list">
           <div
@@ -211,14 +213,14 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
               <h3 class="session-title">{{ item.contest.title }}</h3>
             </div>
             <div class="session-timer">
-              <span class="timer-label">CÒN LẠI</span>
+              <span class="timer-label">{{ $t('contests.time_remaining') }}</span>
               <span class="timer-value">
                 <Clock :size="14" />
                 {{ getRemainingTime(item.sessionEndTime) }}
               </span>
             </div>
             <button class="session-resume-btn">
-              Tiếp tục thi <ChevronRight :size="14" />
+              {{ $t('contests.resume') }} <ChevronRight :size="14" />
             </button>
           </div>
         </div>
@@ -227,13 +229,13 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
       <!-- Loading -->
       <div v-if="loading" class="loading-state">
         <div class="spinner" />
-        <span>Đang tải...</span>
+        <span>{{ $t('contests.loading') }}</span>
       </div>
 
       <template v-else>
 
         <div v-if="allContests.length === 0" class="empty-section">
-          <span>Không tìm thấy cuộc thi nào</span>
+          <span>{{ $t('contests.not_found') }}</span>
         </div>
 
         <!-- ===== ONGOING ===== -->
@@ -241,7 +243,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
           <div class="section-header ongoing-header">
             <div class="section-title-group">
               <Flame :size="18" class="section-icon" />
-              <h2 class="section-title">Đang diễn ra</h2>
+              <h2 class="section-title">{{ $t('contests.ongoing') }}</h2>
               <span class="section-count">{{ ongoingContests.length }}</span>
             </div>
           </div>
@@ -256,7 +258,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
               <div class="card-top">
                 <div class="card-badges">
                   <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
-                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]"><span class="pulse-dot" />Đang diễn ra</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]"><span class="pulse-dot" />{{ $t('contests.ongoing') }}</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -269,15 +271,15 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} {{ $t('contests.minutes') }}</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />
-                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} {{ $t('contests.participants') }}</span>
                 </div>
               </div>
               <div class="card-footer">
-                <span class="card-link">Xem chi tiết <ChevronRight :size="13" /></span>
+                <span class="card-link">{{ $t('contests.view_details') }} <ChevronRight :size="13" /></span>
               </div>
             </div>
           </div>
@@ -288,7 +290,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
           <div class="section-header upcoming-header">
             <div class="section-title-group">
               <AlertCircle :size="18" class="section-icon" />
-              <h2 class="section-title">Sắp diễn ra</h2>
+              <h2 class="section-title">{{ $t('contests.upcoming') }}</h2>
               <span class="section-count">{{ upcomingContests.length }}</span>
             </div>
           </div>
@@ -303,7 +305,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
               <div class="card-top">
                 <div class="card-badges">
                   <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
-                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">Sắp diễn ra</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">{{ $t('contests.upcoming') }}</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -316,15 +318,15 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} {{ $t('contests.minutes') }}</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />
-                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} {{ $t('contests.participants') }}</span>
                 </div>
               </div>
               <div class="card-footer">
-                <span class="card-link">Xem chi tiết <ChevronRight :size="13" /></span>
+                <span class="card-link">{{ $t('contests.view_details') }} <ChevronRight :size="13" /></span>
               </div>
             </div>
           </div>
@@ -335,7 +337,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
           <div class="section-header ended-header">
             <div class="section-title-group">
               <Archive :size="18" class="section-icon" />
-              <h2 class="section-title">Đã kết thúc</h2>
+              <h2 class="section-title">{{ $t('contests.ended') }}</h2>
               <span class="section-count">{{ endedContests.length }}</span>
             </div>
           </div>
@@ -350,7 +352,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
               <div class="card-top">
                 <div class="card-badges">
                   <span :class="['oj-badge', ruleTypeClass(c.ruleType)]">{{ c.ruleType }}</span>
-                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">Đã kết thúc</span>
+                  <span :class="['oj-badge', contestStatusClass(c.contestStatus)]">{{ $t('contests.ended') }}</span>
                 </div>
                 <span v-if="c.visibility === 'PRIVATE'" class="lock-badge">🔒</span>
               </div>
@@ -363,15 +365,15 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
                 <div class="meta-row">
                   <Zap :size="13" />
                   <span>{{ getDuration(c.startTime, c.endTime) }}</span>
-                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} phút</span>
+                  <span v-if="c.format === 'WINDOWED'" class="chip-windowed">⚡ {{ c.durationMinutes }} {{ $t('contests.minutes') }}</span>
                 </div>
                 <div class="meta-row">
                   <Users :size="13" />
-                  <span>{{ (c.participantCount || 0).toLocaleString() }} người</span>
+                  <span>{{ (c.participantCount || 0).toLocaleString() }} {{ $t('contests.participants') }}</span>
                 </div>
               </div>
               <div class="card-footer">
-                <span class="card-link">Xem kết quả <ChevronRight :size="13" /></span>
+                <span class="card-link">{{ $t('contests.view_results') }} <ChevronRight :size="13" /></span>
               </div>
             </div>
           </div>
@@ -382,7 +384,7 @@ const goToContest = (contest) => router.push(`/contests/${contest.contestKey}`)
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
           :total="totalElements"
-          :page-sizes="[12, 24, 48]"
+          :page-sizes="[10, 20, 50, 100]"
           @current-change="handlePageChange"
           @size-change="handleSizeChange"
         />

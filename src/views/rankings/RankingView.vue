@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useRankingStore } from '@/stores/ranking'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
@@ -30,6 +31,7 @@ use([
 
 const route = useRoute()
 const rankingStore = useRankingStore()
+const { t } = useI18n()
 
 const type = computed(() => (route.params.type || 'acm').toUpperCase())
 const page = ref(1)
@@ -45,7 +47,7 @@ const chartOption = computed(() => {
     ? data.map(item => item.solvedCount)
     : data.map(item => item.totalScore)
   
-  const label = type.value === 'ACM' ? 'Solved' : 'Total Score'
+  const label = type.value === 'ACM' ? t('rankings.col_solved') : t('rankings.col_score')
   const barColor = type.value === 'ACM' ? '#ffa116' : '#2cbb5d'
 
   return {
@@ -138,15 +140,15 @@ onMounted(fetchAll)
 const tableColumns = computed(() => {
   const baseCols = [
     { key: '_rank', label: '#', width: '70', align: 'center' },
-    { key: 'user', label: 'User', minWidth: '200', align: 'left' },
-    { key: 'solved', label: 'Solved', width: '100', align: 'center' },
-    { key: 'ac', label: 'AC', width: '100', align: 'center' },
-    { key: 'submissions', label: 'Total Submissions', width: '180', align: 'center' }
+    { key: 'user', label: t('rankings.col_user'), minWidth: '200', align: 'left' },
+    { key: 'solved', label: t('rankings.col_solved'), width: '100', align: 'center' },
+    { key: 'ac', label: t('rankings.col_ac'), width: '100', align: 'center' },
+    { key: 'submissions', label: t('rankings.col_total_submissions'), width: '180', align: 'center' }
   ]
   if (type.value === 'OI') {
-    baseCols.push({ key: 'score', label: 'Score', width: '130', align: 'center' })
+    baseCols.push({ key: 'score', label: t('rankings.col_score'), width: '130', align: 'center' })
   }
-  baseCols.push({ key: 'rating', label: 'Acceptance Rating', width: '180', align: 'center' })
+  baseCols.push({ key: 'rating', label: t('rankings.col_acceptance_rating'), width: '180', align: 'center' })
   return baseCols
 })
 </script>
@@ -155,15 +157,15 @@ const tableColumns = computed(() => {
   <div class="public-layout-page">
     <div class="public-layout-container">
       <PageHeader 
-        :title="`Bảng xếp hạng ${type}`" 
-        :subtitle="`Vinh danh những thành viên xuất sắc nhất theo thể thức ${type}`"
+        :title="type === 'ACM' ? $t('rankings.title_acm') : $t('rankings.title_oi')" 
+        :subtitle="type === 'ACM' ? $t('rankings.subtitle_acm') : $t('rankings.subtitle_oi')"
       />
 
     <!-- Chart Section (Redesigned as a card matching system cards or flat) -->
     <div class="chart-container" v-loading="rankingStore.loading && topRankings.length === 0">
       <div class="chart-header">
         <Medal stroke="#ffa116" :size="18" />
-        <span>Top 10 {{ type === 'ACM' ? 'Solved' : 'Total Score' }}</span>
+        <span>{{ type === 'ACM' ? $t('rankings.top_10_solved') : $t('rankings.top_10_score') }}</span>
       </div>
       <div class="chart-wrapper">
         <VChart :option="chartOption" autoresize />
@@ -173,7 +175,7 @@ const tableColumns = computed(() => {
     <TableControls 
       hideSearch 
       :total-elements="rankingStore.pagination.totalElements" 
-      item-name="Members" 
+      :item-name="$t('rankings.item_name')" 
     />
 
     <TableSkeleton v-if="rankingStore.loading && rankings.length === 0" :columns="6" :rows="12" />

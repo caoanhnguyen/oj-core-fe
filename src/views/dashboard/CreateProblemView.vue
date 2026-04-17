@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onBeforeUnmount, reactive, watch, onMounted } from 'vue'
+import { ref, onBeforeUnmount, reactive, watch, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { Plus, CheckCircle, ArrowLeft } from 'lucide-vue-next'
 import { useProblemStore } from '../../stores/problem'
@@ -22,6 +23,7 @@ import TestcaseManager from '@/components/problems/TestcaseManager.vue'
 
 const router = useRouter()
 const problemStore = useProblemStore()
+const { t } = useI18n()
 
 // Form Data
 const formData = ref({
@@ -67,11 +69,11 @@ onBeforeRouteLeave(async (to, from, next) => {
   if (isDirty.value && !isSubmitting.value) {
     try {
       const action = await ElMessageBox.confirm(
-        'Bạn có thay đổi chưa lưu. Bạn có muốn lưu bản nháp trước khi rời đi không?',
-        'Xác nhận rời khỏi trang',
+        t('admin_problems.leave_warning_msg'),
+        t('admin_problems.leave_warning_title'),
         {
-          confirmButtonText: 'Lưu bản nháp',
-          cancelButtonText: 'Rời đi không lưu',
+          confirmButtonText: t('admin_problems.leave_btn_save_draft'),
+          cancelButtonText: t('admin_problems.leave_btn_leave'),
           distinguishCancelAndClose: true,
           type: 'warning',
         }
@@ -108,12 +110,12 @@ onMounted(() => {
 })
 
 // Validation Rules
-const rules = reactive({
-  title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  difficulty: [{ required: true, message: 'Difficulty is required', trigger: 'change' }],
-  description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
-  constraints: [{ required: true, message: 'Constraints are required', trigger: 'blur' }]
-})
+const rules = computed(() => ({
+  title: [{ required: true, message: t('admin_problems.validation.title_req'), trigger: 'blur' }],
+  difficulty: [{ required: true, message: t('admin_problems.validation.difficulty_req'), trigger: 'change' }],
+  description: [{ required: true, message: t('admin_problems.validation.desc_req'), trigger: 'blur' }],
+  constraints: [{ required: true, message: t('admin_problems.validation.constraints_req'), trigger: 'blur' }]
+}))
 
 const formRef = ref(null)
 
@@ -151,11 +153,11 @@ const handleSubmit = async (status = 'ACTIVE') => {
   await formRef.value.validate(async (valid, fields) => {
     if (valid) {
       if (formData.value.examples.length === 0) {
-        ElMessage.warning('Please add at least one example (Examples Tab)')
+        ElMessage.warning(t('admin_problems.validation.example_req'))
         return
       }
       if (formData.value.templates.length === 0) {
-        ElMessage.warning('Please add at least one code template (Templates Tab)')
+        ElMessage.warning(t('admin_problems.validation.template_req'))
         return
       }
 
@@ -193,11 +195,11 @@ const handleSubmit = async (status = 'ACTIVE') => {
         allowLeaving.value = true // Guard should let us pass
         router.push('/dashboard')
       } catch (error) {
-        handleApiError(error, 'Tạo bài tập thất bại')
+        handleApiError(error, t('admin_problems.msg_create_fail'))
         isSubmitting.value = false
       }
     } else {
-      ElMessage.error('Please check all required fields')
+      ElMessage.error(t('admin_problems.validation.check_fields'))
     }
   })
 }
@@ -232,36 +234,36 @@ const handleBack = () => {
             <button type="button" class="back-btn" @click="handleBack">
                <ArrowLeft :size="20" />
             </button>
-            <h2 class="page-title">Create New Problem</h2>
+            <h2 class="page-title">{{ $t('admin_problems.create_title') }}</h2>
          </div>
          <div class="header-right">
-            <AppButton variant="text" @click="handleCancel" class="cancel-btn">Cancel</AppButton>
+            <AppButton variant="text" @click="handleCancel" class="cancel-btn">{{ $t('admin_problems.btn_cancel') }}</AppButton>
             <div class="divider-v"></div>
-            <AppButton variant="outline" @click="handleSubmit('DRAFT')">Save Draft</AppButton>
-            <AppButton variant="primary" @click="handleSubmit('ACTIVE')">Publish</AppButton>
+            <AppButton variant="outline" @click="handleSubmit('DRAFT')">{{ $t('admin_problems.btn_save_draft') }}</AppButton>
+            <AppButton variant="primary" @click="handleSubmit('ACTIVE')">{{ $t('admin_problems.btn_publish') }}</AppButton>
          </div>
       </div>
 
       <div class="tabs-container">
-         <el-tabs v-model="activeTab" class="custom-tabs">
+          <el-tabs v-model="activeTab" class="custom-tabs">
             
-            <el-tab-pane label="General Info" name="general">
+            <el-tab-pane :label="$t('admin_problems.tab_general')" name="general">
                <GeneralInfoTab v-model="formData" />
             </el-tab-pane>
 
-            <el-tab-pane label="Constraints" name="constraints">
+            <el-tab-pane :label="$t('admin_problems.tab_constraints')" name="constraints">
                <ConstraintsTab v-model="formData" />
             </el-tab-pane>
             
-            <el-tab-pane label="Examples" name="examples">
+            <el-tab-pane :label="$t('admin_problems.tab_examples')" name="examples">
                 <ExamplesTab :examples="formData.examples" />
             </el-tab-pane>
 
-            <el-tab-pane label="Language & Template" name="templates">
+            <el-tab-pane :label="$t('admin_problems.tab_templates')" name="templates">
                <TemplatesTab :templates="formData.templates" />
             </el-tab-pane>
 
-            <el-tab-pane label="Test Cases" name="testcases">
+            <el-tab-pane :label="$t('admin_problems.tab_testcases')" name="testcases">
                <TestcaseManager 
                   :testcaseFile="formData.testcaseFile" 
                   @update:file="(file) => formData.testcaseFile = file" 

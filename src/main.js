@@ -5,6 +5,7 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import App from './App.vue'
 import router from './router'
+import i18n from './i18n'
 import './style.css'
 import './assets/badges.css'
 import 'element-plus/dist/index.css'
@@ -20,6 +21,7 @@ const pinia = createPinia()
 
 app.use(pinia)
 app.use(router)
+app.use(i18n)
 app.use(ElementPlus)
 app.component('QuillEditor', QuillEditor)
 

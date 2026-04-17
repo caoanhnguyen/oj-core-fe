@@ -1,6 +1,7 @@
 <script setup>
 import { defineProps, ref, onMounted } from 'vue'
 import { topicsAPI } from '@/api/topics'
+import { useI18n } from 'vue-i18n'
 // 🌟 Chỉ cần import Component Editor xịn xò vào là đủ
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
@@ -10,6 +11,8 @@ const props = defineProps({
       required: true
    }
 })
+
+const { t } = useI18n()
 
 // Helper logic
 const getDifficultyClass = (difficulty) => {
@@ -81,10 +84,10 @@ const handleDropdownVisibleChange = (visible) => {
       <div class="form-section mb-6">
          <el-row :gutter="32">
             <el-col :span="12">
-               <el-form-item label="Problem Title" prop="title">
+               <el-form-item :label="$t('admin_problems.field_title')" prop="title">
                   <el-input 
                      v-model="modelValue.title" 
-                     placeholder="e.g. Two Sum" 
+                     :placeholder="$t('admin_problems.placeholder_title')" 
                      size="large"
                      class="custom-input title-input"
                   />
@@ -92,7 +95,7 @@ const handleDropdownVisibleChange = (visible) => {
             </el-col>
 
             <el-col :span="6">
-               <el-form-item label="Topics" prop="topicIds">
+               <el-form-item :label="$t('admin_problems.field_topics')" prop="topicIds">
                   <el-select 
                      v-model="modelValue.topicIds" 
                      multiple
@@ -100,7 +103,7 @@ const handleDropdownVisibleChange = (visible) => {
                      :max-collapse-tags="3"
                      collapse-tags-tooltip
                      effect="dark"
-                     placeholder="Select topics" 
+                     :placeholder="$t('admin_problems.placeholder_topics')" 
                      size="large"
                      filterable
                      class="custom-select w-full"
@@ -120,17 +123,17 @@ const handleDropdownVisibleChange = (visible) => {
             </el-col>
 
             <el-col :span="6">
-               <el-form-item label="Difficulty" prop="difficulty">
+               <el-form-item :label="$t('admin_problems.field_difficulty')" prop="difficulty">
                   <el-select 
                      v-model="modelValue.difficulty" 
-                     placeholder="Select difficulty" 
+                     :placeholder="$t('admin_problems.placeholder_difficulty')" 
                      size="large"
                      class="custom-select w-full"
                      :class="getDifficultyClass(modelValue.difficulty)"
                   >
-                     <el-option label="Easy" value="EASY" />
-                     <el-option label="Medium" value="MEDIUM" />
-                     <el-option label="Hard" value="HARD" />
+                     <el-option :label="$t('problems.difficulty_levels.easy')" value="EASY" />
+                     <el-option :label="$t('problems.difficulty_levels.medium')" value="MEDIUM" />
+                     <el-option :label="$t('problems.difficulty_levels.hard')" value="HARD" />
                   </el-select>
                </el-form-item>
             </el-col>
@@ -140,26 +143,26 @@ const handleDropdownVisibleChange = (visible) => {
       <div class="form-section mb-6">
          <el-row :gutter="32">
             <el-col :span="8">
-               <el-form-item label="Rule Type" prop="ruleType">
+               <el-form-item :label="$t('admin_problems.field_rule_type')" prop="ruleType">
                   <el-select 
                      v-model="modelValue.ruleType" 
-                     placeholder="Select rule type" 
+                     :placeholder="$t('admin_problems.placeholder_rule')" 
                      size="large"
                      class="custom-select w-full"
                   >
-                     <el-option label="ACM (Pass all = Accept)" value="ACM" />
-                     <el-option label="OI (Partial scoring)" value="OI" />
+                     <el-option :label="$t('admin_problems.option_rule_acm')" value="ACM" />
+                     <el-option :label="$t('admin_problems.option_rule_oi')" value="OI" />
                   </el-select>
                </el-form-item>
             </el-col>
 
             <el-col :span="8">
-               <el-form-item label="Total Score (Optional)" prop="totalScore">
+               <el-form-item :label="$t('admin_problems.field_score')" prop="totalScore">
                   <el-input-number 
                      v-model="modelValue.totalScore" 
                      :min="1" 
                      :max="1000"
-                     placeholder="100"
+                     :placeholder="$t('admin_problems.placeholder_score')"
                      size="large"
                      class="custom-input-number w-full"
                   />
@@ -167,10 +170,10 @@ const handleDropdownVisibleChange = (visible) => {
             </el-col>
 
             <el-col :span="8">
-               <el-form-item label="Source / Original Author" prop="source">
+               <el-form-item :label="$t('admin_problems.field_source')" prop="source">
                   <el-input 
                      v-model="modelValue.source" 
-                     placeholder="e.g. Codeforces, LeetCode" 
+                     :placeholder="$t('admin_problems.placeholder_source')" 
                      size="large"
                      class="custom-input"
                   />
@@ -180,22 +183,22 @@ const handleDropdownVisibleChange = (visible) => {
       </div>
 
       <div class="form-section mb-6">
-         <el-form-item label="Description" prop="description">
+         <el-form-item :label="$t('admin_problems.field_desc')" prop="description">
             <div style="height: 500px; width: 100%;">
                <RichTextEditor 
                   v-model:content="modelValue.description" 
-                  placeholder="Describe the problem statement here..."
+                  :placeholder="$t('admin_problems.placeholder_desc')"
                />
             </div>
          </el-form-item>
       </div>
        
       <div class="form-section mb-6">
-         <el-form-item label="Author Hint (Optional)" prop="hint">
+         <el-form-item :label="$t('admin_problems.field_hint')" prop="hint">
             <div style="height: 300px; width: 100%;">
                <RichTextEditor 
                   v-model:content="modelValue.hint" 
-                  placeholder="Give a small hint to the user if they get stuck..." 
+                  :placeholder="$t('admin_problems.placeholder_hint')" 
                />
             </div>
          </el-form-item>

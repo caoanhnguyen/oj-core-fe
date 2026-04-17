@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
@@ -17,6 +18,7 @@ import { useBadge } from '@/composables/useBadge'
 const router = useRouter()
 const submissionStore = useSubmissionStore()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const { verdictClass } = useBadge()
 
 const loading = ref(false)
@@ -148,13 +150,13 @@ const filterConfig = computed(() => {
   const config = [
     {
       key: 'verdict',
-      label: 'Verdict',
+      label: t('submissions.filter_verdict'),
       icon: CheckCircle,
       options: verdictOptions.value
     },
     {
       key: 'language',
-      label: 'Ngôn ngữ',
+      label: t('submissions.filter_language'),
       icon: Code2,
       options: languageOptions.value
     }
@@ -163,18 +165,18 @@ const filterConfig = computed(() => {
   if (authStore.isAuthenticated) {
     config.push({
       key: 'viewMode',
-      label: 'Chế độ xem',
+      label: t('submissions.filter_view_mode'),
       icon: Eye,
       options: [
-        { label: 'Tất cả', value: 'all' },
-        { label: 'Của tôi', value: 'mine' }
+        { label: t('submissions.view_all'), value: 'all' },
+        { label: t('submissions.view_mine'), value: 'mine' }
       ]
     })
   }
 
   config.push({
     key: 'dateRange',
-    label: 'Thời gian',
+    label: t('submissions.filter_time'),
     icon: Calendar,
     type: 'daterange'
   })
@@ -254,27 +256,27 @@ onMounted(async () => {
   <div class="public-layout-page">
     <div class="public-layout-container">
     <PageHeader 
-      title="Danh sách Bài nộp" 
-      subtitle="Theo dõi tất cả lần nộp bài trên hệ thống"
+      :title="$t('submissions.list_title')" 
+      :subtitle="$t('submissions.list_subtitle')"
     />
 
     <TableControls
       v-model="searchQuery"
-      search-placeholder="Tìm kiếm theo username..."
+      :search-placeholder="$t('submissions.search_placeholder')"
       :sort-options="[
-        { label: 'Ngày nộp', value: 'createdDate' },
-        { label: 'Runtime', value: 'executionTimeMs' }
+        { label: $t('submissions.col_time'), value: 'createdDate' },
+        { label: $t('submissions.col_runtime'), value: 'executionTimeMs' }
       ]"
       :current-sort="currentSortField"
       :current-sort-dir="currentSortDirection"
       @sort="handleSort"
       @reset-sort="resetSort"
       :filter-config="filterConfig"
-      filter-title="Filter Submissions"
+      :filter-title="$t('submissions.filter_title')"
       @filter-change="handleFilterChange"
       @reset-filters="resetFilters"
       :total-elements="totalElements"
-      item-name="Submissions"
+      :item-name="$t('submissions.item_name')"
     />
 
     <TableSkeleton v-if="loading && submissions.length === 0" :columns="6" :rows="12" />
@@ -284,18 +286,18 @@ onMounted(async () => {
       :data="submissions"
       :columns="[
         { key: 'index', label: '#', width: 60, resizable: false },
-        { key: 'createdDate', label: 'Thời gian nộp', minWidth: 165 },
-        { key: 'username', label: 'Người nộp', minWidth: 130 },
-        { key: 'problem', label: 'Bài tập', minWidth: 200 },
-        { key: 'contest', label: 'Kỳ thi', minWidth: 180 },
-        { key: 'verdict', label: 'Kết quả', width: 130 },
-        { key: 'score', label: 'Điểm', width: 80 },
-        { key: 'runtime', label: 'Runtime', width: 100 },
-        { key: 'memory', label: 'Memory', width: 100 },
-        { key: 'language', label: 'Ngôn ngữ', width: 110 }
+        { key: 'createdDate', label: $t('submissions.col_time'), minWidth: 165 },
+        { key: 'username', label: $t('submissions.col_user'), minWidth: 130 },
+        { key: 'problem', label: $t('submissions.col_problem'), minWidth: 200 },
+        { key: 'contest', label: $t('submissions.col_contest'), minWidth: 180 },
+        { key: 'verdict', label: $t('submissions.col_verdict'), width: 130 },
+        { key: 'score', label: $t('submissions.col_score'), width: 80 },
+        { key: 'runtime', label: $t('submissions.col_runtime'), width: 100 },
+        { key: 'memory', label: $t('submissions.col_memory'), width: 100 },
+        { key: 'language', label: $t('submissions.col_language'), width: 110 }
       ]"
       :loading="loading"
-      empty-text="Không có dữ liệu bài nộp"
+      :empty-text="$t('submissions.empty_text')"
       @row-click="viewDetail"
       :row-class-name="rowClassName"
     >
@@ -322,7 +324,7 @@ onMounted(async () => {
 
       <template #cell-contest="{ row }">
         <RouterLink v-if="row.contestKey" class="cell-link" :to="`/contests/${row.contestKey}`" @click.stop>
-           {{ row.contestTitle || 'Bài thi vòng loại' }}
+           {{ row.contestTitle || $t('submissions.qualifier_contest') }}
         </RouterLink>
         <span v-else class="cell-date">—</span>
       </template>
