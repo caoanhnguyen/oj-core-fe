@@ -1,7 +1,7 @@
 <script setup>
 
 import { RouterLink, useRouter, useRoute } from 'vue-router'
-import { Code2, User, LogOut, Trophy, ChevronDown, Home, LayoutDashboard, BookOpen, Send, Swords, MessageSquare, Clock, ShieldAlert } from 'lucide-vue-next'
+import { User, LogOut, Trophy, ChevronDown, Home, LayoutDashboard, BookOpen, Send, Swords, MessageSquare, Clock, ShieldAlert } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { useContestSessionStore } from '../../stores/contestSession'
@@ -44,7 +44,7 @@ const toggleLanguage = () => {
   <nav class="navbar">
     <div class="navbar-content">
       <RouterLink to="/" class="logo">
-        <Code2 :size="20" />
+        <img src="/logo.png" alt="DevAssess" class="brand-icon" />
         <span>DevAssess</span>
       </RouterLink>
 
@@ -189,8 +189,10 @@ const toggleLanguage = () => {
   opacity: 0.9;
 }
 
-.logo svg {
-  color: var(--accent-primary);
+.logo img.brand-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .nav-links {
