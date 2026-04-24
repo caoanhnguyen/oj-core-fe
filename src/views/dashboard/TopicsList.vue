@@ -232,7 +232,7 @@ onMounted(() => {
            {{ row.status }}
          </span>
       </template>
-      <template #cell-actions="{ row }">
+      <template #actions="{ row }">
         <div class="action-buttons">
           <el-tooltip v-if="row.status === 'ACTIVE'" :content="$t('admin_topics.tooltip_edit')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="Edit" @click.stop="openEditDialog(row)" class="action-btn" />

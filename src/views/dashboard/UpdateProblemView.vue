@@ -278,16 +278,9 @@ const handleUpdate = async () => {
         if (Object.keys(partialPayload).length > 0) {
             await problemStore.updateProblem(id, partialPayload)
         }
-        
-        // 2. Handle Testcases Upload
-        if (testcaseFile) {
-            const testcasesFD = new FormData()
-            testcasesFD.append('file', testcaseFile)
-            await problemStore.uploadTestcasesZip(id, testcasesFD)
-        }
-        
-        isDirty.value = false // SUCCESS! No longer dirty
-        allowLeaving.value = true // Guard should let us pass
+        // Testcase upload được xử lý riêng qua nút "Tải lên Testcases" trong tab Bộ Test
+        isDirty.value = false
+        allowLeaving.value = true
         router.push('/dashboard')
       } catch (error) {
         handleApiError(error, t('admin_problems.msg_create_fail'))
@@ -364,7 +357,9 @@ const handleBack = () => {
                <TestcaseManager 
                   :testcaseFile="formData.testcaseFile" 
                   :existingDir="formData.testcaseDir"
+                  :problemId="route.params.id"
                   @update:file="(file) => formData.testcaseFile = file" 
+                  @uploaded="formData.testcaseDir = problemStore.currentProblem?.testcaseDir || formData.testcaseDir"
                   mode="UPDATE"
                />
             </el-tab-pane>

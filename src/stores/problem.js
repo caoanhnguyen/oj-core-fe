@@ -188,7 +188,8 @@ export const useProblemStore = defineStore('problem', {
             try {
                 return await problemsAPI.uploadTestcases(problemId, formData)
             } catch (error) {
-                handleApiError(error, 'Bài tập đã được tạo nhưng tải tệp testcase thất bại')
+                handleApiError(error, 'Tải tệp testcase thất bại')
+                throw error // Re-throw để caller biết là thất bại
             }
         },
 

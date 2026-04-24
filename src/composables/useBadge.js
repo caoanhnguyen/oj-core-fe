@@ -104,6 +104,14 @@ export function useBadge() {
   }
 
   /**
+   * Contest visibility: PUBLIC | PRIVATE
+   * → 'visibility-public' | 'visibility-private'
+   */
+  const visibilityClass = (visibility) => {
+    return (visibility || '').toUpperCase() === 'PUBLIC' ? 'visibility-public' : 'visibility-private'
+  }
+
+  /**
    * Scoreboard visibility: VISIBLE | HIDDEN_PERMANENTLY | FROZEN
    * → 'sb-visible' | 'sb-hidden'
    */
@@ -121,6 +129,7 @@ export function useBadge() {
     contestStatusClass,
     verdictClass,
     roleClass,
-    scoreboardClass
+    scoreboardClass,
+    visibilityClass
   }
 }

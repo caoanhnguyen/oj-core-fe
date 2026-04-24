@@ -161,6 +161,19 @@
   border-color: rgba(239, 71, 67, 0.2);
 }
 
+/* ─── Contest visibility (PUBLIC / PRIVATE) ─────────────────── */
+.visibility-public {
+  background: rgba(64, 158, 255, 0.10);
+  color: #409eff;
+  border-color: rgba(64, 158, 255, 0.2);
+}
+.visibility-private {
+  background: rgba(255, 161, 22, 0.10);
+  color: #ffa116;
+  border-color: rgba(255, 161, 22, 0.2);
+}
+
+
 /* ─── Metrics & Stats ───────────────────────────────────────── */
 .metric-score {
   color: #2cbb5d;

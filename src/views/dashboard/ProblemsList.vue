@@ -375,7 +375,7 @@ onMounted(async () => {
           {{ row.problemStatus }}
         </span>
       </template>
-      <template #cell-actions="{ row }">
+      <template #actions="{ row }">
         <div class="action-buttons" v-if="row.status === 'DELETED'">
           <el-tooltip :content="$t('admin_problems.action_restore')" placement="top" effect="dark" :hide-after="0" :show-after="200">
             <el-button link :icon="RotateCcw" @click="handleRestore(row)" class="action-btn action-restore" />

@@ -22,6 +22,7 @@ const columns = computed(() => [
   { key: 'ruleType',            label: t('admin_contests.col_rule'),                 width: 100, align: 'center' },
   { key: 'durationMinutes',     label: t('admin_contests.col_duration'),             width: 130, align: 'center' },
   { key: 'contestStatus',       label: t('admin_contests.col_contest_status'),       width: 150, align: 'center' },
+  { key: 'visibility',          label: t('admin_contests.col_visibility'),           width: 110, align: 'center' },
   { key: 'scoreboardVisibility',label: t('admin_contests.col_scoreboard'),           width: 130, align: 'center' },
   { key: 'status',              label: t('admin_contests.col_status'),               width: 120, align: 'center' },
   { key: 'startTime',           label: t('admin_contests.col_start'),                minWidth: 150 },
@@ -63,7 +64,7 @@ const filterConfig = computed(() => [
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 const router = useRouter()
-const { contestStatusClass, estatusClass, ruleTypeClass, scoreboardClass } = useBadge()
+const { contestStatusClass, estatusClass, ruleTypeClass, scoreboardClass, visibilityClass } = useBadge()
 
 const getContestStatusLabel = (s) => ({
   ONGOING:  t('admin_contests.status_opts.ongoing'),
@@ -248,6 +249,17 @@ const handleToggleVisibility = async (row) => {
 
       <template #cell-contestStatus="{ value }">
         <span :class="['oj-badge', contestStatusClass(value)]">{{ getContestStatusLabel(value) }}</span>
+      </template>
+
+      <template #cell-visibility="{ value }">
+        <el-tooltip
+          :content="value === 'PUBLIC' ? $t('admin_contests.visibility_opts.public') : $t('admin_contests.visibility_opts.private')"
+          placement="top" effect="dark"
+        >
+          <span :class="['oj-badge', visibilityClass(value)]">
+            {{ value === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE' }}
+          </span>
+        </el-tooltip>
       </template>
 
       <template #cell-status="{ value }">
