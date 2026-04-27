@@ -1,10 +1,16 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as XLSX from 'xlsx'
 import AppButton from '@/components/common/AppButton.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import { ElMessage } from 'element-plus'
 import { Download, Upload as UploadIcon, Plus, UserPlus, Trash2 } from 'lucide-vue-next'
+
+const { t } = useI18n()
+
+/** RFC-5321-ish email pattern — covers the vast majority of real-world addresses */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const props = defineProps({
   modelValue: { type: Boolean, required: true },
@@ -17,22 +23,44 @@ const emit = defineEmits(['update:modelValue', 'add'])
 const activeTab = ref('excel')
 
 // ── Manual entry ──────────────────────────────────────────────────
+const formRef    = ref(null)
 const manualEntry = ref({ email: '', fullName: '', phoneNumber: '', note: '' })
 
-const addManual = () => {
-  const email = manualEntry.value.email.trim()
-  if (!email || !email.includes('@')) {
-    ElMessage.warning('Email không hợp lệ')
-    return
+/** Validation rules — reactive to locale changes via computed */
+const formRules = computed(() => ({
+  email: [
+    { required: true,   message: t('admin_contests.tab_whitelist.err_email_required'), trigger: 'blur' },
+    { pattern: EMAIL_REGEX, message: t('admin_contests.tab_whitelist.err_email_invalid'), trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        const v = (value || '').trim()
+        if (v && props.existingItems.some(i => i.email.toLowerCase() === v.toLowerCase())) {
+          callback(new Error(t('admin_contests.tab_whitelist.err_email_duplicate')))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ],
+  fullName: [
+    { required: true, message: t('admin_contests.tab_whitelist.err_fullname_required'), trigger: 'blur' }
+  ],
+  phoneNumber: [
+    { required: true, message: t('admin_contests.tab_whitelist.err_phone_required'), trigger: 'blur' }
+  ]
+}))
+
+const addManual = async () => {
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // El Plus highlights invalid fields inline — nothing else needed
   }
-  const duplicate = props.existingItems.some(i => i.email.toLowerCase() === email.toLowerCase())
-  if (duplicate) {
-    ElMessage.warning('Email này đã có trong danh sách')
-    return
-  }
-  emit('add', [{ ...manualEntry.value, email }])
-  manualEntry.value = { email: '', fullName: '', phoneNumber: '', note: '' }
-  ElMessage.success('Đã thêm ứng viên!')
+  const { email, fullName, phoneNumber, note } = manualEntry.value
+  emit('add', [{ email: email.trim(), fullName: fullName.trim(), phoneNumber: phoneNumber.trim(), note }])
+  formRef.value.resetFields()
+  ElMessage.success(t('admin_contests.tab_whitelist.msg_add_success'))
 }
 
 // ── Excel import ──────────────────────────────────────────────────
@@ -57,33 +85,44 @@ const processFile = (file) => {
       const COL_NOTE  = 4
 
       if (rows.length <= DATA_START_ROW) {
-        previewError.value = 'File không có dữ liệu ứng viên (dữ liệu phải bắt đầu từ dòng 5).'
+        previewError.value = t('admin_contests.tab_whitelist.err_excel_no_data')
         importPreview.value = []
         return
       }
 
-      const parsed = []
+      const parsed  = []
+      let   skipped = 0
       for (let i = DATA_START_ROW; i < rows.length; i++) {
-        const r = rows[i]
-        const emailStr = String(r[COL_EMAIL] || '').trim()
-        if (!emailStr.includes('@')) continue
+        const r         = rows[i]
+        const emailStr  = String(r[COL_EMAIL] || '').trim()
+        const nameStr   = String(r[COL_NAME]  || '').trim()
+        const phoneStr  = String(r[COL_PHONE] || '').trim()
+
+        // Skip rows missing required fields or with invalid email
+        if (!emailStr || !EMAIL_REGEX.test(emailStr) || !nameStr || !phoneStr) {
+          skipped++
+          continue
+        }
         parsed.push({
           email:       emailStr,
-          fullName:    String(r[COL_NAME]  || '').trim(),
-          phoneNumber: String(r[COL_PHONE] || '').trim(),
-          note:        String(r[COL_NOTE]  || '').trim(),
+          fullName:    nameStr,
+          phoneNumber: phoneStr,
+          note:        String(r[COL_NOTE] || '').trim(),
         })
       }
 
       if (parsed.length === 0) {
-        previewError.value = 'Không tìm thấy dữ liệu email hợp lệ trong file.'
+        previewError.value = t('admin_contests.tab_whitelist.err_excel_no_valid_email')
         importPreview.value = []
       } else {
         previewError.value = ''
         importPreview.value = parsed
+        if (skipped > 0) {
+          ElMessage.warning(t('admin_contests.tab_whitelist.msg_import_skipped', { skipped }))
+        }
       }
     } catch (err) {
-      previewError.value = 'Lỗi đọc file: ' + err.message
+      previewError.value = t('admin_contests.tab_whitelist.err_excel_read_fail')
       importPreview.value = []
     }
   }
@@ -113,7 +152,7 @@ const confirmImport = () => {
   )
   emit('add', newItems)
   importPreview.value = []
-  ElMessage.success(`Đã thêm ${newItems.length} ứng viên hợp lệ!`)
+  ElMessage.success(t('admin_contests.tab_whitelist.msg_import_success', { count: newItems.length }))
 }
 
 const clearPreview = () => { importPreview.value = []; previewError.value = '' }
@@ -129,10 +168,10 @@ const previewColumns = [
 const removePreviewItem = (index) => { importPreview.value.splice(index, 1) }
 
 const close = () => {
+  formRef.value?.resetFields()
   emit('update:modelValue', false)
   importPreview.value = []
   previewError.value = ''
-  manualEntry.value = { email: '', fullName: '', phoneNumber: '', note: '' }
 }
 </script>
 
@@ -140,7 +179,7 @@ const close = () => {
   <el-drawer
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    title="Thêm thông tin ứng viên vào Whitelist"
+    :title="$t('admin_contests.tab_whitelist.add_drawer_title')"
     direction="rtl"
     size="800px"
     class="whitelist-drawer"
@@ -154,13 +193,13 @@ const close = () => {
         :icon="UploadIcon"
         style="flex: 1"
         @click="activeTab = 'excel'"
-      >Nhập từ Excel</AppButton>
+      >{{ $t('admin_contests.tab_whitelist.btn_tab_excel') }}</AppButton>
       <AppButton
         :variant="activeTab === 'manual' ? 'primary' : 'secondary'"
         :icon="Plus"
         style="flex: 1"
         @click="activeTab = 'manual'"
-      >Thêm thủ công</AppButton>
+      >{{ $t('admin_contests.tab_whitelist.btn_tab_manual') }}</AppButton>
     </div>
 
     <!-- ── Excel import panel ── -->
@@ -172,7 +211,7 @@ const close = () => {
         class="template-link"
       >
         <Download :size="14" />
-        Tải biểu mẫu nhập liệu (.xlsx)
+        {{ $t('admin_contests.tab_whitelist.btn_download_template') }}
       </a>
 
       <!-- Upload zone: supports both click and drag-and-drop -->
@@ -237,28 +276,34 @@ const close = () => {
 
     <!-- ── Manual entry panel ── -->
     <div v-if="activeTab === 'manual'" class="panel">
-      <el-form label-position="top" class="manual-form" @submit.prevent="addManual">
-        <el-form-item label="Email *">
+      <el-form
+        ref="formRef"
+        :model="manualEntry"
+        :rules="formRules"
+        label-position="top"
+        class="manual-form"
+      >
+        <el-form-item :label="$t('admin_contests.tab_whitelist.col_email')" prop="email">
           <el-input v-model="manualEntry.email" placeholder="nguyen.an@gmail.com" clearable />
         </el-form-item>
-        <el-form-item label="Họ và tên">
+        <el-form-item :label="$t('admin_contests.tab_whitelist.col_fullname')" prop="fullName">
           <el-input v-model="manualEntry.fullName" placeholder="Nguyễn Văn An" clearable />
         </el-form-item>
-        <el-form-item label="Số điện thoại">
+        <el-form-item :label="$t('admin_contests.tab_whitelist.col_phone')" prop="phoneNumber">
           <el-input v-model="manualEntry.phoneNumber" placeholder="0901234567" clearable />
         </el-form-item>
-        <el-form-item label="Ghi chú">
-          <el-input 
-            v-model="manualEntry.note" 
-            type="textarea" 
-            :rows="3" 
-            maxlength="500" 
-            show-word-limit 
-            placeholder="Ứng viên phòng Sale..." 
+        <el-form-item :label="$t('admin_contests.tab_whitelist.col_note')">
+          <el-input
+            v-model="manualEntry.note"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="Ứng viên phòng Sale..."
           />
         </el-form-item>
         <AppButton variant="primary" :icon="UserPlus" style="width: 100%" @click="addManual">
-          Thêm ứng viên
+          {{ $t('admin_contests.tab_whitelist.btn_add') }}
         </AppButton>
       </el-form>
     </div>

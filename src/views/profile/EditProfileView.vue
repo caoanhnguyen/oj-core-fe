@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +19,13 @@ const { t } = useI18n()
 const loading = ref(false)
 const saving = ref(false)
 const activeTab = ref('basic')
+const formRef = ref(null)
+
+const rules = computed(() => ({
+  fullName: [
+    { required: true, message: t('profile.err_fullname_required'), trigger: 'blur' }
+  ]
+}))
 
 const form = ref({
   fullName: '',
@@ -55,6 +62,12 @@ const loadProfile = async () => {
 }
 
 const handleUpdateProfile = async () => {
+  try {
+    await formRef.value.validate()
+  } catch {
+    activeTab.value = 'basic'
+    return
+  }
   try {
     saving.value = true
     await usersApi.updateProfile(form.value)
@@ -146,11 +159,11 @@ onMounted(loadProfile)
 
         <!-- Main Form Area -->
         <div class="edit-main">
-          <el-form :model="form" label-position="top" class="dark-form">
+          <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="dark-form">
             
             <div v-show="activeTab === 'basic'" class="form-section">
               <div class="grid-2">
-                <el-form-item :label="$t('profile.label_fullname')">
+                <el-form-item :label="$t('profile.label_fullname')" prop="fullName">
                   <el-input v-model="form.fullName" :placeholder="$t('profile.placeholder_fullname')" />
                 </el-form-item>
                 <el-form-item :label="$t('profile.label_gender')">

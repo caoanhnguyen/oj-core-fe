@@ -101,17 +101,20 @@ onMounted(load)
         <h3>{{ $t('admin_contests.tab_whitelist.title') }}</h3>
         <p class="wl-desc">{{ $t('admin_contests.tab_whitelist.description') }}</p>
       </div>
-      <div class="wl-actions" v-if="!readonly">
+      <div class="wl-actions">
         <AppButton variant="text" :icon="Download" @click="exportExcel">
           {{ $t('admin_contests.tab_whitelist.btn_export') }}
         </AppButton>
-        <AppButton variant="secondary" :icon="Plus" @click="drawerOpen = true">
-          {{ $t('admin_contests.tab_whitelist.btn_add') }}
-        </AppButton>
-        <AppButton variant="primary" :icon="Save" :disabled="saving" @click="saveWhitelist">
-          {{ saving ? $t('admin_contests.tab_whitelist.btn_saving') : $t('admin_contests.tab_whitelist.btn_save') }}
-        </AppButton>
+        <template v-if="!readonly">
+          <AppButton variant="secondary" :icon="Plus" @click="drawerOpen = true">
+            {{ $t('admin_contests.tab_whitelist.btn_add') }}
+          </AppButton>
+          <AppButton variant="primary" :icon="Save" :disabled="saving" @click="saveWhitelist">
+            {{ saving ? $t('admin_contests.tab_whitelist.btn_saving') : $t('admin_contests.tab_whitelist.btn_save') }}
+          </AppButton>
+        </template>
       </div>
+
     </div>
 
     <!-- Info banner -->

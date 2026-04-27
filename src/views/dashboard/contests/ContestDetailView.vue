@@ -157,7 +157,7 @@ const copyInviteLink = () => {
       </el-tab-pane>
       <el-tab-pane name="whitelist" lazy v-if="contest.visibility === 'PRIVATE'">
         <template #label><span class="tab-label"><ShieldCheck :size="14" /> {{ $t('admin_contests.detail.tab_whitelist') }}</span></template>
-        <TabWhitelist :contest-id="id" :contest-title="contest.title" :readonly="isDeleted" />
+        <TabWhitelist :contest-id="id" :contest-title="contest.title" :readonly="isDeleted || isEnded" />
       </el-tab-pane>
     </el-tabs>
   </div>

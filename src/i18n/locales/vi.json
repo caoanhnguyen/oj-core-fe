@@ -55,6 +55,7 @@
     "msg_avatar_size": "Dung lượng ảnh đại diện không vượt quá 5MB!",
     "msg_avatar_fail": "Lỗi khi tải lên ảnh đại diện",
     "msg_avatar_success": "Cập nhật ảnh đại diện thành công!",
+    "err_fullname_required": "Họ và tên không được để trống.",
     "verified": "Đã xác thực",
     "info_details": "Thông tin chi tiết",
     "join_date": "Ngày tham gia",
@@ -664,7 +665,7 @@
     "msg_load_fail": "Không thể tải dữ liệu chi tiết bài nộp"
   },
   "admin_contests": {
-    "page_title": "Quản lý Contest",
+    "page_title": "Quản lý Kỳ thi",
     "page_subtitle": "Tạo, quản lý và theo dõi các kỳ thi lập trình",
     "btn_create": "Tạo Contest",
     "search_placeholder": "Tìm kiếm contest...",
@@ -902,7 +903,7 @@
     "col_duration": "Thời gian (phút)",
     "col_duration_fixed": "Cố định",
     "item_name": "Contests",
-    "action_manage": "Quản trị",
+    "action_manage": "Cấu hình",
     "action_soft_delete": "Xóa mềm",
     "action_toggle_hide": "Ẩn (Inactive)",
     "action_toggle_show": "Công khai (Active)",
@@ -942,7 +943,22 @@
       "excel_col_email": "Email",
       "excel_col_fullname": "Họ và Tên",
       "excel_col_phone": "Số điện thoại",
-      "excel_col_note": "Ghi chú"
+      "excel_col_note": "Ghi chú",
+      "add_drawer_title": "Thêm thông tin ứng viên vào Whitelist",
+      "err_email_required": "Email là trường bắt buộc.",
+      "err_email_invalid": "Địa chỉ email không hợp lệ.",
+      "err_email_duplicate": "Email này đã có trong danh sách.",
+      "err_fullname_required": "Họ và tên là trường bắt buộc.",
+      "err_phone_required": "Số điện thoại là trường bắt buộc.",
+      "err_excel_no_data": "File không có dữ liệu ứng viên (dữ liệu phải bắt đầu từ dòng 5).",
+      "err_excel_no_valid_email": "Không tìm thấy email hợp lệ trong file.",
+      "err_excel_read_fail": "Lỗi đọc file. Vui lòng thử lại với file khác.",
+      "msg_add_success": "Đã thêm ứng viên vào danh sách!",
+      "msg_import_success": "Đã thêm {count} ứng viên hợp lệ!",
+      "msg_import_skipped": "Đã bỏ qua {skipped} dòng do thiếu thông tin bắt buộc hoặc email không hợp lệ.",
+      "btn_download_template": "Tải biểu mẫu nhập liệu (.xlsx)",
+      "btn_tab_excel": "Nhập từ Excel",
+      "btn_tab_manual": "Thêm thủ công"
     }
   },
   "common": {
