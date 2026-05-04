@@ -23,20 +23,19 @@ onMounted(async () => {
     return
   }
 
-  // Nếu có token nhưng store chưa có user (trường hợp F5), thử load lại
-  const token = localStorage.getItem('token')
-  if (token && !authStore.isAuthenticated) {
-    try {
-      await authStore.getCurrentUser()
-      // Nếu load xong vẫn đang ở đây → đã authenticated → redirect
-      if (authStore.isAuthenticated) {
-        router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
-        return
-      }
-    } catch {
-      // Token đã hết hạn, toàn bộ cleanup đã được axios interceptor xử lý
+
+  // Thử khôi phục session từ cookie (trường hợp F5 reload)
+  // withCredentials: true → cookie được gửi tự động, chỉ cần gọi getCurrentUser để kiểm tra
+  try {
+    await authStore.getCurrentUser()
+    if (authStore.isAuthenticated) {
+      router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
+      return
     }
+  } catch {
+    // Không có cookie hợp lệ → ở lại trang đăng nhập
   }
+
 
   // Check common error parameters from Backend (Query params & raw URL fallback)
   const searchParams = new URLSearchParams(window.location.search)

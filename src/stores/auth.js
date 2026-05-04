@@ -35,11 +35,6 @@ export const useAuthStore = defineStore('auth', {
           throw new Error('Invalid user data received')
         }
         
-        // Save token if exists (Bearer token case)
-        const token = data.accessToken || data.token
-        if (token) {
-          localStorage.setItem('token', token)
-        }
 
         return data
       } finally {
@@ -63,9 +58,8 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         console.error('Logout error:', error)
       } finally {
-        // Xóa user khỏi store và token
+        // Xóa user khỏi store
         this.user = null
-        localStorage.removeItem('token')
         // Xóa session thi đang chạy (tránh leak sang tài khoản khác)
         localStorage.removeItem('activeContestSession')
         localStorage.removeItem('contestTimeOffset')

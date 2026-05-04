@@ -9,23 +9,7 @@ const axiosInstance = axios.create({
   }
 })
 
-// Request Interceptor to add JWT token if exists
-axiosInstance.interceptors.request.use(
-  (config) => {
-    // Skip adding token for specific public auth endpoints to avoid "Token expired" errors in Spring Security filter
-    const authRoutes = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
-    const isAuthRoute = authRoutes.some(route => config.url.includes(route))
 
-    if (!isAuthRoute) {
-      const token = localStorage.getItem('token')
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
 
 
 // Create a separate instance for refresh to avoid interceptor loops
