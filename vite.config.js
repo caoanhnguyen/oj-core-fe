@@ -28,8 +28,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8088',
         changeOrigin: true,
-        // API prefix is already included in the request path and BE expects it
-        // so no rewrite needed typically unless BE context path is different
+      },
+      '/oauth2': {
+        target: 'http://localhost:8088',
+        changeOrigin: true,
       }
     }
   }

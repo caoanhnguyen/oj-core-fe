@@ -1,23 +1,26 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { contestsAPI } from '@/api/contests'
+import { useContestStore } from '@/stores/contest'
 import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 import { ArrowLeft } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import ContestForm from './ContestForm.vue'
 
 const router = useRouter()
+const contestStore = useContestStore()
+const { t } = useI18n()
 const createLoading = ref(false)
 
 const handleCreate = async (payload) => {
   try {
     createLoading.value = true
-    await contestsAPI.adminCreate(payload)
-    ElMessage.success('Đã tạo contest')
+    await contestStore.createContest(payload)
+    ElMessage.success(t('admin_contests.messages.create_success'))
     router.push('/dashboard/contests')
   } catch (e) {
-    handleApiError(e, 'Tạo contest thất bại')
+    handleApiError(e, t('admin_contests.messages.create_fail'))
   } finally {
     createLoading.value = false
   }
@@ -32,9 +35,9 @@ const handleCancel = () => {
   <div class="content-section">
     <div class="back-bar">
       <el-button link @click="handleCancel" class="back-btn">
-        <ArrowLeft :size="15" /> Quản lý Contest
+        <ArrowLeft :size="15" /> {{ $t('admin_contests.page_title') }}
       </el-button>
-      <span class="sub-title"> / <strong>Tạo Contest mới</strong></span>
+      <span class="sub-title"> / <strong>{{ $t('admin_contests.form.title_create') }}</strong></span>
     </div>
     <div class="create-form-container">
       <ContestForm :loading="createLoading" @submit="handleCreate" @cancel="handleCancel" />

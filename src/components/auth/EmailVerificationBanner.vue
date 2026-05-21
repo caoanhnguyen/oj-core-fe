@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { Mail, AlertCircle, CheckCircle } from 'lucide-vue-next'
 import { handleApiError } from '../../utils/errorHandler'
@@ -8,25 +9,25 @@ import { handleApiError } from '../../utils/errorHandler'
 const authStore = useAuthStore()
 const resending = ref(false)
 const emailSent = ref(false)
+const { t } = useI18n()
+
+const bannerTitle = computed(() => t('auth.verify_banner_title'))
+const bannerDescription = computed(() => t('auth.verify_banner_desc'))
+const resendLabel = computed(() => t('auth.verify_banner_resend'))
+const sentLabel = computed(() => t('auth.verify_banner_sent'))
 
 const handleResendEmail = async () => {
   try {
     resending.value = true
-    
-    // Debug logs
-    console.log('🔍 Resending verification email...')
-    console.log('User:', authStore.user)
-    console.log('Cookies:', document.cookie)
-    
     await authStore.resendVerificationEmail()
     emailSent.value = true
-    ElMessage.success('Email xác thực đã được gửi lại!')
-    
+    ElMessage.success(t('auth.verify_banner_resend_success'))
+
     setTimeout(() => {
       emailSent.value = false
     }, 5000)
   } catch (error) {
-    handleApiError(error, 'Gửi email xác thực thất bại')
+    handleApiError(error, t('auth.verify_banner_resend_fail'))
   } finally {
     resending.value = false
   }
@@ -40,24 +41,24 @@ const handleResendEmail = async () => {
         <AlertCircle :size="20" />
       </div>
       <div class="banner-text">
-        <strong>Email chưa được xác thực</strong>
-        <span>Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.</span>
+        <strong>{{ bannerTitle }}</strong>
+        <span>{{ bannerDescription }}</span>
       </div>
       <div class="banner-actions">
-        <el-button 
+        <el-button
           v-if="!emailSent"
-          type="warning" 
-          size="small" 
+          type="warning"
+          size="small"
           :loading="resending"
-          @click="handleResendEmail"
           class="resend-btn"
+          @click="handleResendEmail"
         >
-          <Mail :size="16" style="margin-right: 6px;" />
-          Gửi lại email
+          <Mail :size="16" style="margin-right: 6px" />
+          {{ resendLabel }}
         </el-button>
         <div v-else class="email-sent-indicator">
           <CheckCircle :size="16" />
-          <span>Email đã được gửi!</span>
+          <span>{{ sentLabel }}</span>
         </div>
       </div>
     </div>

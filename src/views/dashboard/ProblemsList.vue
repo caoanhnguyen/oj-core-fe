@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { FileText, Search, ArrowUpDown, ArrowDownWideNarrow, ArrowUpNarrowWide, Filter, Gauge, Tag, Code2, Minus, Plus, LayoutGrid, RotateCcw, Calendar, Edit, Trash2, CheckCircle, Eye, Lightbulb, ChevronDown, Send } from 'lucide-vue-next'
 import { useProblemStore } from '@/stores/problem'
 import { useTopicStore } from '@/stores/topic'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import TableSkeleton from '@/components/common/TableSkeleton.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import TableControls from '@/components/common/TableControls.vue'
@@ -202,7 +202,10 @@ const handleEdit = (row) => {
 }
 
 const handleView = (row) => {
-  router.push(`/problems/${row.slug}`)
+  router.push({
+    name: 'admin-problem-preview',
+    params: { id: row.id, tab: 'description' },
+  })
 }
 
 const handleDelete = async (row) => {
@@ -219,6 +222,7 @@ const handleDelete = async (row) => {
     )
     
     await problemStore.deleteProblem(row.id)
+    ElMessage.success(t('admin_problems.msg_delete_success'))
     } catch (error) {
     if (error !== 'cancel') {
       handleApiError(error, t('admin_problems.msg_delete_fail'))
@@ -239,6 +243,7 @@ const handleRestore = async (row) => {
       }
     )
     await problemStore.restoreProblem(row.id)
+    ElMessage.success(t('admin_problems.msg_restore_success'))
   } catch(error) {
     if (error !== 'cancel') {
       handleApiError(error, t('admin_problems.msg_restore_fail'))
@@ -259,6 +264,7 @@ const handlePublish = async (row) => {
       }
     )
     await problemStore.publishProblem(row.id)
+    ElMessage.success(t('admin_problems.msg_publish_success'))
   } catch(error) {
     if (error !== 'cancel') {
       handleApiError(error, t('admin_problems.msg_publish_fail'))

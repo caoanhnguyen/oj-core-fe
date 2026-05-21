@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { handleApiError } from '../../utils/errorHandler'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
@@ -9,6 +10,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-vue-next'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const verifying = ref(true)
 const success = ref(false)
@@ -18,21 +20,21 @@ onMounted(async () => {
   const token = route.query.token
 
   if (!token) {
-    errorMessage.value = 'Token xác thực không hợp lệ'
+    errorMessage.value = t('auth.verify_email_invalid_token')
     verifying.value = false
     return
   }
 
   try {
-    const result = await authStore.verifyEmail(token)
+    await authStore.verifyEmail(token)
     success.value = true
-    ElMessage.success('Xác thực email thành công!')
+    ElMessage.success(t('auth.verify_email_success_toast'))
     setTimeout(() => {
       router.push('/login')
     }, 3000)
   } catch (error) {
     success.value = false
-    errorMessage.value = handleApiError(error, 'Xác thực email thất bại')
+    errorMessage.value = handleApiError(error, t('auth.verify_email_failed'))
   } finally {
     verifying.value = false
   }
@@ -51,44 +53,39 @@ const goToHome = () => {
   <div class="verify-email-page">
     <div class="verify-container">
       <div class="verify-card">
-        <!-- Loading State -->
         <div v-if="verifying" class="verify-state">
           <div class="icon-wrapper loading">
             <Loader2 :size="64" class="spin-icon" />
           </div>
-          <h1>Đang xác thực email...</h1>
-          <p>Vui lòng đợi trong giây lát</p>
+          <h1>{{ $t('auth.verify_email_loading_title') }}</h1>
+          <p>{{ $t('auth.verify_email_loading_desc') }}</p>
         </div>
 
-        <!-- Success State -->
         <div v-else-if="success" class="verify-state">
           <div class="icon-wrapper success">
             <CheckCircle :size="64" />
           </div>
-          <h1>Xác thực thành công!</h1>
-          <p>Email của bạn đã được xác thực. Tài khoản đã được kích hoạt.</p>
-          <p class="redirect-text">Đang chuyển hướng đến trang đăng nhập...</p>
+          <h1>{{ $t('auth.verify_email_success_title') }}</h1>
+          <p>{{ $t('auth.verify_email_success_desc') }}</p>
+          <p class="redirect-text">{{ $t('auth.verify_email_redirecting') }}</p>
           <el-button type="primary" class="action-btn" @click="goToLogin">
-            Đăng nhập ngay
+            {{ $t('auth.sign_in') }}
           </el-button>
         </div>
 
-        <!-- Error State -->
         <div v-else class="verify-state">
           <div class="icon-wrapper error">
             <XCircle :size="64" />
           </div>
-          <h1>Xác thực thất bại</h1>
+          <h1>{{ $t('auth.verify_email_failed_title') }}</h1>
           <p class="error-message">{{ errorMessage }}</p>
-          <p class="hint-text">
-            Token có thể đã hết hạn hoặc không hợp lệ. Vui lòng thử đăng nhập và gửi lại email xác thực.
-          </p>
+          <p class="hint-text">{{ $t('auth.verify_email_failed_hint') }}</p>
           <div class="button-group">
             <el-button type="primary" class="action-btn" @click="goToLogin">
-              Đăng nhập
+              {{ $t('auth.sign_in') }}
             </el-button>
             <el-button class="action-btn-secondary" @click="goToHome">
-              Về trang chủ
+              {{ $t('nav.home') }}
             </el-button>
           </div>
         </div>
@@ -152,101 +149,50 @@ const goToHome = () => {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .verify-state h1 {
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--spacing-md);
 }
 
 .verify-state p {
-  font-size: 15px;
   color: var(--text-secondary);
-  margin-bottom: var(--spacing-md);
+  font-size: 15px;
   line-height: 1.6;
+  margin-bottom: var(--spacing-md);
+}
+
+.redirect-text,
+.hint-text {
+  font-size: 14px;
 }
 
 .error-message {
-  color: #ef4444;
+  color: #ef4743;
   font-weight: 500;
-}
-
-.hint-text {
-  font-size: 14px;
-  color: var(--text-tertiary);
-  margin-bottom: var(--spacing-xl);
-}
-
-.redirect-text {
-  font-size: 14px;
-  color: var(--accent-primary);
-  font-weight: 500;
-  margin-bottom: var(--spacing-xl);
-}
-
-.action-btn {
-  width: 100%;
-  height: 44px;
-  font-size: 15px;
-  font-weight: 600;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-active) 100%);
-  border: none;
-  color: #000;
-  margin-top: var(--spacing-lg);
-}
-
-.action-btn:hover {
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-primary) 100%);
 }
 
 .button-group {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+  justify-content: center;
+  gap: 12px;
   margin-top: var(--spacing-lg);
 }
 
 .action-btn-secondary {
-  width: 100%;
-  height: 44px;
-  font-size: 15px;
-  font-weight: 600;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  background: transparent;
+  border-color: var(--border-primary);
   color: var(--text-primary);
 }
 
-.action-btn-secondary:hover {
-  background: var(--bg-elevated);
-  border-color: var(--border-secondary);
-}
-
-@media (max-width: 640px) {
-  .verify-card {
-    padding: var(--spacing-2xl);
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
   }
 
-  .icon-wrapper {
-    width: 100px;
-    height: 100px;
-  }
-
-  .icon-wrapper svg {
-    width: 52px;
-    height: 52px;
-  }
-
-  .verify-state h1 {
-    font-size: 24px;
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

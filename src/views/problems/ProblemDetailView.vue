@@ -23,6 +23,7 @@ const submissionStore = useSubmissionStore()
 const sessionStore = useContestSessionStore()
 const { t } = useI18n()
 const { difficultyClass, difficultyLabel, ruleTypeClass } = useBadge()
+const isAdminPreview = computed(() => route.name === 'admin-problem-preview')
 
 // Contest timer inside problem view
 const targetTime = computed(() => sessionStore.activeSession?.endTime)
@@ -58,7 +59,9 @@ const activeTab = computed(() => {
 })
 
 const switchTab = (tab) => {
-  if (contestKey.value) {
+  if (isAdminPreview.value) {
+    router.push({ name: 'admin-problem-preview', params: { id: route.params.id, tab } })
+  } else if (contestKey.value) {
     router.push({ name: 'contest-problem-detail', params: { contestKey: contestKey.value, slug: route.params.slug, tab } })
   } else {
     router.push({ name: 'problem-detail', params: { slug: route.params.slug, tab } })
@@ -112,7 +115,7 @@ watch(problem, (newProb) => {
 const addCustomTestcase = () => {
     const maxCustom = (problem.value?.examples?.length || 0) + 3
     if (sampleTestcases.value.length >= maxCustom) {
-        ElMessage.warning('You can only create up to 3 custom testcases.')
+        ElMessage.warning(t('problem_detail.custom_testcase_limit'))
         return
     }
     sampleTestcases.value.push({
@@ -228,12 +231,12 @@ watch(selectedLanguage, (newLangKey) => {
 
 const handleSubmit = async () => {
   if (!authStore.isAuthenticated) {
-    ElMessage.warning('Vui lòng đăng nhập để nộp bài')
+    ElMessage.warning(t('problem_detail.login_submit'))
     router.push('/login')
     return
   }
   if (!sourceCode.value) {
-      ElMessage.warning('Vui lòng nhập code trước khi nộp bài')
+      ElMessage.warning(t('problem_detail.enter_code_submit'))
       return;
   }
   
@@ -260,7 +263,7 @@ const handleSubmit = async () => {
         payload.contestId = effectiveContestId
      }
      
-     ElMessage.info('Đang nộp bài...')
+     ElMessage.info(t('problem_detail.submitting'))
      const submissionId = await submissionStore.submitCode(payload)
      
      // Switch to submissions tab
@@ -268,12 +271,12 @@ const handleSubmit = async () => {
      
      submissionStore.startPollingSubmission(submissionId,
        (res) => {
-          let displayMsg = `Kết quả: ${res.verdict}`
+          let displayMsg = `${t('problem_detail.verdict_prefix')} ${res.verdict}`
           if (res.verdict === 'SE') {
-            displayMsg = `Kết quả: SE - Hệ thống đang gặp lỗi, vui lòng thử lại sau!`
+            displayMsg = t('problem_detail.verdict_system_error')
           }
           ElNotification({
-            title: 'Chấm bài hoàn tất',
+            title: t('problem_detail.judge_done_title'),
             message: displayMsg,
             type: res.verdict === 'AC' ? 'success' : 'warning'
           })
@@ -281,22 +284,22 @@ const handleSubmit = async () => {
           submissionsTabRef.value?.loadSubmissions()
        },
        (err) => {
-          handleApiError(err, 'Chấm bài thất bại hoặc quá thời gian chờ')
+           handleApiError(err, t('problem_detail.judge_failed'))
        }
      )
   } catch (e) {
-      handleApiError(e, 'Nộp bài thất bại')
+      handleApiError(e, t('problem_detail.submit_failed'))
   }
 }
 
 const handleRun = async () => {
   if (!authStore.isAuthenticated) {
-    ElMessage.warning('Vui lòng đăng nhập để chạy thử code')
+    ElMessage.warning(t('problem_detail.login_run'))
     router.push('/login')
     return
   }
   if (!sourceCode.value) {
-      ElMessage.warning('Vui lòng nhập code trước khi chạy thử')
+      ElMessage.warning(t('problem_detail.enter_code_run'))
       return;
   }
   
@@ -325,18 +328,20 @@ const handleRun = async () => {
        },
        (err) => {
           executionLoading.value = false
-          handleApiError(err, 'Chạy code thất bại hoặc quá thời gian chờ')
+           handleApiError(err, t('problem_detail.run_failed'))
        }
      )
    } catch (e) {
-       handleApiError(e, 'Yêu cầu chạy thử thất bại')
+       handleApiError(e, t('problem_detail.run_request_failed'))
    } finally {
        executionLoading.value = false
    }
 }
 
 const handleBack = () => {
-  if (contestKey.value) {
+  if (isAdminPreview.value) {
+    router.push('/dashboard/problems')
+  } else if (contestKey.value) {
     router.push(`/contests/${contestKey.value}`)
   } else {
     router.push('/problems')
@@ -346,7 +351,7 @@ const handleBack = () => {
 // Reset editor to the problem's default template for current language
 const handleResetCode = () => {
   sourceCode.value = getInitialCode()
-  ElMessage.success('Code đã được reset về mặc định')
+  ElMessage.success(t('problem_detail.reset_success'))
 }
 
 // TODO: Implement API call to retrieve last submitted code when BE is ready
@@ -355,7 +360,7 @@ const handleRetrieveLastCode = async () => {
     const code = await submissionStore.getLatestSubmissionSourceCode(problem.value.id, selectedLanguage.value)
     sourceCode.value = code ? code : getInitialCode()
   } catch (e) {
-    handleApiError(e, 'Lấy mã nguồn thất bại')
+    handleApiError(e, t('problem_detail.fetch_last_failed'))
   }
 }
 
@@ -363,14 +368,17 @@ const initPage = async () => {
   try {
     loading.value = true
     const slug = route.params.slug
-    if (!slug) return
+    const problemId = route.params.id
+    if (!slug && !problemId) return
 
     // 1. Fetch problem data
     // When inside a contest (/contests/:contestKey/problems/:slug), use the RESTful
     // contest-scoped endpoint. This works both during the contest (for participants)
     // and after it ends (if resourceVisibility = ALWAYS_VISIBLE), including INACTIVE problems.
     // Otherwise fall back to the standard public slug endpoint.
-    if (contestKey.value) {
+    if (isAdminPreview.value) {
+      problem.value = await problemsAPI.getAdminProblemById(problemId)
+    } else if (contestKey.value) {
       const { contestsAPI } = await import('@/api/contests')
       problem.value = await contestsAPI.getProblemInContest(contestKey.value, slug)
     } else {
@@ -402,7 +410,7 @@ const initPage = async () => {
         }
     }
   } catch (error) {
-    handleApiError(error, 'Không thể tải thông tin bài tập')
+    handleApiError(error, t('problem_detail.load_fail'))
   } finally {
     loading.value = false
 
@@ -414,8 +422,12 @@ const initPage = async () => {
 
 onMounted(initPage)
 
-watch(() => route.params.slug, (newSlug, oldSlug) => {
-  if (newSlug && newSlug !== oldSlug) {
+const pageIdentity = computed(() => {
+  return isAdminPreview.value ? route.params.id : route.params.slug
+})
+
+watch(pageIdentity, (newValue, oldValue) => {
+  if (newValue && newValue !== oldValue) {
     initPage()
   }
 })
@@ -582,7 +594,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                 <div class="example-body">
                   <div class="io-group">
                     <div class="io-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <span class="io-label">Input:</span>
+                      <span class="io-label">{{ $t('problem_detail.input_label') }}</span>
                       <button class="icon-btn copy-btn" @click="copyToClipboard(example.rawInput, index + '-in')">
                         <component :is="copiedStates[index + '-in'] ? Check : Copy" :size="14" :color="copiedStates[index + '-in'] ? '#2cbb5d' : '#888'" />
                       </button>
@@ -591,7 +603,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                   </div>
                   <div class="io-group">
                     <div class="io-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <span class="io-label">Output:</span>
+                      <span class="io-label">{{ $t('problem_detail.output_label') }}</span>
                       <button class="icon-btn copy-btn" @click="copyToClipboard(example.rawOutput, index + '-out')">
                         <component :is="copiedStates[index + '-out'] ? Check : Copy" :size="14" :color="copiedStates[index + '-out'] ? '#2cbb5d' : '#888'" />
                       </button>
@@ -669,7 +681,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
           
           <div v-if="!['description', 'submissions', 'statistics'].includes(activeTab)" class="placeholder-content">
             <div class="empty-state">
-              <span>Coming Soon</span>
+              <span>{{ $t('problem_detail.coming_soon') }}</span>
             </div>
           </div>
         </div>
@@ -797,24 +809,24 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                         <template v-else>
                             <div v-for="(res, idx) in executionResult.results" :key="idx" class="result-block" style="margin-bottom: 16px; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;">
                                <div style="font-weight: 600; margin-bottom: 8px; font-size: 14px" :style="{ color: (res.verdict === 'SUCCESS' || res.verdict === 'AC') ? '#2cbb5d' : '#ef4743' }">
-                                   Testcase {{ idx + 1 }}: {{ res.verdict || res.status }}
+                                    {{ $t('problem_detail.testcase_label', { index: idx + 1 }) }}: {{ res.verdict || res.status }}
                                </div>
                                <div style="display: flex; gap: 16px; font-size: 12px; color: #a0a0a0; margin-bottom: 8px;">
-                                   <span>Time: {{ res.timeTakenMs || 0 }} ms</span>
+                                   <span>{{ $t('problem_detail.time_label') }} {{ res.timeTakenMs || 0 }} ms</span>
                                </div>
                                <div v-if="res.errorMessage" style="color: #ef4743; font-family: monospace; white-space: pre-wrap; background: rgba(239, 71, 67, 0.1); padding: 8px; border-radius: 4px; margin-bottom: 8px;">{{ res.errorMessage }}</div>
                                
                                <div style="display: flex; flex-direction: column; gap: 8px;">
                                    <div v-if="res.input">
-                                       <div style="color: #888; font-size: 12px;">Input:</div>
+                                       <div style="color: #888; font-size: 12px;">{{ $t('problem_detail.input_label') }}</div>
                                        <div class="input-display">{{ res.input }}</div>
                                    </div>
                                    <div>
-                                       <div style="color: #888; font-size: 12px;">Output:</div>
-                                       <div class="input-display">{{ res.output || 'No output' }}</div>
+                                       <div style="color: #888; font-size: 12px;">{{ $t('problem_detail.output_label') }}</div>
+                                        <div class="input-display">{{ res.output || $t('problem_detail.no_output') }}</div>
                                    </div>
                                    <div v-if="res.expectedOutput">
-                                       <div style="color: #888; font-size: 12px;">Expected:</div>
+                                       <div style="color: #888; font-size: 12px;">{{ $t('problem_detail.expected_label') }}</div>
                                        <div class="input-display">{{ res.expectedOutput }}</div>
                                    </div>
                                </div>
@@ -822,20 +834,20 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
                         </template>
                     </div>
                     <div v-else style="padding: 20px; color: #888; text-align: center;">
-                        Chưa có kết quả. Hãy bấm Run để chạy thử.
+                         {{ $t('problem_detail.no_result_yet') }}
                     </div>
                 </div>
 
                 <div class="testcase-inputs" v-if="activeTestcaseIndex >= 0 && sampleTestcases[activeTestcaseIndex]">
                   <div>
                       <div class="input-group">
-                        <label style="margin-bottom: 8px; display: block; color: #a0a0a0; font-size: 13px; font-weight: 500;">Input =</label>
+                        <label style="margin-bottom: 8px; display: block; color: #a0a0a0; font-size: 13px; font-weight: 500;">{{ $t('problem_detail.custom_input_label') }}</label>
                         <el-input 
                           v-model="sampleTestcases[activeTestcaseIndex].rawInput" 
                           type="textarea"
                           :autosize="{ minRows: 2, maxRows: 15 }"
                           class="custom-textarea monospace-textarea"
-                          placeholder="Enter your input here..."
+                          :placeholder="$t('problem_detail.custom_input_placeholder')"
                         />
                       </div>
                   </div>
@@ -843,7 +855,7 @@ watch(() => route.params.slug, (newSlug, oldSlug) => {
              </div>
              
              <div v-else class="empty-state">
-                <span>No public testcases available</span>
+                <span>{{ $t('problem_detail.no_public_testcases') }}</span>
              </div>
           </div>
         </div>

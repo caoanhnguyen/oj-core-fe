@@ -104,6 +104,7 @@ const chartOptions = computed(() => {
                 name: 'AC vs Others',
                 type: 'pie',
                 selectedMode: 'single',
+                center: ['50%', '58%'],
                 radius: [0, '40%'], // Vòng trong
                 label: {
                     position: 'inner',
@@ -125,6 +126,7 @@ const chartOptions = computed(() => {
             {
                 name: 'Details',
                 type: 'pie',
+                center: ['50%', '58%'],
                 radius: ['55%', '85%'], // Vòng ngoài (Doughnut)
                 labelLine: {
                     length: 10,

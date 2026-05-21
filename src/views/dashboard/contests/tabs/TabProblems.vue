@@ -106,10 +106,10 @@ const tableColumns = computed(() => {
   const cols = []
   if (!props.readonly) cols.push({ type: 'selection', width: 50, fixed: 'left' })
   cols.push(
-    { key: 'displayId',  label: t('admin_contests.tab_problems.col_display_id'), width: 100, align: 'center' },
-    { key: 'sortOrder',  label: t('admin_contests.tab_problems.col_sort_order'),  width: 120, align: 'center' },
-    { key: 'title',      label: t('admin_contests.tab_problems.col_title'),       minWidth: 200 },
-    { key: 'points',     label: t('admin_contests.tab_problems.col_points'),      width: 130, align: 'center' },
+    { key: 'displayId',  label: t('admin_contests.tab_problems.col_display_id'), width: 100, align: 'center', resizable: false },
+    { key: 'sortOrder',  label: t('admin_contests.tab_problems.col_sort_order'),  width: 120, align: 'center', resizable: false },
+    { key: 'title',      label: t('admin_contests.tab_problems.col_title'),       minWidth: 320, resizable: true },
+    { key: 'points',     label: t('admin_contests.tab_problems.col_points'),      width: 100, align: 'center', resizable: false },
   )
   return cols
 })
@@ -152,7 +152,7 @@ const tableActions = computed(() => {
       :data="contestProblems"
       :columns="tableColumns"
       :actions="tableActions"
-      :action-width="56"
+      :action-width="72"
       action-label=""
       :loading="problemsLoading"
       :empty-text="$t('admin_contests.tab_problems.empty')"

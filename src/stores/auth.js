@@ -5,7 +5,9 @@ import usersApi from '../api/users'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
-    loading: false
+    loading: false,
+    initialized: false,
+    initPromise: null,
   }),
 
   getters: {
@@ -15,28 +17,57 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (state) => state.user?.roles?.includes('ROLE_ADMIN'),
     isModerator: (state) => state.user?.roles?.includes('ROLE_MODERATOR'),
     isAssessor: (state) => state.user?.roles?.includes('ROLE_ASSESSOR'),
-    isAdminOrMod: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR'),
-    canAccessDashboard: (state) => state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR') || state.user?.roles?.includes('ROLE_ASSESSOR')
+    isAdminOrMod: (state) =>
+      state.user?.roles?.includes('ROLE_ADMIN') || state.user?.roles?.includes('ROLE_MODERATOR'),
+    canAccessDashboard: (state) =>
+      state.user?.roles?.includes('ROLE_ADMIN') ||
+      state.user?.roles?.includes('ROLE_MODERATOR') ||
+      state.user?.roles?.includes('ROLE_ASSESSOR'),
   },
 
   actions: {
+    clearAuthState() {
+      this.user = null
+      localStorage.removeItem('activeContestSession')
+      localStorage.removeItem('contestTimeOffset')
+      this.initialized = true
+      this.initPromise = null
+    },
+
+    async initializeAuth(force = false) {
+      if (this.initialized && !force) {
+        return this.user
+      }
+
+      if (this.initPromise && !force) {
+        return this.initPromise
+      }
+
+      this.initPromise = (async () => {
+        try {
+          await this.getCurrentUser()
+        } catch {
+          this.user = null
+        } finally {
+          this.initialized = true
+        }
+        return this.user
+      })()
+
+      try {
+        return await this.initPromise
+      } finally {
+        this.initPromise = null
+      }
+    },
+
     async login(username, password) {
       try {
         this.loading = true
-        const data = await authAPI.login(username, password)
-
-        const loginData = data.user || data
-        
-        // 🌟 KIỂM TRA: Chỉ gán user nếu data thực sự là user (có id hoặc username)
-        if (loginData && (loginData.id || loginData.username)) {
-          this.user = loginData
-        } else {
-          // Nếu backend trả về dữ liệu rỗng hoặc không khớp user DTO -> coi như login thất bại
-          throw new Error('Invalid user data received')
-        }
-        
-
-        return data
+        await authAPI.login(username, password)
+        const user = await this.getCurrentUser()
+        this.initialized = true
+        return user
       } finally {
         this.loading = false
       }
@@ -45,8 +76,7 @@ export const useAuthStore = defineStore('auth', {
     async register(formData) {
       try {
         this.loading = true
-        const data = await authAPI.register(formData)
-        return data
+        return await authAPI.register(formData)
       } finally {
         this.loading = false
       }
@@ -58,15 +88,7 @@ export const useAuthStore = defineStore('auth', {
       } catch (error) {
         console.error('Logout error:', error)
       } finally {
-        // Xóa user khỏi store
-        this.user = null
-        // Xóa session thi đang chạy (tránh leak sang tài khoản khác)
-        localStorage.removeItem('activeContestSession')
-        localStorage.removeItem('contestTimeOffset')
-        // Reset authInitialized để lần đăng nhập kế tiếp vẫn fetch session đúng
-        if (typeof window !== 'undefined') {
-          window.__authInitialized = false
-        }
+        this.clearAuthState()
       }
     },
 
@@ -77,7 +99,6 @@ export const useAuthStore = defineStore('auth', {
         this.user = data
         return data
       } catch (error) {
-        console.error('Get current user error:', error)
         this.user = null
         throw error
       }
@@ -94,10 +115,7 @@ export const useAuthStore = defineStore('auth', {
     async verifyEmail(token) {
       try {
         this.loading = true
-        const data = await authAPI.verifyEmail(token)
-        return data
-      } catch (error) {
-        throw error
+        return await authAPI.verifyEmail(token)
       } finally {
         this.loading = false
       }
@@ -107,11 +125,9 @@ export const useAuthStore = defineStore('auth', {
       try {
         this.loading = true
         return await authAPI.resendVerificationEmail()
-      } catch (error) {
-        throw error
       } finally {
         this.loading = false
       }
-    }
-  }
+    },
+  },
 })

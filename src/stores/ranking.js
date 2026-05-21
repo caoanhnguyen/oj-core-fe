@@ -1,30 +1,28 @@
 import { defineStore } from 'pinia'
 import { rankingsAPI } from '@/api/rankings'
-import { ElMessage } from 'element-plus'
 import { handleApiError } from '@/utils/errorHandler'
 
 export const useRankingStore = defineStore('ranking', {
   state: () => ({
     rankings: [],
-    topRankings: [], // For charts
+    topRankings: [],
     loading: false,
     pagination: {
       page: 0,
       size: 100,
       totalElements: 0,
-      totalPages: 0
-    }
+      totalPages: 0,
+    },
   }),
 
   actions: {
     async fetchRankings(params = {}) {
       try {
         this.loading = true
-        // If it's the first page, we'll extract the top 10 for the chart
         const data = await rankingsAPI.getRankings({
           ruleType: params.ruleType || 'ACM',
           page: params.page || 0,
-          size: params.size || 20
+          size: params.size || 20,
         })
 
         this.rankings = data.content || []
@@ -32,17 +30,16 @@ export const useRankingStore = defineStore('ranking', {
           page: data.number || 0,
           size: data.size || 20,
           totalElements: data.totalElements || 0,
-          totalPages: data.totalPages || 0
+          totalPages: data.totalPages || 0,
         }
 
-        // Optimization: If we're on the first page, extract top 10 for the chart
         if (this.pagination.page === 0 && this.rankings.length > 0) {
           this.topRankings = this.rankings.slice(0, 10)
         }
 
-        return data;
+        return data
       } catch (error) {
-        handleApiError(error, 'Không tải được danh sách xếp hạng')
+        handleApiError(error, 'Khong tai duoc danh sach xep hang')
         throw error
       } finally {
         this.loading = false
@@ -50,19 +47,18 @@ export const useRankingStore = defineStore('ranking', {
     },
 
     async fetchTopTen(ruleType = 'ACM') {
-        try {
-            // For chart, we always want the top 10
-            const data = await rankingsAPI.getRankings({
-                ruleType,
-                page: 0,
-                size: 10
-            })
-            this.topRankings = data.content || []
-            return this.topRankings
-        } catch (error) {
-            console.error('Failed to fetch top rankings:', error)
-            return []
-        }
-    }
-  }
+      try {
+        const data = await rankingsAPI.getRankings({
+          ruleType,
+          page: 0,
+          size: 10,
+        })
+        this.topRankings = data.content || []
+        return this.topRankings
+      } catch (error) {
+        console.error('Failed to fetch top rankings:', error)
+        return []
+      }
+    },
+  },
 })

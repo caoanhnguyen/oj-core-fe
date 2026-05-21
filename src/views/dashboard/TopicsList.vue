@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { Search, Plus, Edit, Trash2, RotateCcw } from 'lucide-vue-next'
 import { useTopicStore } from '@/stores/topic'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -99,6 +98,7 @@ const submitForm = async (data) => {
         slug: data.slug,
         description: data.description
       })
+      ElMessage.success(t('admin_topics.msg_create_success'))
     } else {
       const idToUpdate = data.topicId
       await topicStore.updateTopic(idToUpdate, {
@@ -106,11 +106,12 @@ const submitForm = async (data) => {
         slug: data.slug,
         description: data.description
       })
+      ElMessage.success(t('admin_topics.msg_update_success'))
     }
     dialogVisible.value = false
-    loadTopics()
+    await loadTopics()
   } catch (error) {
-    // Error handled in store
+    handleApiError(error)
   }
 }
 
@@ -130,7 +131,8 @@ const handleDelete = async (row) => {
     
     const idToDelete = row.topicId || row.topicID
     await topicStore.deleteTopic(idToDelete)
-    loadTopics()
+    ElMessage.success(t('admin_topics.msg_del_success'))
+    await loadTopics()
   } catch (error) {
     if (error !== 'cancel') {
         handleApiError(error, t('admin_topics.msg_del_fail'))
@@ -153,7 +155,8 @@ const handleRestore = async (row) => {
     
     const idToRestore = row.topicId || row.topicID
     await topicStore.restoreTopic(idToRestore)
-    loadTopics()
+    ElMessage.success(t('admin_topics.msg_restore_success'))
+    await loadTopics()
   } catch (error) {
     if (error !== 'cancel') {
         handleApiError(error, t('admin_topics.msg_restore_fail'))

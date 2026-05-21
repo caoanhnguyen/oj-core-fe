@@ -30,6 +30,11 @@ const emit = defineEmits(['submit', 'cancel'])
 const isOngoing = computed(() => props.contestStatus === 'ONGOING')
 const isEnded   = computed(() => props.contestStatus === 'ENDED')
 const isCreate  = computed(() => !props.contest)
+const passwordPlaceholder = computed(() =>
+  isCreate.value
+    ? t('admin_contests.form.placeholder_pass')
+    : t('admin_contests.form.placeholder_pass_optional')
+)
 
 // UTC helpers
 const parseUTC    = (s) => { if (!s) return null; return new Date((s.includes('Z') || s.includes('+')) ? s : s + 'Z') }
@@ -157,7 +162,10 @@ const handleSubmit = async () => {
 
         <!-- Password if PRIVATE -->
         <el-form-item v-if="form.visibility === 'PRIVATE'" :label="$t('admin_contests.form.field_password')">
-          <el-input v-model="form.password" show-password :placeholder="$t('admin_contests.form.placeholder_pass')" :disabled="readonly || isEnded" />
+          <el-input v-model="form.password" show-password :placeholder="passwordPlaceholder" :disabled="readonly || isEnded" />
+          <div v-if="!isCreate" class="hint-warn subtle">
+            {{ $t('admin_contests.form.password_update_hint') }}
+          </div>
         </el-form-item>
         <div v-else />
 
@@ -240,4 +248,5 @@ const handleSubmit = async () => {
 :deep(.el-switch.is-checked .el-switch__core) { border-color: #ffa116 !important; background-color: #ffa116 !important; }
 
 .hint-warn { margin-top: 6px; font-size: 12px; color: #ffa116; padding: 6px 10px; background: rgba(255,161,22,0.06); border: 1px solid rgba(255,161,22,0.2); border-radius: 6px; line-height: 1.5; }
+.hint-warn.subtle { color: #8a8a8a; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
 </style>

@@ -179,11 +179,14 @@ const handleRegister = async () => {
   try {
     registerLoading.value = true
     await contestStore.registerContest(contest.value.contestKey, registerPassword.value || null)
+    ElMessage.success(t('contest_detail.register_success'))
     await loadContest()
     showPasswordInput.value = false
     registerPassword.value  = ''
     if (activeTab.value === 'problems') loadProblems()
-  } catch {} finally { registerLoading.value = false }
+  } catch (error) {
+    handleApiError(error, t('contest_detail.register_fail'))
+  } finally { registerLoading.value = false }
 }
 
 const startLoading = ref(false)
@@ -551,7 +554,7 @@ onUnmounted(() => {})
                 <el-input 
                   v-model="registerPassword" 
                   type="password" 
-                  placeholder="Password..." 
+                  :placeholder="$t('contest_detail.password_placeholder')" 
                   show-password
                   class="pw-el-input"
                 />
@@ -592,15 +595,15 @@ onUnmounted(() => {})
             <h4 class="info-card-title">{{ $t('contest_detail.info_title') }}</h4>
             <div class="info-rows">
               <div class="info-row">
-                <span class="ir-label">Rule</span>
+                <span class="ir-label">{{ $t('contest_detail.info_rule_label') }}</span>
                 <span :class="['oj-badge', ruleTypeClass(contest.ruleType)]">{{ contest.ruleType }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">Start</span>
+                <span class="ir-label">{{ $t('contest_detail.info_start_label') }}</span>
                 <span class="ir-val">{{ formatDateTime(contest.startTime) }}</span>
               </div>
               <div class="info-row">
-                <span class="ir-label">End</span>
+                <span class="ir-label">{{ $t('contest_detail.info_end_label') }}</span>
                 <span class="ir-val">{{ formatDateTime(contest.endTime) }}</span>
               </div>
               <div class="info-row">
@@ -617,7 +620,11 @@ onUnmounted(() => {})
               </div>
               <div class="info-row">
                 <span class="ir-label">{{ $t('contest_detail.info_access') }}</span>
-                <span class="ir-val">{{ contest.visibility === 'PUBLIC' ? 'Public' : 'Private' }}</span>
+                <span class="ir-val">{{
+                  contest.visibility === 'PUBLIC'
+                    ? $t('admin_contests.visibility_opts.public')
+                    : $t('admin_contests.visibility_opts.private')
+                }}</span>
               </div>
               <div class="info-row">
                 <span class="ir-label">{{ $t('contest_detail.info_author') }}</span>

@@ -191,8 +191,13 @@ const handleSubmit = async (status = 'ACTIVE') => {
             await problemStore.uploadTestcasesZip(newProblem.id, testcasesFD)
         }
 
-        isDirty.value = false // SUCCESS! No longer dirty
-        allowLeaving.value = true // Guard should let us pass
+        ElMessage.success(
+          status === 'DRAFT'
+            ? t('admin_problems.msg_save_success')
+            : t('admin_problems.msg_publish_success')
+        )
+        isDirty.value = false
+        allowLeaving.value = true
         router.push('/dashboard')
       } catch (error) {
         handleApiError(error, t('admin_problems.msg_create_fail'))

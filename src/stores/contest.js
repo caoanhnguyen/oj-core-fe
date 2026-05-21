@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import { contestsAPI } from '@/api/contests'
 import { handleApiError } from '@/utils/errorHandler'
 
@@ -8,10 +7,6 @@ export const useContestStore = defineStore('contest', () => {
   const loading = ref(false)
   const adminContests = ref([])
   const adminPagination = ref({ page: 0, size: 20, totalElements: 0, totalPages: 0 })
-
-  // ====================
-  // ADMIN ACTIONS
-  // ====================
 
   const fetchAdminContests = async (params = {}) => {
     try {
@@ -22,11 +17,11 @@ export const useContestStore = defineStore('contest', () => {
         page: data.number || 0,
         size: data.size || 20,
         totalElements: data.totalElements || 0,
-        totalPages: data.totalPages || 0
+        totalPages: data.totalPages || 0,
       }
       return data
     } catch (error) {
-      handleApiError(error, 'Không thể tải danh sách contest')
+      handleApiError(error, 'Khong the tai danh sach contest')
       throw error
     } finally {
       loading.value = false
@@ -38,7 +33,7 @@ export const useContestStore = defineStore('contest', () => {
       loading.value = true
       return await contestsAPI.adminGetById(id)
     } catch (error) {
-      handleApiError(error, 'Không thể tải thông tin contest')
+      handleApiError(error, 'Khong the tai thong tin contest')
       throw error
     } finally {
       loading.value = false
@@ -48,12 +43,7 @@ export const useContestStore = defineStore('contest', () => {
   const createContest = async (data) => {
     try {
       loading.value = true
-      const result = await contestsAPI.adminCreate(data)
-      ElMessage.success('Tạo contest thành công!')
-      return result
-    } catch (error) {
-      handleApiError(error, 'Tạo contest thất bại')
-      throw error
+      return await contestsAPI.adminCreate(data)
     } finally {
       loading.value = false
     }
@@ -62,12 +52,7 @@ export const useContestStore = defineStore('contest', () => {
   const updateContest = async (id, data) => {
     try {
       loading.value = true
-      const result = await contestsAPI.adminUpdate(id, data)
-      ElMessage.success('Cập nhật contest thành công!')
-      return result
-    } catch (error) {
-      handleApiError(error, 'Cập nhật contest thất bại')
-      throw error
+      return await contestsAPI.adminUpdate(id, data)
     } finally {
       loading.value = false
     }
@@ -77,10 +62,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminDelete(id)
-      ElMessage.success('Đã xóa contest!')
-    } catch (error) {
-      handleApiError(error, 'Xóa contest thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -90,10 +71,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminRestore(id)
-      ElMessage.success('Đã khôi phục contest về trạng thái inactive!')
-    } catch (error) {
-      handleApiError(error, 'Khôi phục contest thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -103,10 +80,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminToggleVisibility(id)
-      ElMessage.success('Đã cập nhật khả năng hiển thị contest!')
-    } catch (error) {
-      handleApiError(error, 'Cập nhật hiển thị contest thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -116,10 +89,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminAddProblems(id, problems)
-      ElMessage.success('Đã thêm bài tập vào contest!')
-    } catch (error) {
-      handleApiError(error, 'Thêm bài tập thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -129,10 +98,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminRemoveProblems(id, problemIds)
-      ElMessage.success('Đã xóa bài tập khỏi contest!')
-    } catch (error) {
-      handleApiError(error, 'Xóa bài tập thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -142,10 +107,6 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminBanUsers(id, userIds)
-      ElMessage.success('Đã cấm người dùng tham gia!')
-    } catch (error) {
-      handleApiError(error, 'Cấm người dùng thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -155,27 +116,15 @@ export const useContestStore = defineStore('contest', () => {
     try {
       loading.value = true
       await contestsAPI.adminUnbanUsers(id, userIds)
-      ElMessage.success('Đã bỏ cấm người dùng!')
-    } catch (error) {
-      handleApiError(error, 'Bỏ cấm người dùng thất bại')
-      throw error
     } finally {
       loading.value = false
     }
   }
 
-  // ====================
-  // USER ACTIONS
-  // ====================
-
   const registerContest = async (id, password = null) => {
     try {
       loading.value = true
       await contestsAPI.register(id, password)
-      ElMessage.success('Đăng ký tham gia contest thành công!')
-    } catch (error) {
-      handleApiError(error, 'Đăng ký contest thất bại')
-      throw error
     } finally {
       loading.value = false
     }
@@ -196,6 +145,6 @@ export const useContestStore = defineStore('contest', () => {
     removeProblems,
     banUsers,
     unbanUsers,
-    registerContest
+    registerContest,
   }
 })

@@ -1,40 +1,34 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import Navbar from './components/layout/Navbar.vue'
 import Footer from './components/layout/Footer.vue'
 import EmailVerificationBanner from './components/auth/EmailVerificationBanner.vue'
 import ContestGlobalTimer from './components/contests/ContestGlobalTimer.vue'
 import { useAuthStore } from './stores/auth'
+import { AUTH_GUEST_PATHS } from '@/utils/authFlow'
 
 const authStore = useAuthStore()
 const route = useRoute()
 
-const GUEST_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/oauth/callback', '/verify-email']
-
-// Hiển thị banner khi user đã login nhưng chưa verify email
 const showVerificationBanner = computed(() => {
-  return authStore.isAuthenticated && !authStore.isEmailVerified && !GUEST_PATHS.includes(route.path)
+  return (
+    authStore.isAuthenticated &&
+    !authStore.isEmailVerified &&
+    !AUTH_GUEST_PATHS.includes(route.path)
+  )
 })
 
-// Không hiển thị footer khi đang ở trang chi tiết bài tập hoặc Dashboard admin
 const showFooter = computed(() => {
   const hiddenNames = ['problem-detail', 'contest-problem-detail']
   return !hiddenNames.includes(route.name) && !route.path.startsWith('/dashboard')
-})
-
-onMounted(async () => {
-  try {
-    await authStore.getCurrentUser()
-  } catch (error) {
-    console.log('No active session')
-  }
 })
 </script>
 
 <template>
   <div class="app-layout">
     <Navbar />
+    <EmailVerificationBanner v-if="showVerificationBanner" />
     <ContestGlobalTimer />
     <main class="main-content">
       <RouterView />

@@ -29,6 +29,16 @@ export const problemsAPI = {
     },
 
     /**
+     * Get problem details by ID for Admin preview.
+     * @param {string} id - Problem UUID
+     * @returns {Promise<Object>} Problem details
+     */
+    getAdminProblemById: async (id) => {
+        const response = await axiosInstance.get(`/admin/problems/${id}`)
+        return response.data.data
+    },
+
+    /**
      * Get problem details by ID
      * @param {string} id - Problem UUID
      * @returns {Promise<Object>} Problem details

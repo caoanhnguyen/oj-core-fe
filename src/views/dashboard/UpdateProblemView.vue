@@ -272,18 +272,18 @@ const handleUpdate = async () => {
         // LUÔN LUÔN GỬI DANH SÁCH ẢNH XUỐNG ĐỂ BE ĐỒNG BỘ (Xóa rác nếu có)
         partialPayload.temporaryImageKeys = gatherAllImageKeys(formData.value)
 
-        console.log("Nội dung HTML thực tế trước khi quét:", formData.value.description)
 
         // Nếu có sự thay đổi (bao gồm cả việc có temporaryImageKeys)
         if (Object.keys(partialPayload).length > 0) {
             await problemStore.updateProblem(id, partialPayload)
         }
         // Testcase upload được xử lý riêng qua nút "Tải lên Testcases" trong tab Bộ Test
+        ElMessage.success(t('admin_problems.msg_update_success'))
         isDirty.value = false
         allowLeaving.value = true
         router.push('/dashboard')
       } catch (error) {
-        handleApiError(error, t('admin_problems.msg_create_fail'))
+        handleApiError(error, t('admin_problems.msg_update_fail'))
       } finally {
         isSaving.value = false
       }

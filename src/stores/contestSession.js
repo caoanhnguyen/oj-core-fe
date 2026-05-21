@@ -1,48 +1,44 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { contestsAPI } from '@/api/contests'
-import { handleApiError } from '@/utils/errorHandler'
 
 export const useContestSessionStore = defineStore('contestSession', () => {
-  // Trạng thái phiên thi: { contestId, endTime, isFinished }
   const activeSession = ref(JSON.parse(localStorage.getItem('activeContestSession')) || null)
-  const timeOffset = ref(parseInt(localStorage.getItem('contestTimeOffset') || '0')) 
+  const timeOffset = ref(parseInt(localStorage.getItem('contestTimeOffset') || '0', 10))
   const lastSyncServerTime = ref(0)
   const lastSyncLocalTime = ref(0)
 
-  const isExamMode = computed(() => {
-    if (!activeSession.value) return false
-    return true
-  })
+  const isExamMode = computed(() => !!activeSession.value)
 
-  /** Đồng bộ thời gian với server */
   const syncTime = (serverTimeStr) => {
     if (!serverTimeStr) return
-    const cleanStr = serverTimeStr.includes('Z') || serverTimeStr.includes('+') ? serverTimeStr : serverTimeStr + 'Z'
-    lastSyncServerTime.value = new Date(cleanStr).getTime()
+    const normalized = serverTimeStr.includes('Z') || serverTimeStr.includes('+')
+      ? serverTimeStr
+      : `${serverTimeStr}Z`
+
+    lastSyncServerTime.value = new Date(normalized).getTime()
     lastSyncLocalTime.value = performance.now()
-    
-    // Vẫn lưu offset cũ cho các mục đích legacy nếu cần
     timeOffset.value = lastSyncServerTime.value - Date.now()
     localStorage.setItem('contestTimeOffset', timeOffset.value.toString())
   }
 
-  /** Lấy đối tượng Date hiện tại (Chống cheat đổi giờ máy tính) */
   const getServerNow = () => {
     if (lastSyncServerTime.value === 0) return new Date()
     const elapsed = performance.now() - lastSyncLocalTime.value
     return new Date(lastSyncServerTime.value + elapsed)
   }
 
-  const setSession = (contestId, contestKey, endTime, title = 'Cuộc thi') => {
-    // Thêm Z nếu thiếu để đảm bảo parse đúng UTC (backend dùng LocalDateTime không có Z)
-    const cleanEndTime = endTime && !(endTime.includes('Z') || endTime.includes('+')) ? endTime + 'Z' : endTime
-    const session = { 
-      contestId, 
+  const setSession = (contestId, contestKey, endTime, title = 'Contest') => {
+    const normalizedEndTime =
+      endTime && !(endTime.includes('Z') || endTime.includes('+')) ? `${endTime}Z` : endTime
+
+    const session = {
+      contestId,
       contestKey,
-      endTime: new Date(cleanEndTime).getTime(),
-      title 
+      endTime: new Date(normalizedEndTime).getTime(),
+      title,
     }
+
     activeSession.value = session
     localStorage.setItem('activeContestSession', JSON.stringify(session))
   }
@@ -52,33 +48,25 @@ export const useContestSessionStore = defineStore('contestSession', () => {
     localStorage.removeItem('activeContestSession')
   }
 
-  /** Bắt đầu phiên thi mới */
-  const startSession = async (contestId, contestKey, title = 'Cuộc thi') => {
-    try {
-      const participation = await contestsAPI.start(contestKey)
-      setSession(contestId, contestKey, participation.endTime, title)
-      return participation
-    } catch (error) {
-      handleApiError(error, 'Không thể bắt đầu phiên thi')
-      throw error
-    }
+  const startSession = async (contestId, contestKey, title = 'Contest') => {
+    const participation = await contestsAPI.start(contestKey)
+    setSession(contestId, contestKey, participation.endTime, title)
+    return participation
   }
 
-  /** Kết thúc phiên thi */
   const finishSession = async (contestKey) => {
+    const key = contestKey || activeSession.value?.contestKey
+    if (!key) return
+
     try {
-      const key = contestKey || activeSession.value?.contestKey
-      if (!key) return
-      
       await contestsAPI.finish(key)
       clearSession()
     } catch (error) {
       if (error.response?.status === 403 || error.response?.status === 400) {
         clearSession()
-      } else {
-        handleApiError(error, 'Lỗi khi kết thúc phiên thi')
-        throw error
+        return
       }
+      throw error
     }
   }
 
@@ -93,6 +81,6 @@ export const useContestSessionStore = defineStore('contestSession', () => {
     lastSyncServerTime,
     lastSyncLocalTime,
     startSession,
-    finishSession
+    finishSession,
   }
 })

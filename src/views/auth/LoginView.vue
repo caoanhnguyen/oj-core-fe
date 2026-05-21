@@ -4,9 +4,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { handleApiError } from '../../utils/errorHandler'
-import { getErrorMessage } from '../../utils/errorCodes'
 import { useI18n } from 'vue-i18n'
 import AppButton from '@/components/common/AppButton.vue'
+import {
+  getAuthRedirectMessage,
+  getAuthRedirectPayload,
+  getPostAuthRedirect,
+} from '@/utils/authFlow'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,110 +20,53 @@ const { t } = useI18n()
 const formRef = ref(null)
 const loading = ref(false)
 
-onMounted(async () => {
-  // Kiểm tra nếu đã đăng nhập thì tự redirect ra ngoài
+onMounted(() => {
   if (authStore.isAuthenticated) {
-    router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
+    router.replace(getPostAuthRedirect(authStore))
     return
   }
 
-
-  // Thử khôi phục session từ cookie (trường hợp F5 reload)
-  // withCredentials: true → cookie được gửi tự động, chỉ cần gọi getCurrentUser để kiểm tra
-  try {
-    await authStore.getCurrentUser()
-    if (authStore.isAuthenticated) {
-      router.replace(authStore.isAdminOrMod ? '/dashboard' : '/')
-      return
-    }
-  } catch {
-    // Không có cookie hợp lệ → ở lại trang đăng nhập
-  }
-
-
-  // Check common error parameters from Backend (Query params & raw URL fallback)
-  const searchParams = new URLSearchParams(window.location.search)
-  const error = searchParams.get('error') || route.query.error
-  const message = searchParams.get('message') || route.query.message || searchParams.get('error_code')
-  
+  const { error, message } = getAuthRedirectPayload(route)
   if (error || message) {
-    console.warn('Authentication error in login query:', { error, message })
-    
-    // Ưu tiên: error_code (từ BE) > message (từ BE) > error (mặc định)
-    let displayMessage = ''
-    if (message && String(message) !== 'null') {
-      // Thử xem message có phải là errorCode không
-      displayMessage = getErrorMessage(message, String(message))
-    }
-    
-    if (!displayMessage && error) {
-      if (error === 'invalid_provider' || error === 'access_denied') {
-        displayMessage = 'Email đã được dùng để đăng ký tài khoản khác. Vui lòng đăng nhập bằng mật khẩu!'
-      } else {
-        displayMessage = getErrorMessage(error, String(error))
-      }
-    }
-
-    if (displayMessage) {
-      ElMessage.error({
-        message: displayMessage,
-        duration: 10000, 
-        showClose: true
-      })
-    }
-    
-    // Clear query so it doesn't show again on refresh
+    ElMessage.error({
+      message: getAuthRedirectMessage({ error, message }, t),
+      duration: 10000,
+      showClose: true,
+    })
     router.replace({ path: '/login', query: {} })
   }
 })
 
 const form = reactive({
   username: '',
-  password: ''
+  password: '',
 })
 
 const rules = computed(() => ({
   username: [
     { required: true, message: t('auth.validation_req_username'), trigger: 'blur' },
-    { min: 3, max: 50, message: t('auth.validation_len_username'), trigger: 'blur' }
+    { min: 3, max: 50, message: t('auth.validation_len_username'), trigger: 'blur' },
   ],
-  password: [
-    { required: true, message: t('auth.validation_req_password'), trigger: 'blur' }
-  ]
+  password: [{ required: true, message: t('auth.validation_req_password'), trigger: 'blur' }],
 }))
 
 const handleLogin = async (formEl) => {
   if (!formEl) return
 
   await formEl.validate(async (valid) => {
-    if (valid) {
-      try {
-        loading.value = true
-        await authStore.login(form.username, form.password)
-        
-        // Fetch full user data để có emailVerified status cho banner
-        try {
-          await authStore.getCurrentUser()
-        } catch (e) {
-          console.warn('Could not fetch user data:', e)
-        }
-        
-        ElMessage.success(t('auth.login_success'))
-        router.push('/')
-      } catch (error) {
-        handleApiError(error, t('auth.login_failed'))
-      } finally {
-        loading.value = false
-      }
+    if (!valid) return
+
+    try {
+      loading.value = true
+      await authStore.login(form.username, form.password)
+      ElMessage.success(t('auth.login_success'))
+      router.push(getPostAuthRedirect(authStore))
+    } catch (error) {
+      handleApiError(error, t('auth.login_failed'))
+    } finally {
+      loading.value = false
     }
   })
-}
-
-// Handle Enter key
-const handleKeyPress = (event) => {
-  if (event.key === 'Enter') {
-    handleLogin(formRef.value)
-  }
 }
 
 const handleGoogleLogin = () => {
@@ -167,7 +114,9 @@ const handleGitHubLogin = () => {
           </el-form-item>
 
           <div class="form-footer">
-            <RouterLink to="/forgot-password" class="forgot-link">{{ $t('auth.forgot_password') }}</RouterLink>
+            <RouterLink to="/forgot-password" class="forgot-link">{{
+              $t('auth.forgot_password')
+            }}</RouterLink>
           </div>
 
           <AppButton
@@ -195,14 +144,14 @@ const handleGitHubLogin = () => {
                 <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
               </g>
             </svg>
-            <span>Google</span>
+            <span>{{ $t('auth.social_google') }}</span>
           </AppButton>
 
           <AppButton variant="secondary" class="social-btn" @click="handleGitHubLogin">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
             </svg>
-            <span>GitHub</span>
+            <span>{{ $t('auth.social_github') }}</span>
           </AppButton>
         </div>
 
@@ -326,7 +275,6 @@ const handleGitHubLogin = () => {
   text-decoration: underline;
 }
 
-/* Element Plus Overrides */
 :deep(.el-form-item__label) {
   color: var(--text-primary);
   font-weight: 500;
@@ -338,7 +286,7 @@ const handleGitHubLogin = () => {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   box-shadow: none;
-  padding: 0px 12px;
+  padding: 0 12px;
 }
 
 :deep(.el-input__wrapper:hover) {

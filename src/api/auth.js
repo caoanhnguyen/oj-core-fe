@@ -1,4 +1,5 @@
 import axiosInstance from './axios'
+import { buildBackendUrl } from '@/config/app'
 
 export const authAPI = {
   login: async (username, password) => {
@@ -20,20 +21,17 @@ export const authAPI = {
     const response = await axiosInstance.post('/auth/logout')
     return response.data.data || response.data
   },
-
-
-
   refreshToken: async () => {
     const response = await axiosInstance.post('/auth/refresh')
     return response.data.data || response.data
   },
 
   loginWithGoogle: () => {
-    window.location.href = 'http://localhost:8088/oauth2/authorization/google'
+    window.location.href = buildBackendUrl('/oauth2/authorization/google')
   },
 
   loginWithGitHub: () => {
-    window.location.href = 'http://localhost:8088/oauth2/authorization/github'
+    window.location.href = buildBackendUrl('/oauth2/authorization/github')
   },
 
   forgotPassword: async (email) => {

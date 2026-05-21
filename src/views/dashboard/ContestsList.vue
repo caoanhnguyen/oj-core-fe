@@ -117,7 +117,9 @@ const openDetail = async (row) => {
     selectedProblemsToAdd.value = []
 
     loadContestProblems()
-  } catch {}
+  } catch (error) {
+    handleApiError(error, t('admin_contests.messages.load_fail'))
+  }
 }
 
 const goBackToList = () => {
@@ -197,7 +199,9 @@ const openEditForm = async (row) => {
       durationMinutes: detail.durationMinutes || null
     }
     formDialogVisible.value = true
-  } catch {}
+  } catch (error) {
+    handleApiError(error, t('admin_contests.messages.load_fail'))
+  }
 }
 
 const submitForm = async () => {
@@ -221,12 +225,21 @@ const submitForm = async () => {
 
       if (formMode.value === 'create') {
         await contestStore.createContest(payload)
+        ElMessage.success(t('admin_contests.messages.create_success'))
       } else {
         await contestStore.updateContest(form.value.id, payload)
+        ElMessage.success(t('admin_contests.messages.update_success'))
       }
       formDialogVisible.value = false
-      loadContests()
-    } catch {} finally {
+      await loadContests()
+    } catch (error) {
+      handleApiError(
+        error,
+        formMode.value === 'create'
+          ? t('admin_contests.messages.create_fail')
+          : t('admin_contests.messages.update_fail')
+      )
+    } finally {
       formLoading.value = false
     }
   })
@@ -243,7 +256,8 @@ const handleDelete = async (row) => {
       { confirmButtonText: t('common.delete') || 'Delete', cancelButtonText: t('common.cancel') || 'Cancel', type: 'warning', confirmButtonClass: 'el-button--danger' }
     )
     await contestStore.deleteContest(row.id)
-    loadContests()
+    ElMessage.success(t('admin_contests.messages.soft_del_success'))
+    await loadContests()
   } catch (error) {
     if (error !== 'cancel') handleApiError(error, t('admin_contests.messages.del_fail'))
   }
@@ -257,7 +271,8 @@ const handleRestore = async (row) => {
       { confirmButtonText: t('common.restore') || 'Restore', cancelButtonText: t('common.cancel') || 'Cancel', type: 'info' }
     )
     await contestStore.restoreContest(row.id)
-    loadContests()
+    ElMessage.success(t('admin_contests.messages.restore_success'))
+    await loadContests()
   } catch (error) {
     if (error !== 'cancel') handleApiError(error, t('admin_contests.messages.del_fail'))
   }
@@ -266,8 +281,11 @@ const handleRestore = async (row) => {
 const handleToggleVisibility = async (row) => {
   try {
     await contestStore.toggleVisibility(row.id)
-    loadContests()
-  } catch {}
+    ElMessage.success(t('admin_contests.messages.toggle_success'))
+    await loadContests()
+  } catch (error) {
+    handleApiError(error, t('admin_contests.messages.toggle_fail'))
+  }
 }
 
 // ====================
@@ -360,11 +378,15 @@ const toggleProblemSelection = (p) => {
 const handleAddProblem = async () => {
   if (selectedProblemsToAdd.value.length === 0) { ElMessage.warning(t('admin_contests.add_problem.empty_selected')); return }
   try {
+    const addedCount = selectedProblemsToAdd.value.length
     await contestStore.addProblems(selectedContest.value.id, selectedProblemsToAdd.value)
     addProblemDialogVisible.value = false
     selectedProblemsToAdd.value = []
+    ElMessage.success(t('admin_contests.tab_problems.msg_added', { n: addedCount }))
     await loadContestProblems()
-  } catch {}
+  } catch (error) {
+    handleApiError(error, t('admin_contests.messages.err_add_tasks'))
+  }
 }
 
 const handleRemoveProblems = async () => {
@@ -375,6 +397,7 @@ const handleRemoveProblems = async () => {
     const problemIds = contestProblems.value.filter(p => selectedProblemIds.value.includes(p.id)).map(p => p.problemId)
     await contestStore.removeProblems(selectedContest.value.id, problemIds)
     selectedProblemIds.value = []
+    ElMessage.success(t('admin_contests.tab_problems.msg_removed'))
     await loadContestProblems()
   } catch (e) {
     if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.del_fail'))
@@ -431,6 +454,7 @@ const handleBanUsers = async () => {
     await ElMessageBox.confirm(t('admin_contests.messages.confirm_ban_users') || 'Ban selected users from contest?', t('common.confirm') || 'Confirmation', { type: 'warning' })
     await contestStore.banUsers(selectedContest.value.id, ids)
     selectedParticipantRows.value = []
+    ElMessage.success(t('admin_contests.tab_participants.msg_banned'))
     await loadParticipants()
   } catch (e) {
     if (e !== 'cancel') handleApiError(e, t('admin_contests.messages.del_fail'))
@@ -443,8 +467,11 @@ const handleUnbanUsers = async () => {
     const ids = selectedParticipantRows.value.map(r => r.userId)
     await contestStore.unbanUsers(selectedContest.value.id, ids)
     selectedParticipantRows.value = []
+    ElMessage.success(t('admin_contests.tab_participants.msg_unbanned'))
     await loadParticipants()
-  } catch {}
+  } catch (error) {
+    handleApiError(error, t('admin_contests.messages.del_fail'))
+  }
 }
 
 // ====================

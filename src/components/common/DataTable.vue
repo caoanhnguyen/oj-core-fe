@@ -36,6 +36,10 @@ const props = defineProps({
   rowClassName: {
     type: [String, Function],
     default: ''
+  },
+  fit: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -89,6 +93,7 @@ const getActionClass = (type) => {
       :class="{ 'is-empty': !data || data.length === 0 }"
       border
       style="width: 100%"
+      :fit="fit"
       :row-class-name="rowClassName"
       @row-click="handleRowClick"
       @selection-change="handleSelectionChange"
@@ -130,7 +135,7 @@ const getActionClass = (type) => {
       <!-- Actions Column -->
       <el-table-column 
         v-if="actions && actions.length > 0 || $slots.actions" 
-        :label="actionLabel || $t('common.actions')" 
+        :label="actionLabel ?? $t('common.actions')" 
         :width="actionWidth" 
         align="center" 
         fixed="right"
