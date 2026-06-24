@@ -394,7 +394,7 @@ const handleRowClick = (row) => {
       </template>
       
       <template #cell-executionMemoryMb="{ value }">
-         <span class="score-text">{{ value != null ? value + ' KB' : '—' }}</span>
+         <span class="score-text">{{ value != null ? value + ' MB' : '—' }}</span>
       </template>
 
       <template #cell-verdict="{ value }">
@@ -531,3 +531,4 @@ const handleRowClick = (row) => {
   margin-right: 6px;
 }
 </style>
+

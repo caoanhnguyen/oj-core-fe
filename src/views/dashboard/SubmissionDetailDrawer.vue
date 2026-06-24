@@ -127,6 +127,10 @@ const handleCommand = (cmd) => {
                  <span class="info-val">{{ details.language }}</span>
               </div>
               <div class="info-row">
+                 <span class="info-key">{{ $t('admin_submissions.info_testcase_progress') }}</span>
+                 <span class="info-val">{{ details.passedTestCount ?? 0 }} / {{ details.totalTestCount ?? 0 }}</span>
+              </div>
+              <div class="info-row">
                  <span class="info-key">{{ $t('admin_submissions.info_date') }}</span>
                  <span class="info-val">{{ formatDate(details.createdDate) }}</span>
               </div>

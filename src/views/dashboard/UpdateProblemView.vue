@@ -136,7 +136,7 @@ onMounted(async () => {
 
     try {
         loading.value = true
-        const problem = await problemStore.fetchProblemById(id)
+        const problem = await problemStore.fetchAdminProblemById(id)
         if (problem) {
             // Map SDO to Form Data
             formData.value.title = problem.title

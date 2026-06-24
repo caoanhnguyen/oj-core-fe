@@ -332,9 +332,8 @@ const handleRun = async () => {
        }
      )
    } catch (e) {
-       handleApiError(e, t('problem_detail.run_request_failed'))
-   } finally {
        executionLoading.value = false
+       handleApiError(e, t('problem_detail.run_request_failed'))
    }
 }
 

@@ -54,7 +54,19 @@ export const useProblemStore = defineStore('problem', {
         this.currentProblem = data
         return data
       } catch (error) {
-        handleApiError(error, 'Khong the tai thong tin bai tap')
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchAdminProblemById(id) {
+      try {
+        this.loading = true
+        const data = await problemsAPI.getAdminProblemById(id)
+        this.currentProblem = data
+        return data
+      } catch (error) {
         throw error
       } finally {
         this.loading = false
@@ -68,7 +80,6 @@ export const useProblemStore = defineStore('problem', {
         this.currentProblem = data
         return data
       } catch (error) {
-        handleApiError(error, 'Khong the tai thong tin bai tap')
         throw error
       } finally {
         this.loading = false

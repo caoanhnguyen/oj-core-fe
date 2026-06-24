@@ -381,7 +381,16 @@
     "time_label": "Thời gian:",
     "no_output": "Không có output",
     "verdict_prefix": "Kết quả:",
-    "verdict_system_error": "Kết quả: SE - Hệ thống chấm đang gặp lỗi, vui lòng thử lại sau."
+    "verdict_system_error": "Kết quả: SE - Hệ thống chấm đang gặp lỗi, vui lòng thử lại sau.",
+    "empty_submissions": "Bạn chưa nộp lời giải nào cho bài tập này.",
+    "submissions_col_time": "Thời gian nộp",
+    "submissions_col_verdict": "Kết quả",
+    "submissions_col_score": "Điểm",
+    "submissions_col_runtime": "Thời gian chạy",
+    "submissions_col_memory": "Bộ nhớ",
+    "submissions_col_language": "Ngôn ngữ",
+    "submissions_load_fail": "Không thể tải lịch sử nộp bài.",
+    "not_available": "N/A"
   },
   "submissions": {
     "list_title": "Danh sách Bài nộp",
@@ -554,6 +563,8 @@
       "check_fields": "Vui lòng kiểm tra lại các thông tin bắt buộc"
     },
     "msg_create_fail": "Tạo bài tập thất bại",
+    "msg_save_success": "Lưu bản nháp bài tập thành công",
+    "msg_publish_success": "Công khai bài tập thành công",
     "msg_update_success": "Cập nhật bài tập thành công",
     "msg_update_fail": "Cập nhật bài tập thất bại",
     "msg_delete_fail": "Xóa bài tập thất bại",
@@ -639,6 +650,10 @@
     "confirm_del_msg": "Bạn có chắc chắn muốn xóa chủ đề \"{name}\"?",
     "confirm_restore_title": "Xác nhận khôi phục",
     "confirm_restore_msg": "Bạn có chắc chắn muốn khôi phục chủ đề \"{name}\"?",
+    "msg_create_success": "Tạo chủ đề thành công",
+    "msg_update_success": "Cập nhật chủ đề thành công",
+    "msg_del_success": "Xóa chủ đề thành công",
+    "msg_restore_success": "Khôi phục chủ đề thành công",
     "msg_del_fail": "Xóa chủ đề thất bại",
     "msg_restore_fail": "Khôi phục chủ đề thất bại",
     "msg_load_fail": "Không thể tải thông tin chi tiết chủ đề",
@@ -969,6 +984,8 @@
       "err_load": "Không thể tải danh sách contest",
       "update_success": "Đã lưu thay đổi thành công",
       "update_fail": "Lưu thay đổi thất bại",
+      "create_success": "Đã tạo kỳ thi thành công",
+      "create_fail": "Tạo kỳ thi thất bại",
       "link_copied": "Đã sao chép Invite Link!",
       "deleted_warning": "Contest này đã bị xóa mềm. Không cho phép chỉnh sửa."
     },

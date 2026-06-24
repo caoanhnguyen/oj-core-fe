@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useSubmissionStore } from '@/stores/submission'
 import { useAuthStore } from '@/stores/auth'
 import { contestsAPI } from '@/api/contests'
@@ -22,6 +23,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+const { t, locale } = useI18n()
 const submissionStore = useSubmissionStore()
 const authStore = useAuthStore()
 
@@ -30,222 +32,220 @@ const submissions = ref([])
 const totalElements = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const dateTimeLocale = computed(() => (locale.value === 'vi' ? 'vi-VN' : 'en-US'))
 
 const getVerdictType = (verdict) => {
   switch (verdict) {
     case 'AC': return 'success'
     case 'WA': return 'danger'
-    case 'TLE': case 'MLE': return 'warning'
-    case 'RE': case 'SE': return 'danger'
+    case 'TLE':
+    case 'MLE': return 'warning'
+    case 'RE':
+    case 'SE': return 'danger'
     case 'CE': return 'info'
     default: return 'info'
   }
 }
 
 const loadSubmissions = async () => {
-    loading.value = true
-    try {
-        const params = {
-            page: Math.max(0, currentPage.value - 1),
-            size: pageSize.value,
-            problemId: props.problemId,
-            sort: 'createdDate,desc'
-        }
-
-        let response
-        if (props.contestKey) {
-            // Đang trong exam session -> chỉ user đã đăng nhập mới vào được đây
-            response = await contestsAPI.getMySubmissions(props.contestKey, params)
-        } else {
-            // Public: GET /submissions là endpoint public, không cần auth.
-            // Nếu đã đăng nhập -> lọc theo userId để chỉ thấy submissions cá nhân.
-            // Nếu chưa đăng nhập -> trả về global submissions của bài tập (ai cũng xem được).
-            if (authStore.isAuthenticated && authStore.user?.id) {
-                params.userId = authStore.user.id
-            }
-            response = await submissionStore.getSubmissions(params)
-        }
-
-        submissions.value = response.content || []
-        totalElements.value = response.totalElements || 0
-
-    } catch (error) {
-        handleApiError(error, 'Lỗi khi tải lịch sử bài nộp')
-    } finally {
-        loading.value = false
+  loading.value = true
+  try {
+    const params = {
+      page: Math.max(0, currentPage.value - 1),
+      size: pageSize.value,
+      problemId: props.problemId,
+      sort: 'createdDate,desc'
     }
+
+    let response
+    if (props.contestKey) {
+      response = await contestsAPI.getMySubmissions(props.contestKey, params)
+    } else {
+      if (authStore.isAuthenticated && authStore.user?.id) {
+        params.userId = authStore.user.id
+      }
+      response = await submissionStore.getSubmissions(params)
+    }
+
+    submissions.value = response.content || []
+    totalElements.value = response.totalElements || 0
+  } catch (error) {
+    handleApiError(error, t('problem_detail.submissions_load_fail'))
+  } finally {
+    loading.value = false
+  }
 }
 
 const handlePageChange = (val) => {
-    currentPage.value = val
-    loadSubmissions()
+  currentPage.value = val
+  loadSubmissions()
 }
 
 const canViewDetail = (row) => {
-    return authStore.isAdminOrMod || (authStore.isAuthenticated && row.userId === authStore.user?.id)
+  return authStore.isAdminOrMod || (authStore.isAuthenticated && row.userId === authStore.user?.id)
 }
 
 const viewSubmissionDetails = (row) => {
-    if (canViewDetail(row)) {
-        router.push({ path: `/submissions/${row.submissionId}`})
-    }
+  if (canViewDetail(row)) {
+    router.push({ path: `/submissions/${row.submissionId}` })
+  }
 }
 
 const rowClassName = ({ row }) => {
-    return canViewDetail(row) ? 'clickable-row' : 'disabled-row'
+  return canViewDetail(row) ? 'clickable-row' : 'disabled-row'
 }
 
 onMounted(() => {
-    loadSubmissions()
+  loadSubmissions()
 })
 
 watch(() => props.problemId, () => {
-    currentPage.value = 1
-    loadSubmissions()
+  currentPage.value = 1
+  loadSubmissions()
 })
 
-// Expose so parent can trigger a reload (e.g. after submit polling completes)
 defineExpose({ loadSubmissions })
-
 </script>
 
 <template>
   <div class="submissions-tab">
-      <div class="table-container" v-loading="loading">
-        <el-table 
-            :data="submissions" 
-            style="width: 100%" 
-            @row-click="viewSubmissionDetails" 
-            :row-class-name="rowClassName"
-            empty-text="Bạn chưa có bài nộp nào cho bài này."
-        >
-            <el-table-column label="Time" min-width="160">
-                <template #default="{ row }">
-                   {{ new Date(row.createdDate).toLocaleString('vi-VN') }}
-                </template>
-            </el-table-column>
-            
-            <el-table-column label="Status" min-width="120">
-                <template #default="{ row }">
-                    <span :class="['status-cell', getVerdictType(row.verdict)]">
-                        {{ row.verdict || 'PENDING' }}
-                    </span>
-                </template>
-            </el-table-column>
+    <div class="table-container" v-loading="loading">
+      <el-table
+        :data="submissions"
+        style="width: 100%"
+        @row-click="viewSubmissionDetails"
+        :row-class-name="rowClassName"
+        :empty-text="t('problem_detail.empty_submissions')"
+      >
+        <el-table-column :label="t('problem_detail.submissions_col_time')" min-width="160">
+          <template #default="{ row }">
+            {{ new Date(row.createdDate).toLocaleString(dateTimeLocale) }}
+          </template>
+        </el-table-column>
 
-            <el-table-column label="Score" min-width="120">
-                <template #default="{ row }">
-                    <span :class="['status-cell']">
-                        {{ row.score }}
-                    </span>
-                </template>
-            </el-table-column>
+        <el-table-column :label="t('problem_detail.submissions_col_verdict')" min-width="120">
+          <template #default="{ row }">
+            <span :class="['status-cell', getVerdictType(row.verdict)]">
+              {{ row.verdict || 'PENDING' }}
+            </span>
+          </template>
+        </el-table-column>
 
-            <el-table-column label="Runtime" min-width="100">
-                <template #default="{ row }">
-                    <span v-if="row.executionTimeMs != null" class="metrics">
-                        {{ row.executionTimeMs }} ms
-                    </span>
-                    <span v-else>N/A</span>
-                </template>
-            </el-table-column>
+        <el-table-column :label="t('problem_detail.submissions_col_score')" min-width="120">
+          <template #default="{ row }">
+            <span class="status-cell">
+              {{ row.score }}
+            </span>
+          </template>
+        </el-table-column>
 
-            <el-table-column label="Memory" min-width="100">
-                <template #default="{ row }">
-                    <span v-if="row.executionMemoryMb != null" class="metrics">
-                        {{ row.executionMemoryMb }} MB
-                    </span>
-                    <span v-else>N/A</span>
-                </template>
-            </el-table-column>
-            
-            <el-table-column label="Language" min-width="100">
-                 <template #default="{ row }">
-                    <el-tag type="info" size="small" effect="plain" class="lang-tag">{{ row.languageKey }}</el-tag>
-                 </template>
-            </el-table-column>
-        </el-table>
+        <el-table-column :label="t('problem_detail.submissions_col_runtime')" min-width="100">
+          <template #default="{ row }">
+            <span v-if="row.executionTimeMs != null" class="metrics">
+              {{ row.executionTimeMs }} ms
+            </span>
+            <span v-else>{{ t('problem_detail.not_available') }}</span>
+          </template>
+        </el-table-column>
 
-        <div class="pagination-container" v-if="totalElements > 0">
-            <el-pagination
-                v-model:current-page="currentPage"
-                v-model:page-size="pageSize"
-                :total="totalElements"
-                layout="prev, pager, next"
-                small
-                @current-change="handlePageChange"
-            />
-        </div>
+        <el-table-column :label="t('problem_detail.submissions_col_memory')" min-width="100">
+          <template #default="{ row }">
+            <span v-if="row.executionMemoryMb != null" class="metrics">
+              {{ row.executionMemoryMb }} MB
+            </span>
+            <span v-else>{{ t('problem_detail.not_available') }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('problem_detail.submissions_col_language')" min-width="100">
+          <template #default="{ row }">
+            <el-tag type="info" size="small" effect="plain" class="lang-tag">{{ row.languageKey }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-container" v-if="totalElements > 0">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="totalElements"
+          layout="prev, pager, next"
+          small
+          @current-change="handlePageChange"
+        />
       </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .submissions-tab {
-    padding: 16px 0;
+  padding: 16px 0;
 }
 
 .table-container {
-    width: 100%;
+  width: 100%;
 }
 
 :deep(.el-table) {
-    background-color: transparent;
-    --el-table-border-color: rgba(255, 255, 255, 0.1);
-    --el-table-header-bg-color: rgba(255, 255, 255, 0.04);
-    --el-table-header-text-color: #a0a0a0;
-    --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
+  background-color: transparent;
+  --el-table-border-color: rgba(255, 255, 255, 0.1);
+  --el-table-header-bg-color: rgba(255, 255, 255, 0.04);
+  --el-table-header-text-color: #a0a0a0;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
 }
 
 :deep(.el-table th.el-table__cell) {
-    background-color: var(--el-table-header-bg-color);
-    border-bottom: 1px solid var(--el-table-border-color);
-    font-weight: 600;
+  background-color: var(--el-table-header-bg-color);
+  border-bottom: 1px solid var(--el-table-border-color);
+  font-weight: 600;
 }
 
 :deep(.el-table tr) {
-    background-color: transparent;
+  background-color: transparent;
 }
 
 :deep(.el-table td.el-table__cell) {
-    border-bottom: 1px solid var(--el-table-border-color);
+  border-bottom: 1px solid var(--el-table-border-color);
 }
 
 :deep(.clickable-row) {
-    cursor: pointer;
+  cursor: pointer;
 }
+
 :deep(.disabled-row) {
-    cursor: default;
+  cursor: default;
 }
 
 :deep(.el-table .disabled-row:hover > td.el-table__cell) {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 .status-cell {
-    font-weight: 700;
-    font-size: 13px;
+  font-weight: 700;
+  font-size: 13px;
 }
+
 .status-cell.success { color: #2cbb5d; }
 .status-cell.danger { color: #ef4743; }
 .status-cell.warning { color: #ffa116; }
 .status-cell.info { color: #8a8a8a; }
 
 .metrics {
-    font-size: 13px;
-    color: #e0e0e0;
+  font-size: 13px;
+  color: #e0e0e0;
 }
 
 .lang-tag {
-    background-color: rgba(255, 255, 255, 0.08);
-    border: none;
-    color: #ccc;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #ccc;
 }
 
 .pagination-container {
-    margin-top: 16px;
-    display: flex;
-    justify-content: flex-end;
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 :deep(.el-pagination button) { background-color: transparent !important; }

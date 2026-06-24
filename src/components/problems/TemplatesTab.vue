@@ -38,9 +38,10 @@ const getAvailableLanguages = (currentLang) => {
 
 const getDefaultTemplate = (lang) => {
   const templates = {
-    'JAVA': `import java.io.*;\nimport java.util.*;\n\nclass Solution {\n    public void solve() {\n        // Write your code here\n    }\n}`,
-    'CPP': `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve() {\n        // Write your code here\n    }\n};`,
-    'PYTHON3': `class Solution:\n    def solve(self):\n        # Write your code here\n        pass`,
+    'C': `#include <stdio.h>\n\nint main() {\n    \n    \n    return 0;\n}`,
+    'CPP': `#include <iostream>\n\nusing namespace std;\n\nint main() {\n\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n\n    \n    return 0;\n}`,
+    'JAVA': `import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        \n\n        \n        \n        sc.close();\n    }\n}`,
+    'PYTHON3': `import sys\n\n\nclass Main:\n    def solve(self):\n\n        pass\n\ndef main():\n\n    # input_data = sys.stdin.read().split()\n    \n\n    solution = Main()\n    solution.solve()\n\nif __name__ == '__main__':\n    main()`,
     'JS': `/**\n * @param {any} args\n * @return {void}\n */\nvar solve = function(args) {\n    // Write your code here\n};`
   }
   return templates[lang] || '// Write your code here'

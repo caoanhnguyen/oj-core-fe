@@ -969,6 +969,8 @@
       "err_load": "Failed to load contest list",
       "update_success": "Changes saved successfully",
       "update_fail": "Failed to save changes",
+      "create_success": "Contest created successfully",
+      "create_fail": "Failed to create contest",
       "link_copied": "Invite link copied!",
       "deleted_warning": "This contest has been soft-deleted. Editing is disabled."
     },

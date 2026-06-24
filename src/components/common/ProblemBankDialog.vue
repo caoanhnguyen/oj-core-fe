@@ -164,7 +164,7 @@ const formatDate = (dateString) => {
         v-model="bankSearch"
         search-placeholder="Tìm kiếm bài tập..."
         :filter-config="bankFilterConfig"
-        :total-label="`${problemStore.totalElements || 0} bài tập`"
+        :total-label="`${problemStore.pagination.totalElements || 0} bài tập`"
         filter-title="Lọc bài tập"
         @filter-change="handleBankFilterChange"
         @reset-filters="handleBankResetFilters"
@@ -194,8 +194,9 @@ const formatDate = (dateString) => {
       <DarkPagination
         :current-page="bankPagination.page"
         :page-size="bankPagination.size"
-        :total="problemStore.totalElements || 0"
+        :total="problemStore.pagination.totalElements || 0"
         @current-change="(p) => { bankPagination.page = p; loadBank() }"
+        @size-change="(s) => { bankPagination.size = s; bankPagination.page = 1; loadBank() }"
       />
     </template>
 

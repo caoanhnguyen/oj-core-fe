@@ -9,6 +9,7 @@ export const useSubmissionStore = defineStore('submission', () => {
 
   let runCodePollingInterval = null
   let submissionPollingInterval = null
+  let runCodePollingTimeout = null
 
   const submitCode = async (payload) => {
     isLoading.value = true
@@ -34,6 +35,7 @@ export const useSubmissionStore = defineStore('submission', () => {
 
   const startPollingRunCode = (token, onResult, onError) => {
     if (runCodePollingInterval) clearInterval(runCodePollingInterval)
+    if (runCodePollingTimeout) clearTimeout(runCodePollingTimeout)
 
     let elapsed = 0
     const totalTimeout = 60000
@@ -50,18 +52,23 @@ export const useSubmissionStore = defineStore('submission', () => {
 
       try {
         const result = await submissionAPI.getRunCodeResult(token)
-        clearInterval(runCodePollingInterval)
-        onResult?.(result)
+        if (result?.status === 'COMPLETED' || result?.status === 'FAILED') {
+          clearInterval(runCodePollingInterval)
+          if (runCodePollingTimeout) clearTimeout(runCodePollingTimeout)
+          onResult?.(result)
+        }
       } catch (error) {
         const status = error.response?.status
-        if (status !== 400 && status !== 404 && status !== 500) {
+        if (status !== 400 && status !== 404) {
           clearInterval(runCodePollingInterval)
+          if (runCodePollingTimeout) clearTimeout(runCodePollingTimeout)
           onError?.(error)
         }
       }
     }
 
-    setTimeout(() => {
+    runCodePollingTimeout = setTimeout(() => {
+      poll()
       runCodePollingInterval = setInterval(poll, intervalMs)
     }, initialDelayMs)
   }
@@ -92,6 +99,7 @@ export const useSubmissionStore = defineStore('submission', () => {
 
   const stopPolling = () => {
     if (runCodePollingInterval) clearInterval(runCodePollingInterval)
+    if (runCodePollingTimeout) clearTimeout(runCodePollingTimeout)
     if (submissionPollingInterval) clearInterval(submissionPollingInterval)
   }
 
